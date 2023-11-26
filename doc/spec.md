@@ -1,3 +1,0 @@
-# Cane Technical Specification
-TODO
-

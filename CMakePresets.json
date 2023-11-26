@@ -1,0 +1,98 @@
+{
+	"version": 6,
+	"cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 26,
+		"patch": 0
+	},
+	"configurePresets": [
+		{
+			"name": "linux-base",
+			"generator": "Ninja",
+			"binaryDir": "${sourceDir}/build",
+			"cacheVariables": {
+				"CMAKE_CXX_COMPILER_LAUNCHER": "ccache",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": true,
+				"CMAKE_COLOR_DIAGNOSTICS": true
+			}
+		},
+		{
+			"name": "linux-gcc",
+			"inherits": "linux-base",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "gcc",
+				"CMAKE_CXX_COMPILER": "g++"
+			}
+		},
+		{
+			"name": "linux-gcc-debug",
+			"inherits": "linux-gcc",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "linux-gcc-release",
+			"inherits": "linux-gcc",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "linux-clang",
+			"inherits": "linux-base",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang",
+				"CMAKE_CXX_COMPILER": "clang++",
+				"CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=lld",
+				"CMAKE_SHARED_LINKER_FLAGS": "-fuse-ld=lld",
+				"CMAKE_MODULE_LINKER_FLAGS": "-fuse-ld=lld",
+				"CMAKE_STATIC_LINKER_FLAGS": "-fuse-ld=lld"
+			}
+		},
+		{
+			"name": "linux-clang-debug",
+			"inherits": "linux-clang",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "linux-clang-san",
+			"inherits": "linux-clang",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug",
+				"CMAKE_CXX_FLAGS": "-fsanitize=thread,undefined"
+			}
+		},
+		{
+			"name": "linux-clang-release",
+			"inherits": "linux-clang",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "clang-debug",
+			"configurePreset": "linux-clang-debug"
+		},
+		{
+			"name": "clang-sanitize",
+			"configurePreset": "linux-clang-san"
+		},
+		{
+			"name": "clang-release",
+			"configurePreset": "linux-clang-release"
+		},
+		{
+			"name": "gcc-debug",
+			"configurePreset": "linux-gcc-debug"
+		},
+		{
+			"name": "gcc-release",
+			"configurePreset": "linux-gcc-release"
+		}
+	]
+}
