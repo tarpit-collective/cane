@@ -1,3 +1,15 @@
-[submodule "modules/conflict"]
-	path = modules/conflict
+[submodule "deps/conflict"]
+	path = deps/conflict
 	url = https://github.com/qookei/conflict
+[submodule "deps/fmt"]
+	path = deps/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "deps/libremidi"]
+	path = deps/libremidi
+	url = https://github.com/celtera/libremidi
+[submodule "deps/readerwriterqueue"]
+	path = deps/readerwriterqueue
+	url = https://github.com/cameron314/readerwriterqueue
+[submodule "deps/commandline"]
+	path = deps/commandline
+	url = https://github.com/lionkor/commandline

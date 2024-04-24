@@ -1,0 +1,98 @@
+---
+AccessModifierOffset: "0"
+AlignAfterOpenBracket: DontAlign
+AlignConsecutiveMacros: "true"
+AlignConsecutiveAssignments: "false"
+AlignConsecutiveDeclarations: "false"
+AlignEscapedNewlines: DontAlign
+AlignOperands: "false"
+AlignTrailingComments: "true"
+AllowAllArgumentsOnNextLine: "true"
+AllowAllConstructorInitializersOnNextLine: "true"
+AllowAllParametersOfDeclarationOnNextLine: "true"
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: "true"
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Inline
+AllowShortLoopsOnASingleLine: "false"
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: "true"
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: "false"
+BinPackParameters: "false"
+BreakBeforeBinaryOperators: None
+BreakBeforeBraces: Custom
+BreakBeforeTernaryOperators: "false"
+BreakConstructorInitializers: AfterColon
+BreakInheritanceList: AfterColon
+BreakStringLiterals: "true"
+ColumnLimit: "120"
+CompactNamespaces: "false"
+ConstructorInitializerAllOnOneLineOrOnePerLine: "true"
+ConstructorInitializerIndentWidth: "8"
+ContinuationIndentWidth: "4"
+Cpp11BracedListStyle: "false"
+DerivePointerAlignment: "false"
+FixNamespaceComments: "true"
+IndentCaseLabels: "true"
+IndentPPDirectives: None
+IndentWidth: "4"
+IndentWrappedFunctionNames: "false"
+KeepEmptyLinesAtTheStartOfBlocks: "false"
+Language: Cpp
+MaxEmptyLinesToKeep: "1"
+NamespaceIndentation: All
+PointerAlignment: Left
+ReflowComments: "true"
+SortIncludes: "false"
+SortUsingDeclarations: "false"
+SpaceAfterCStyleCast: "false"
+SpaceAfterLogicalNot: "false"
+SpaceAfterTemplateKeyword: "true"
+SpaceBeforeAssignmentOperators: "true"
+SpaceBeforeCpp11BracedList: "true"
+SpaceBeforeCtorInitializerColon: "false"
+SpaceBeforeInheritanceColon: "false"
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: "false"
+SpaceInEmptyParentheses: "false"
+SpacesBeforeTrailingComments: "2"
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: "false"
+SpacesInParentheses: "false"
+SpacesInSquareBrackets: "false"
+Standard: Auto
+TabWidth: "4"
+UseTab: ForContinuationAndIndentation
+AlignArrayOfStructures: None
+BitFieldColonSpacing: After
+IndentExternBlock: Indent
+InsertBraces: true
+LambdaBodyIndentation: Signature
+QualifierAlignment: Left
+ReferenceAlignment: Pointer
+SeparateDefinitionBlocks: Always
+ShortNamespaceLines: 10
+SpaceBeforeCaseColon: false
+SpaceAroundPointerQualifiers: Before
+SpaceBeforeParensOptions:
+  AfterControlStatements: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: true
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: 1
+PackConstructorInitializers: NextLine
+IndentRequiresClause: true
+IndentGotoLabels: true
+IndentCaseBlocks: false
+IndentAccessModifiers: false
+DeriveLineEnding: true
+BreakBeforeConceptDeclarations: Always
+BraceWrapping:
+  BeforeElse: true
+  BeforeCatch: true
+AllowShortEnumsOnASingleLine: false
