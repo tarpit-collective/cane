@@ -7,9 +7,6 @@
 [submodule "deps/libremidi"]
 	path = deps/libremidi
 	url = https://github.com/celtera/libremidi
-[submodule "deps/readerwriterqueue"]
-	path = deps/readerwriterqueue
-	url = https://github.com/cameron314/readerwriterqueue
 [submodule "deps/commandline"]
 	path = deps/commandline
 	url = https://github.com/lionkor/commandline
