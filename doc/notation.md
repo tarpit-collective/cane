@@ -11,13 +11,13 @@ steps = ( '!' | '.' | '?' )+
 tuplet = ( '/' | '*' ) scalar rhythm
 
 rhythm_prefix =
-  ( 'head' | 'tail' | 'rev' | 'inv' | 'len' ) rhythm
+  ( 'head' | 'tail' | 'rev' | 'inv' ) rhythm
 
 rhythm_infix = 
-  rhythm ( '|' | ',' | 'or' | 'and' | 'count' ) rhythm 
+  rhythm ( '|' | ',' | 'or' | 'and' ) rhythm 
 
 rhythm_postfix =
-  rhythm ( '<<' | '>>' | '**' | 'size' ) scalar |
+  rhythm ( '<<' | '>>' | '**' ) scalar |
   rhythm '=>' ident
 
 rhythm_ops = rhythm_prefix | rhythm_infix | rhythm_postfix
@@ -36,4 +36,3 @@ array = '[' expr* ']'
 
 
 
-  
