@@ -35,7 +35,7 @@ namespace cane {
 }  // namespace cane
 
 // Utilities
-namespace pv {
+namespace cane {
 	template <typename T, typename... Ts>
 	[[nodiscard]] constexpr bool any(T&& first, Ts&&... rest) {
 		return ((std::forward<T>(first) or std::forward<Ts>(rest)) or ...);
@@ -65,7 +65,7 @@ namespace pv {
 	[[nodiscard]] constexpr bool eq_none(T&& first, Ts&&... rest) {
 		return ((std::forward<T>(first) != std::forward<Ts>(rest)) and ...);
 	}
-}  // namespace pv
+}  // namespace cane
 
 // Errors
 namespace cane {
@@ -87,11 +87,11 @@ namespace cane {
 
 namespace cane {
 #define LOG_KINDS \
-	X(INFO, CANE_RESET "[-]") \
-	X(WARN, CANE_BLUE "[*]") \
-	X(FAIL, CANE_RED "[!]") \
-	X(OKAY, CANE_GREEN "[^]") \
-	X(EXPR, CANE_MAGENTA "[=]")
+	X(INFO, CANE_RESET "[-] info") \
+	X(WARN, CANE_BLUE "[*] warn") \
+	X(FAIL, CANE_RED "[!] fail") \
+	X(OKAY, CANE_GREEN "[^] okay") \
+	X(EXPR, CANE_MAGENTA "[=] expr")
 
 #define X(a, b) a,
 	enum class LogKind : size_t {
@@ -119,6 +119,21 @@ struct fmt::formatter<cane::LogKind>: fmt::ostream_formatter {};
 
 namespace cane {
 	namespace detail {
+		template <typename T>
+		inline decltype(auto) dbg_impl(
+			std::string_view file, std::string_view line, std::string_view func, std::string_view str, T&& expr) {
+			fmt::print(std::cerr,
+				"{} [{}:{}] `{}`" CANE_RESET " {} = {}\n",
+				LogKind::EXPR,
+				std::filesystem::relative(file).native(),
+				line,
+				func,
+				str,
+				std::forward<T>(expr));
+
+			return std::forward<T>(expr);
+		}
+
 		template <typename... Ts>
 		constexpr decltype(auto) log_impl(LogKind kind,
 			std::string_view file,
@@ -138,23 +153,6 @@ namespace cane {
 			fmt::print(stderr, "\n");
 		}
 	}  // namespace detail
-
-	namespace detail {
-		template <typename T>
-		inline decltype(auto) dbg_impl(
-			std::string_view file, std::string_view line, std::string_view func, std::string_view str, T&& expr) {
-			fmt::print(std::cerr,
-				"{} [{}:{}] `{}`" CANE_RESET " {} = {}\n",
-				LogKind::EXPR,
-				std::filesystem::relative(file).native(),
-				line,
-				func,
-				str,
-				std::forward<T>(expr));
-
-			return std::forward<T>(expr);
-		}
-	}
 
 #ifndef NDEBUG
 
@@ -209,6 +207,9 @@ namespace cane {
 	X(UNEXPECTED_TOKEN, "unexpected token") \
 	X(INVALID_AST, "invalid tree") \
 \
+	X(EXPECTED_IDENT, "expected an identifier") \
+	X(EXPECTED_NUMBER, "expected a number") \
+\
 	X(UNKNOWN_SYMBOL, "unknown symbol")
 
 #define X(a, b) a,
@@ -250,8 +251,14 @@ namespace cane {
 	}
 
 	inline void report_handler(Report x) {
-		(x.sv.empty() or x.sv == "") ? fmt::print(stderr, "[" CANE_ERR "error" CANE_RESET "] {}\n", x.kind) :
-									   fmt::print(stderr, "[" CANE_ERR "error" CANE_RESET "] {}: `{}`\n", x.kind, x.sv);
+		auto [sv, kind] = x;
+
+		if (sv.empty() or sv == "") {
+			fmt::print(stderr, "{}" CANE_RESET " {}!\n", LogKind::FAIL, kind);
+			return;
+		}
+
+		fmt::print(stderr, "{}" CANE_RESET " {}: `{}`!\n", LogKind::FAIL, kind, sv);
 	}
 }  // namespace cane
 
@@ -261,9 +268,10 @@ namespace cane {
 #define SYMBOL_KINDS \
 	X(NONE, "None") \
 	X(TERM, "Eof") \
+	X(WHITESPACE, "Whitespace") \
 \
 	X(IDENTIFIER, "Identifier") \
-	X(INTEGER, "Integer") \
+	X(NUMBER, "Number") \
 \
 	X(BEAT, "Beat") \
 	X(REST, "Rest") \
@@ -309,13 +317,118 @@ namespace cane {
 		bool operator==(const Symbol&) const = default;
 	};
 
+	// Predicates
+	constexpr bool is_visible(char c) {
+		return c >= 33 and c <= 126;
+	}
+
+	constexpr bool is_control(char c) {
+		return c >= 0 and c <= 31;
+	}
+
+	constexpr bool is_alpha(char c) {
+		return any(c >= 'a' and c <= 'z', c >= 'A' and c <= 'Z', c == '_');
+	}
+
+	constexpr bool is_whitespace(char c) {
+		return any(c >= 9 and c <= 13, c == ' ');
+	}
+
+	constexpr bool is_digit(char c) {
+		return c >= '0' and c <= '9';
+	}
+
+	constexpr bool is_alphanumeric(char c) {
+		return is_alpha(c) or is_digit(c);
+	}
+
+	// Higher order functions
+	template <typename... Ts>
+	constexpr decltype(auto) is_sym(Ts&&... kinds) {
+		return [=](Symbol other) {
+			return ((other.kind == kinds) or ...);
+		};
+	}
+
+	template <typename... Ts>
+	constexpr decltype(auto) is_char(Ts&&... kinds) {
+		return [=](char other) {
+			return ((other == kinds) or ...);
+		};
+	}
+
+	// Lexer
 	struct Lexer {
-		std::string_view sv;  // remaining input from source
+		std::string_view sv;
+
+		std::string_view::iterator sv_it;
+		std::string_view::iterator sv_end;
 
 		Symbol peek;
 		Symbol prev;
 
-		Lexer(std::string_view sv_): sv(sv_), peek(), prev() {}
+		Lexer(std::string_view sv_): sv(sv_), sv_it(sv_.begin()), sv_end(sv_.end()), peek(), prev() {}
+
+		template <typename F>
+		[[nodiscard]] constexpr bool take_if(F&& fn) {  // Take character if it matches predicate.
+			if (sv_it >= sv_end or not fn(*sv_it)) {
+				return false;
+			}
+
+			++sv_it;
+			return true;
+		}
+
+		template <typename F>
+		constexpr bool take_while(F&& fn) {  // Take characters while predicate holds.
+			bool at_least_one = false;
+
+			while (take_if(std::forward<F>(fn))) {
+				at_least_one = true;
+			}
+
+			return at_least_one;
+		}
+
+		[[nodiscard]] constexpr bool take_ident(Symbol& sym) {
+			sym = Symbol { std::string_view { sv_it, sv_it + 1 }, SymbolKind::NONE };
+			auto start_it = sv_it;
+
+			if (not take_if(is_alpha)) {
+				return false;
+			}
+
+			take_while(is_alphanumeric);
+			sym = Symbol { std::string_view { start_it, sv_it }, SymbolKind::IDENTIFIER };
+
+			return true;
+		}
+
+		[[nodiscard]] constexpr bool take_number(Symbol& sym) {
+			sym = Symbol { std::string_view { sv_it, sv_it + 1 }, SymbolKind::NONE };
+			auto start_it = sv_it;
+
+			if (not take_while(is_digit)) {
+				return false;
+			}
+
+			sym = Symbol { std::string_view { start_it, sv_it }, SymbolKind::NUMBER };
+
+			return true;
+		}
+
+		constexpr bool take_whitespace(Symbol& sym) {
+			sym = Symbol { std::string_view { sv_it, sv_it + 1 }, SymbolKind::NONE };
+			auto start_it = sv_it;
+
+			if (not take_while(is_whitespace)) {
+				return false;
+			}
+
+			sym = Symbol { std::string_view { start_it, sv_it }, SymbolKind::WHITESPACE };
+
+			return true;
+		}
 
 		template <typename F>
 		constexpr void expect(F&& fn, ErrorKind x) {
@@ -323,15 +436,31 @@ namespace cane {
 				report(peek.sv, x);
 			}
 		}
+
+		// [[nodiscard]] Symbol take() {}
 	};
 
 }  // namespace cane
 
-int main(int, const char*[]) {
-	CANE_LOG(cane::LogKind::OKAY, "fool");
+int main(int, const char* argv[]) {
+	try {
+		cane::Lexer lx { std::string_view { CANE_DBG(argv[1]) } };
+		cane::Symbol s;
 
-	auto x = CANE_DBG((2 + 2) + 1);
-	CANE_DBG(x + x);
+		if (not CANE_DBG(lx.take_ident(s))) {
+			cane::report(s.sv, cane::ErrorKind::EXPECTED_IDENT);
+		}
+
+		CANE_DBG(lx.take_whitespace(s));
+
+		if (not CANE_DBG(lx.take_number(s))) {
+			cane::report(s.sv, cane::ErrorKind::EXPECTED_NUMBER);
+		}
+	}
+
+	catch (cane::Report r) {
+		cane::report_handler(r);
+	}
 
 	return 0;
 }
