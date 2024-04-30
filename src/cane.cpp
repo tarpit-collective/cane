@@ -7,6 +7,7 @@
 #include <thread>
 #include <filesystem>
 #include <memory>
+#include <algorithm>
 
 #include <libremidi/libremidi.hpp>
 #include <libremidi/reader.hpp>
@@ -267,7 +268,7 @@ namespace cane {
 	// Token types
 #define SYMBOL_KINDS \
 	X(NONE, "None") \
-	X(TERM, "Eof") \
+	X(ENDFILE, "Eof") \
 	X(WHITESPACE, "Whitespace") \
 \
 	X(IDENTIFIER, "Identifier") \
@@ -276,6 +277,33 @@ namespace cane {
 	X(BEAT, "Beat") \
 	X(REST, "Rest") \
 	X(RAND, "Rand") \
+\
+	X(ADD, "Add") \
+	X(SUB, "Sub") \
+	X(MUL, "Mul") \
+	X(DIV, "Div") \
+\
+	X(EUC, "Euc") \
+	X(ASSIGN, "Assign") \
+\
+	X(INVERT, "Invert") \
+	X(REVERSE, "Reverse") \
+\
+	X(SHIFTLEFT, "ShiftLeft") \
+	X(SHIFTRIGHT, "ShiftRight") \
+\
+	X(REPEAT, "Repeat") \
+	X(MAP, "Map") \
+\
+	X(OR, "Or") \
+	X(AND, "And") \
+	X(XOR, "Xor") \
+\
+	X(BRACKETLEFT, "BracketLeft") \
+	X(BRACKETRIGHT, "BracketRight") \
+\
+	X(PARENLEFT, "ParenLeft") \
+	X(PARENRIGHT, "ParenRight") \
 \
 	X(END, "End")
 
@@ -312,11 +340,22 @@ namespace cane {
 
 		constexpr Symbol(SymbolKind kind_): sv(""), kind(kind_) {}
 
+		constexpr Symbol(std::string_view sv_): sv(sv_), kind(SymbolKind::NONE) {}
+
 		constexpr Symbol(std::string_view sv_, SymbolKind kind_): sv(sv_), kind(kind_) {}
 
 		bool operator==(const Symbol&) const = default;
 	};
 
+	inline std::ostream& operator<<(std::ostream& os, Symbol s) {
+		return (os << "{\"" << s.sv << "\", " << s.kind << "}");
+	}
+}  // namespace cane
+
+template <>
+struct fmt::formatter<cane::Symbol>: fmt::ostream_formatter {};
+
+namespace cane {
 	// Predicates
 	constexpr bool is_visible(char c) {
 		return c >= 33 and c <= 126;
@@ -358,24 +397,25 @@ namespace cane {
 	}
 
 	// Lexer
-	struct Lexer {
-		std::string_view sv;
+	class Lexer {
+		private:
+		std::string_view sv_;
 
-		std::string_view::iterator sv_it;
-		std::string_view::iterator sv_end;
+		std::string_view::iterator sv_it_;
+		std::string_view::iterator sv_end_;
 
-		Symbol peek;
-		Symbol prev;
+		Symbol peek_;
 
-		Lexer(std::string_view sv_): sv(sv_), sv_it(sv_.begin()), sv_end(sv_.end()), peek(), prev() {}
+		public:
+		Lexer(std::string_view sv): sv_(sv), sv_it_(sv_.begin()), sv_end_(sv_.end()), peek_() {}
 
 		template <typename F>
 		[[nodiscard]] constexpr bool take_if(F&& fn) {  // Take character if it matches predicate.
-			if (sv_it >= sv_end or not fn(*sv_it)) {
+			if (sv_it_ >= sv_end_ or not fn(*sv_it_)) {
 				return false;
 			}
 
-			++sv_it;
+			++sv_it_;
 			return true;
 		}
 
@@ -390,72 +430,208 @@ namespace cane {
 			return at_least_one;
 		}
 
+		[[nodiscard]] constexpr bool take_str(std::string_view sv) {  // Attempt to take string from input.
+			if (not std::equal(sv.begin(), sv.end(), sv_it_)) {
+				return false;
+			}
+
+			sv_it_ += sv.size();
+			return true;
+		}
+
 		[[nodiscard]] constexpr bool take_ident(Symbol& sym) {
-			sym = Symbol { std::string_view { sv_it, sv_it + 1 }, SymbolKind::NONE };
-			auto start_it = sv_it;
+			sym = Symbol({ sv_it_, sv_it_ + 1 });
+			auto start_it = sv_it_;
 
 			if (not take_if(is_alpha)) {
 				return false;
 			}
 
 			take_while(is_alphanumeric);
-			sym = Symbol { std::string_view { start_it, sv_it }, SymbolKind::IDENTIFIER };
+			sym = Symbol { std::string_view { start_it, sv_it_ }, SymbolKind::IDENTIFIER };
+
+			if (sym.sv == "inv") {
+				sym.kind = SymbolKind::INVERT;
+			}
+
+			else if (sym.sv == "rev") {
+				sym.kind = SymbolKind::REVERSE;
+			}
 
 			return true;
 		}
 
 		[[nodiscard]] constexpr bool take_number(Symbol& sym) {
-			sym = Symbol { std::string_view { sv_it, sv_it + 1 }, SymbolKind::NONE };
-			auto start_it = sv_it;
+			sym = Symbol({ sv_it_, sv_it_ + 1 });
+			auto start_it = sv_it_;
 
 			if (not take_while(is_digit)) {
 				return false;
 			}
 
-			sym = Symbol { std::string_view { start_it, sv_it }, SymbolKind::NUMBER };
+			sym = Symbol { std::string_view { start_it, sv_it_ }, SymbolKind::NUMBER };
+			return true;
+		}
 
+		[[nodiscard]] constexpr bool take_sigil(Symbol& sym) {
+			sym = Symbol({ sv_it_, sv_it_ + 1 });
+			auto start_it = sv_it_;
+
+			if (take_str("!")) {
+				sym.kind = SymbolKind::BEAT;
+			}
+
+			if (take_str(".")) {
+				sym.kind = SymbolKind::REST;
+			}
+
+			if (take_str("?")) {
+				sym.kind = SymbolKind::RAND;
+			}
+
+			else if (take_str("+")) {
+				sym.kind = SymbolKind::ADD;
+			}
+
+			else if (take_str("-")) {
+				sym.kind = SymbolKind::SUB;
+			}
+
+			else if (take_str("*")) {
+				sym.kind = SymbolKind::MUL;
+			}
+
+			else if (take_str("/")) {
+				sym.kind = SymbolKind::DIV;
+			}
+
+			else if (take_str(":")) {
+				sym.kind = SymbolKind::EUC;
+			}
+
+			else if (take_str("=>")) {
+				sym.kind = SymbolKind::ASSIGN;
+			}
+
+			else if (take_str("<")) {
+				sym.kind = SymbolKind::SHIFTLEFT;
+			}
+
+			else if (take_str(">")) {
+				sym.kind = SymbolKind::SHIFTRIGHT;
+			}
+
+			else if (take_str("**")) {
+				sym.kind = SymbolKind::REPEAT;
+			}
+
+			else if (take_str("@")) {
+				sym.kind = SymbolKind::MAP;
+			}
+
+			else if (take_str("[")) {
+				sym.kind = SymbolKind::BRACKETLEFT;
+			}
+
+			else if (take_str("]")) {
+				sym.kind = SymbolKind::BRACKETRIGHT;
+			}
+
+			else if (take_str("(")) {
+				sym.kind = SymbolKind::PARENLEFT;
+			}
+
+			else if (take_str(")")) {
+				sym.kind = SymbolKind::PARENRIGHT;
+			}
+
+			else {
+				return false;
+			}
+
+			sym.sv = std::string_view { start_it, sv_it_ };
 			return true;
 		}
 
 		constexpr bool take_whitespace(Symbol& sym) {
-			sym = Symbol { std::string_view { sv_it, sv_it + 1 }, SymbolKind::NONE };
-			auto start_it = sv_it;
+			sym = Symbol({ sv_it_, sv_it_ + 1 });
+			auto start_it = sv_it_;
 
 			if (not take_while(is_whitespace)) {
 				return false;
 			}
 
-			sym = Symbol { std::string_view { start_it, sv_it }, SymbolKind::WHITESPACE };
-
+			sym = Symbol { std::string_view { start_it, sv_it_ }, SymbolKind::WHITESPACE };
 			return true;
 		}
 
 		template <typename F>
 		constexpr void expect(F&& fn, ErrorKind x) {
-			if (not fn(peek)) {
-				report(peek.sv, x);
+			if (not fn(peek_)) {
+				report(peek_.sv, x);
 			}
 		}
 
-		// [[nodiscard]] Symbol take() {}
+		[[nodiscard]] constexpr Symbol peek() const {
+			return peek_;
+		}
+
+		[[nodiscard]] constexpr bool take(Symbol& out) {
+			Symbol sym;
+
+			take_whitespace(sym);  // Skip whitespace.
+
+			if (sv_it_ >= sv_end_) {
+				sym.kind = SymbolKind::ENDFILE;
+			}
+
+			else if (take_number(sym)) {}
+			else if (take_ident(sym)) {}
+			else if (take_sigil(sym)) {}
+
+			else {
+				return false;
+			}
+
+			out = peek_;
+			peek_ = sym;
+
+			return true;
+		}
 	};
 
 }  // namespace cane
 
 int main(int, const char* argv[]) {
 	try {
-		cane::Lexer lx { std::string_view { CANE_DBG(argv[1]) } };
 		cane::Symbol s;
+		cane::Lexer lx { std::string_view { CANE_DBG(argv[1]) } };
 
-		if (not CANE_DBG(lx.take_ident(s))) {
-			cane::report(s.sv, cane::ErrorKind::EXPECTED_IDENT);
+		if (not lx.take(s)) {
+			cane::report(s.sv, cane::ErrorKind::UNKNOWN_CHAR);
 		}
 
-		CANE_DBG(lx.take_whitespace(s));
+		while (lx.peek().kind != cane::SymbolKind::ENDFILE) {
+			if (not lx.take(s)) {
+				cane::report(s.sv, cane::ErrorKind::UNKNOWN_CHAR);
+			}
 
-		if (not CANE_DBG(lx.take_number(s))) {
-			cane::report(s.sv, cane::ErrorKind::EXPECTED_NUMBER);
+			CANE_LOG(cane::LogKind::OKAY, "{}", s);
 		}
+		// lx.expect(cane::is_sym(cane::SymbolKind::NUMBER), cane::ErrorKind::EXPECTED_NUMBER);
+
+		// if (not CANE_DBG(lx.take_ident(s))) {
+		// 	cane::report(s.sv, cane::ErrorKind::EXPECTED_IDENT);
+		// }
+
+		// CANE_DBG(lx.take_whitespace(s));
+
+		// if (not CANE_DBG(lx.take_number(s))) {
+		// 	cane::report(s.sv, cane::ErrorKind::EXPECTED_NUMBER);
+		// }
+
+		// CANE_DBG(lx.take_sigil(s));
+		// CANE_LOG(cane::LogKind::EXPR, "{}", s);
 	}
 
 	catch (cane::Report r) {
