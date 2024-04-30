@@ -1,41 +1,51 @@
-literal ::= ? [0-9_]+ ?
-identifier ::= ? \S+ ?
-comment ::= ? #.+$ ?
+// Literals
+ident = ? {XID_Start}{XID_Continue}* ?
+number = ? 0-9* ?
+comment = ? #.*\n ?
+
+rhythm = '!' | '.' | '?'
+expression = ident | number | rhythm
+
+// Definition
+expression = expression '=>' ident
+
+// Expression
+expression = '(' expression ')'
+
+// Scalars
+expression =
+	expression expression |   // Concatenate adjacent expressions
+	( '+' | '-' ) expression |
+	expression ( '+' | '-' | '*' | '/' ) expression |
+	expression ':' expression |
+	expression '=>' ident
+
+// Rhythm
+expression =
+	expression expression |   // Concat
+	( '~' | '\'' ) expression |
+	expression ( '<' | '>' | '**' | 'or' | 'and' | 'xor' ) expression |
+	expression '=>' ident
+
+// Melody
+expression =
+	expression expression |  // Concat
+	expression '@' expression |   // Mapping
+	'rev' expression |
+	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' ) expression |
+	expression '=>' ident
+
+// Sequence
+expression =
+	expression expression |
+	( '/' | '*' ) expression expression |
+	expression '=>' ident
+
+// Pattern
+expression =
+	expression expression |
+	'[' expression* ']' |  // Layer sequences
+	expression '=>' ident
 
 
-sequence ::= ( '!' | '.' | '=' )*
-euclidean ::= ( ':' <lit_expr> | <literal> ) ':' <lit_expr>
 
-
-lit_infix ::= <lit_expr> ( '+' | '-' | '*' | '/' ) <lit_expr>
-lit_prefix ::= ( "len" | "beats" | "skips" ) <seq_expr>
-
-lit_expr ::=
-	<identifier> |
-	<lit_prefix> | <lit_infix> |
-	'(' <lit_expr> ')'
-
-
-seq_prefix     ::= ( '~' | '\'' ) <seq_expr>
-seq_infix_expr ::= <seq_expr> ( '|' | '&' | '^' | ',' ) <seq_expr>
-seq_infix_lit  ::= <seq_expr> ( '<' | '>' | '**' ) <lit_expr>
-seq_infix_lit  ::= <seq_expr> "map" <lit_expr>+
-seq_infix_lit  ::= <seq_expr> "vel" <lit_expr>+
-seq_infix_lit  ::= <seq_expr> '@' <lit_expr>+
-seq_infix_lit  ::= <seq_expr> '=>' <identifier>
-seq_infix      ::= <seq_infix_expr> | <seq_infix_lit>
-seq_postfix    ::= <seq_expr> ( '?' | "car" | "cdr" )
-
-seq_expr ::=
-	<identifier> | <sequence> |
-	<seq_prefix> | <seq_infix> | <seq_postfix> |
-	'(' <seq_expr> ')'
-
-
-let ::= "let" ( <identifier> <lit_expr> )+
-pat ::= "pat" <identifier> <timeline>
-timeline ::= <seq_expr> [ '~>' <lit_expr> ] [ '$' <send>+ ]
-
-stat ::= <let> | <timeline> | <pat>
-
-program ::= <stat>*
