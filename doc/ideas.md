@@ -49,6 +49,7 @@ sequences and patterns is different though they might look the same for the user
 - scalar `:` scalar => rhythm : euclidean rhythm notation
 - scalar scalar => melody : implicit concatenation of scalars to a melody
 - scalar `=>` ident => scalar : assign scalar to identifier and evaluate to the expr
+- `{` scalar+ `}` => scalar : pick a random scalar to evaluate to
 
 ##### Melody
 - `'` melody => melody : reverses a collection of notes
@@ -58,6 +59,7 @@ sequences and patterns is different though they might look the same for the user
 - melody `**` scalar => melody : repeats a melody N times
 - melody melody => melody : implicit concatenation of melodies
 - melody `=>` ident => melody : assign melody to identifier and evaluate to the expr
+- `{` melody+ `}` => melody : pick a random melody to evaluate to
 
 ##### Rhythm
 - `~` rhythm => rhythm : inverts all of the active and inactive steps
@@ -67,16 +69,19 @@ sequences and patterns is different though they might look the same for the user
 - rhythm rhythm => rhythm : implicitly concatenates rhythms
 - rhythm `or` / `and` / `xor` rhythm => rhythm : bitwise operators that combine rhythms
 - rhythm `=>` ident => rhythm : assign rhythm to identifier and evaluate to the expr
+- `{` rhythm+ `}` => rhythm : pick a random rhythm to evaluate to
 
 ##### Sequence
 - sequence sequence => sequence : implicitly concatenate sequences to the end of eachother
 - `/` / `*` scalar sequence => sequence : divide an expressions time relative to the parent expressions time
 - sequence `=>` ident => sequence : assign sequence to identifier and evaluate to the expr
+- `{` sequence+ `}` => sequence : pick a random sequence to evaluate to
 
 ##### Pattern
 - `[` sequence* `]` => pattern : layer a series of sequences together into a pattern so that we can play multiple notes concurrently (i.e. drum patterns or chords)
 - pattern pattern => pattern : implicitly concatenates sequences pair-wise so that each pattern is sequenced one after the other 
 - pattern `=>` ident => pattern : assign pattern to identifier and evaluate to the expr
+- `{` pattern+ `}` => pattern : pick a random pattern to evaluate to
 
 
 ### Tree

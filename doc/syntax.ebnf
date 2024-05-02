@@ -3,7 +3,7 @@ ident = ? {XID_Start}{XID_Continue}* ?
 number = ? 0-9* ?
 comment = ? #.*\n ?
 
-rhythm = '!' | '.' | '?'
+rhythm = '!' | '.'
 expression = ident | number | rhythm
 
 // Definition
@@ -18,14 +18,16 @@ expression =
 	( '+' | '-' ) expression |
 	expression ( '+' | '-' | '*' | '/' ) expression |
 	expression ':' expression |
-	expression '=>' ident
+	expression '=>' ident |
+	'{' expression+ '}'  // Random choice
 
 // Rhythm
 expression =
 	expression expression |   // Concat
 	( '~' | '\'' ) expression |
 	expression ( '<' | '>' | '**' | 'or' | 'and' | 'xor' ) expression |
-	expression '=>' ident
+	expression '=>' ident |
+	'{' expression+ '}'  // Random choice
 
 // Melody
 expression =
@@ -33,19 +35,22 @@ expression =
 	expression '@' expression |   // Mapping
 	'rev' expression |
 	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' ) expression |
-	expression '=>' ident
+	expression '=>' ident |
+	'{' expression+ '}'  // Random choice
 
 // Sequence
 expression =
 	expression expression |
 	( '/' | '*' ) expression expression |
-	expression '=>' ident
+	expression '=>' ident |
+	'{' expression+ '}'  // Random choice
 
 // Pattern
 expression =
 	expression expression |
 	'[' expression* ']' |  // Layer sequences
-	expression '=>' ident
+	expression '=>' ident |
+	'{' expression+ '}'  // Random choice
 
 
 
