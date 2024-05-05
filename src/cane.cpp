@@ -294,7 +294,6 @@ namespace cane {
 \
 	X(BEAT, "Beat", NONE, NONE) \
 	X(REST, "Rest", NONE, NONE) \
-	X(RAND, "Rand", NONE, NONE) \
 \
 	X(ABS, "Abs", NONE, NONE) \
 	X(NEG, "Neg", NONE, NONE) \
@@ -569,10 +568,6 @@ namespace cane {
 				sym.kind = SymbolKind::REST;
 			}
 
-			if (take_str("?")) {
-				sym.kind = SymbolKind::RAND;
-			}
-
 			else if (take_str("+")) {
 				sym.kind = SymbolKind::ADD;
 			}
@@ -741,9 +736,9 @@ namespace cane {
 			SymbolKind::NUMBER,
 			SymbolKind::BRACKETLEFT,
 			SymbolKind::PARENLEFT,
+			SymbolKind::BRACELEFT,
 			SymbolKind::BEAT,
-			SymbolKind::REST,
-			SymbolKind::RAND);
+			SymbolKind::REST);
 	}
 
 	constexpr bool is_prefix(Symbol s) {
@@ -779,121 +774,159 @@ namespace cane {
 
 	using Tree = std::vector<Symbol>;
 
-	inline std::pair<size_t, size_t> binding_power(Symbol s, OpKind fix) {
-		auto [sv, kind] = s;
-
-		size_t LEFT = 1;
-		size_t RIGHT = 0;
-
-		// Precedence. ascending order
-		enum : size_t {
-			MAP,
-			ASSIGN = MAP,
-
-			OR,
-			AND = OR,
-			XOR = OR,
-			REPEAT = OR,
-			SHIFTLEFT = OR,
-			SHIFTRIGHT = OR,
-
-			INVERT,
-			REVERSE = INVERT,
-
-			ADD,
-			SUB = ADD,
-
-			MUL,
-			DIV = MUL,
-
-			TIMEMUL,
-			TIMEDIV = TIMEMUL,
-
-			EUC,
-
-			LCM,
-			GCD = LCM,
-
-			POS,
-			NEG = POS,
-		};
-
-		switch (fix) {
-			case OpKind::PREFIX:
-				switch (kind) {
-					case SymbolKind::ADD: return { 0u, POS + RIGHT };  // Pos
-					case SymbolKind::SUB: return { 0u, NEG + RIGHT };  // Neg
-
-					case SymbolKind::MUL: return { 0u, TIMEMUL + RIGHT };  // Time Mul  `* 2 !!!!`
-					case SymbolKind::DIV: return { 0u, TIMEDIV + RIGHT };  // Time Div  `/ 2 !!!!`
-
-					case SymbolKind::INVERT: return { 0u, INVERT + RIGHT };    // Invert
-					case SymbolKind::REVERSE: return { 0u, REVERSE + RIGHT };  // Reverse
-
-					default: break;
-				}
-
-				break;
-
-			case OpKind::INFIX:
-				switch (kind) {
-					case SymbolKind::ADD: return { ADD, ADD + LEFT };
-					case SymbolKind::SUB: return { SUB, SUB + LEFT };
-					case SymbolKind::MUL: return { MUL, MUL + LEFT };
-					case SymbolKind::DIV: return { DIV, DIV + LEFT };
-
-					case SymbolKind::OR: return { OR, OR + LEFT };
-					case SymbolKind::AND: return { AND, AND + LEFT };
-					case SymbolKind::XOR: return { XOR, XOR + LEFT };
-
-					case SymbolKind::SHIFTLEFT: return { SHIFTLEFT, SHIFTLEFT + LEFT };
-					case SymbolKind::SHIFTRIGHT: return { SHIFTRIGHT, SHIFTRIGHT + LEFT };
-
-					case SymbolKind::LCM: return { LCM, LCM + LEFT };
-					case SymbolKind::GCD: return { GCD, GCD + LEFT };
-
-					case SymbolKind::EUC: return { EUC, EUC + LEFT };
-					case SymbolKind::REPEAT: return { REPEAT, REPEAT + LEFT };
-					case SymbolKind::MAP: return { MAP, MAP + LEFT };
-
-					default: break;
-				}
-
-				break;
-
-			case OpKind::POSTFIX:
-				switch (kind) {
-					case SymbolKind::ASSIGN: return { ASSIGN, ASSIGN + LEFT };
-					default: break;
-				}
-
-				break;
-
-			default: break;
-		}
-
-		return { 0u, 0u };
+	inline std::pair<size_t, size_t> binding_power(Symbol s) {
+		constexpr auto table = detail::generate_precedence_table();
+		return table.at(static_cast<size_t>(s.kind));
 	}
 
 	constexpr void primary(Lexer& lx, Tree& tree, size_t bp) {
-		// Symbol sym = lx.peek();
+		Symbol sym = lx.peek();
 
-		// switch (sym.kind) {
-		// 	case Symbols::
-		// }
+		switch (sym.kind) {
+			// Literals/constants
+			case SymbolKind::NUMBER: {
+			} break;
+
+			case SymbolKind::IDENTIFIER: {
+			} break;
+
+			// Rhythm
+			case SymbolKind::BEAT: {
+			} break;
+
+			case SymbolKind::REST: {
+			} break;
+
+			// Grouping/layering/random
+			case SymbolKind::PARENLEFT: {
+			} break;
+
+			case SymbolKind::BRACELEFT: {
+			} break;
+
+			case SymbolKind::BRACKETLEFT: {
+			} break;
+
+			// ...
+			default: {
+				// error
+			} break;
+		}
 	}
 
-	constexpr void prefix(Lexer& lx, Tree& tree, size_t bp) {}
+	constexpr void prefix(Lexer& lx, Tree& tree, size_t bp) {
+		Symbol sym = lx.peek();
 
-	constexpr void infix(Lexer& lx, Tree& tree, size_t bp) {}
+		switch (sym.kind) {
+			case SymbolKind::ABS: {
+			} break;
 
-	constexpr void postfix(Lexer& lx, Tree& tree, size_t bp) {}
+			case SymbolKind::NEG: {
+			} break;
+
+			case SymbolKind::TIMEMUL: {
+			} break;
+
+			case SymbolKind::TIMEDIV: {
+			} break;
+
+			case SymbolKind::INVERT: {
+			} break;
+
+			case SymbolKind::REVERSE: {
+			} break;
+
+			// ...
+			default: {
+				// error
+			} break;
+		}
+	}
+
+	constexpr void infix(Lexer& lx, Tree& tree, size_t bp) {
+		Symbol sym = lx.peek();
+
+		switch (sym.kind) {
+			case SymbolKind::ADD: {
+			} break;
+
+			case SymbolKind::SUB: {
+			} break;
+
+			case SymbolKind::MUL: {
+			} break;
+
+			case SymbolKind::DIV: {
+			} break;
+
+			case SymbolKind::LCM: {
+			} break;
+
+			case SymbolKind::GCD: {
+			} break;
+
+			case SymbolKind::EUC: {
+			} break;
+
+			case SymbolKind::MAP: {
+			} break;
+
+			case SymbolKind::SHIFTLEFT: {
+			} break;
+
+			case SymbolKind::SHIFTRIGHT: {
+			} break;
+
+			case SymbolKind::REPEAT: {
+			} break;
+
+			case SymbolKind::OR: {
+			} break;
+
+			case SymbolKind::AND: {
+			} break;
+
+			case SymbolKind::XOR: {
+			} break;
+
+			// ...
+			default: {
+				// error
+			} break;
+		}
+	}
+
+	constexpr void postfix(Lexer& lx, Tree& tree, size_t bp) {
+		Symbol sym = lx.peek();
+
+		switch (sym.kind) {
+			case SymbolKind::ASSIGN: {
+			} break;
+
+			// ...
+			default: {
+				// error
+			} break;
+		}
+	}
 
 	constexpr void expression(Lexer& lx, Tree& tree, size_t bp) {
 		Symbol sym = lx.peek();
 
 		if (is_prefix(sym)) {  // prefix expression
-			auto [lbp, rbp] = binding_power(sym, OpKind::PREFIX);
+			// Re-assign overloaded sigils based on them being prefix.
+			// This simplifies other logic later like for handling binding
+			// power.
+			switch (sym.kind) {
+				case SymbolKind::ADD: sym.kind = SymbolKind::ABS; break;
+				case SymbolKind::SUB: sym.kind = SymbolKind::NEG; break;
+				case SymbolKind::MUL: sym.kind = SymbolKind::TIMEMUL; break;
+				case SymbolKind::DIV: sym.kind = SymbolKind::TIMEDIV; break;
+
+				default: break;
+			}
+
+			auto [lbp, rbp] = binding_power(sym);
 			prefix(lx, tree, rbp);
 		}
 
@@ -909,7 +942,7 @@ namespace cane {
 
 		while (is_infix(sym) or is_postfix(sym)) {  // infix or postfix
 			if (is_postfix(sym)) {
-				auto [lbp, rbp] = binding_power(sym, OpKind::POSTFIX);
+				auto [lbp, rbp] = binding_power(sym);
 				if (lbp < bp) {
 					break;
 				}
@@ -918,7 +951,7 @@ namespace cane {
 			}
 
 			else if (is_infix(sym)) {
-				auto [lbp, rbp] = binding_power(sym, OpKind::INFIX);
+				auto [lbp, rbp] = binding_power(sym);
 				if (lbp < bp) {
 					break;
 				}
