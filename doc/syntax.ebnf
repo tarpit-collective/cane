@@ -16,10 +16,10 @@ expression = '(' expression ')'
 expression =
 	expression expression |   // Concatenate adjacent expressions
 	( '+' | '-' ) expression |
-	expression ( '+' | '-' | '*' | '/' ) expression |
+	expression ( '+' | '-' | '*' | '/' | 'lcm' | 'gcd' ) expression |
 	expression ':' expression |
 	expression '=>' ident |
-	'{' expression+ '}'  // Random choice
+	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Rhythm
 expression =
@@ -27,7 +27,7 @@ expression =
 	( '~' | '\'' ) expression |
 	expression ( '<' | '>' | '**' | 'or' | 'and' | 'xor' ) expression |
 	expression '=>' ident |
-	'{' expression+ '}'  // Random choice
+	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Melody
 expression =
@@ -36,21 +36,21 @@ expression =
 	'rev' expression |
 	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' ) expression |
 	expression '=>' ident |
-	'{' expression+ '}'  // Random choice
+	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Sequence
 expression =
 	expression expression |
 	( '/' | '*' ) expression expression |
 	expression '=>' ident |
-	'{' expression+ '}'  // Random choice
+	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Pattern
 expression =
 	expression expression |
-	'[' expression* ']' |  // Layer sequences
+	'[' [( ',' expression )* [ ',' ]] ']' |  // Layer sequences
 	expression '=>' ident |
-	'{' expression+ '}'  // Random choice
+	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 
 
