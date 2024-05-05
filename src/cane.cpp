@@ -210,6 +210,10 @@ namespace cane {
 	X(UNEXPECTED_CHAR, "unknown character") \
 	X(UNEXPECTED_TOKEN, "unexpected token") \
 \
+	X(EXPECTED_EXPRESSION, "expected an expression") \
+	X(EXPECTED_PARENRIGHT, "expected closing parenthesis") \
+	X(EXPECTED_BRACERIGHT, "expected closing brace") \
+	X(EXPECTED_BRACKETRIGHT, "expected closing bracket") \
 	X(EXPECTED_OPERATOR, "expected an operator") \
 	X(EXPECTED_IDENTIFIER, "expected an identifier") \
 	X(EXPECTED_NUMBER, "expected a number")
@@ -525,15 +529,7 @@ namespace cane {
 			take_while(is_alphanumeric);
 			sym = Symbol { std::string_view { start_it, sv_it_ }, SymbolKind::IDENTIFIER };
 
-			if (sym.sv == "inv") {
-				sym.kind = SymbolKind::INVERT;
-			}
-
-			else if (sym.sv == "rev") {
-				sym.kind = SymbolKind::REVERSE;
-			}
-
-			else if (sym.sv == "lcm") {
+			if (sym.sv == "lcm") {
 				sym.kind = SymbolKind::LCM;
 			}
 
@@ -590,6 +586,14 @@ namespace cane {
 
 			else if (take_str("=>")) {
 				sym.kind = SymbolKind::ASSIGN;
+			}
+
+			else if (take_str("~")) {
+				sym.kind = SymbolKind::INVERT;
+			}
+
+			else if (take_str("'")) {
+				sym.kind = SymbolKind::REVERSE;
 			}
 
 			else if (take_str("<")) {
@@ -752,6 +756,10 @@ namespace cane {
 		);
 	}
 
+	constexpr bool is_expression(Symbol s) {
+		return is_primary(s) or is_prefix(s);
+	}
+
 	constexpr bool is_infix(Symbol s) {
 		return eq_any(s.kind,
 			SymbolKind::ADD,
@@ -779,32 +787,53 @@ namespace cane {
 		return table.at(static_cast<size_t>(s.kind));
 	}
 
+	constexpr void expression(Lexer& lx, Tree& tree, size_t bp);
+
 	constexpr void primary(Lexer& lx, Tree& tree, size_t bp) {
 		Symbol sym = lx.peek();
 
 		switch (sym.kind) {
-			// Literals/constants
-			case SymbolKind::NUMBER: {
-			} break;
-
-			case SymbolKind::IDENTIFIER: {
-			} break;
-
-			// Rhythm
-			case SymbolKind::BEAT: {
-			} break;
-
+			case SymbolKind::NUMBER:
+			case SymbolKind::IDENTIFIER:
+			case SymbolKind::BEAT:
 			case SymbolKind::REST: {
+				sym = lx.take();
+				tree.emplace_back(sym);
 			} break;
 
 			// Grouping/layering/random
 			case SymbolKind::PARENLEFT: {
+				[[maybe_unused]] auto lparen = lx.take();
+
+				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
+				expression(lx, tree, 0);  // Reset binding power
+
+				lx.expect(is_sym(SymbolKind::PARENRIGHT), ErrorKind::EXPECTED_PARENRIGHT);
+				[[maybe_unused]] auto rparen = lx.take();
 			} break;
 
 			case SymbolKind::BRACELEFT: {
+				[[maybe_unused]] auto lbrace = lx.take();
+
+				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
+
+				do {
+					expression(lx, tree, 0);
+				} while (not is_sym(SymbolKind::BRACERIGHT, SymbolKind::ENDFILE)(lx.peek()));
+
+				lx.expect(is_sym(SymbolKind::BRACERIGHT), ErrorKind::EXPECTED_BRACERIGHT);
+				[[maybe_unused]] auto rbrace = lx.take();
 			} break;
 
 			case SymbolKind::BRACKETLEFT: {
+				[[maybe_unused]] auto lbracket = lx.take();
+
+				while (not is_sym(SymbolKind::BRACKETRIGHT, SymbolKind::ENDFILE)(lx.peek())) {
+					expression(lx, tree, 0);
+				}
+
+				lx.expect(is_sym(SymbolKind::BRACKETRIGHT), ErrorKind::EXPECTED_BRACKETRIGHT);
+				[[maybe_unused]] auto rbracket = lx.take();
 			} break;
 
 			// ...
@@ -971,6 +1000,9 @@ namespace cane {
 int main(int, const char* argv[]) {
 	try {
 		cane::Lexer lx { std::string_view { argv[1] } };
+		cane::Tree tree;
+
+		cane::expression(lx, tree, 0);
 
 		// [[maybe_unused]] cane::Symbol s;
 
