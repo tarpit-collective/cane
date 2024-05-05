@@ -211,6 +211,10 @@ namespace cane {
 	X(UNEXPECTED_TOKEN, "unexpected token") \
 \
 	X(EXPECTED_EXPRESSION, "expected an expression") \
+	X(EXPECTED_PRIMARY, "expected a primary expression") \
+	X(EXPECTED_PREFIX, "expected a prefix operator") \
+	X(EXPECTED_INFIX, "expected a infix operator") \
+	X(EXPECTED_POSTFIX, "expected a postfix operator") \
 	X(EXPECTED_PARENRIGHT, "expected closing parenthesis") \
 	X(EXPECTED_BRACERIGHT, "expected closing brace") \
 	X(EXPECTED_BRACKETRIGHT, "expected closing bracket") \
@@ -292,42 +296,7 @@ namespace cane {
 	X(NONE, "None", NONE, NONE) \
 	X(ENDFILE, "Eof", NONE, NONE) \
 	X(WHITESPACE, "Whitespace", NONE, NONE) \
-\
-	X(IDENTIFIER, "Identifier", NONE, NONE) \
-	X(NUMBER, "Number", NONE, NONE) \
-\
-	X(BEAT, "Beat", NONE, NONE) \
-	X(REST, "Rest", NONE, NONE) \
-\
-	X(ABS, "Abs", NONE, NONE) \
-	X(NEG, "Neg", NONE, NONE) \
-\
-	X(ADD, "Add", NONE, NONE) \
-	X(SUB, "Sub", NONE, NONE) \
-	X(MUL, "Mul", NONE, NONE) \
-	X(DIV, "Div", NONE, NONE) \
-\
-	X(EUC, "Euc", NONE, NONE) \
-	X(ASSIGN, "Assign", NONE, NONE) \
-\
-	X(TIMEMUL, "TimeMul", NONE, NONE) \
-	X(TIMEDIV, "TimeDiv", NONE, NONE) \
-\
-	X(INVERT, "Invert", NONE, NONE) \
-	X(REVERSE, "Reverse", NONE, NONE) \
-\
-	X(SHIFTLEFT, "ShiftLeft", NONE, NONE) \
-	X(SHIFTRIGHT, "ShiftRight", NONE, NONE) \
-\
-	X(REPEAT, "Repeat", NONE, NONE) \
-	X(MAP, "Map", NONE, NONE) \
-\
-	X(LCM, "Lcm", NONE, NONE) \
-	X(GCD, "Gcd", NONE, NONE) \
-\
-	X(OR, "Or", NONE, NONE) \
-	X(AND, "And", NONE, NONE) \
-	X(XOR, "Xor", NONE, NONE) \
+	X(END, "End", NONE, NONE) \
 \
 	X(BRACKETLEFT, "BracketLeft", NONE, NONE) \
 	X(BRACKETRIGHT, "BracketRight", NONE, NONE) \
@@ -338,7 +307,43 @@ namespace cane {
 	X(BRACELEFT, "BraceLeft", NONE, NONE) \
 	X(BRACERIGHT, "BraceRight", NONE, NONE) \
 \
-	X(END, "End", NONE, NONE)
+	X(IDENTIFIER, "Identifier", NONE, NONE) \
+	X(NUMBER, "Number", NONE, NONE) \
+\
+	X(BEAT, "Beat", NONE, NONE) \
+	X(REST, "Rest", NONE, NONE) \
+\
+	X(MAP, "Map", LAST, LEFT) \
+	X(ASSIGN, "Assign", LAST, LEFT) \
+\
+	X(CONCAT, "Concat", INCR, LEFT) \
+\
+	X(OR, "Or", INCR, LEFT) \
+	X(AND, "And", LAST, LEFT) \
+	X(XOR, "Xor", LAST, LEFT) \
+	X(REPEAT, "Repeat", LAST, LEFT) \
+	X(SHIFTLEFT, "ShiftLeft", LAST, LEFT) \
+	X(SHIFTRIGHT, "ShiftRight", LAST, LEFT) \
+\
+	X(INVERT, "Invert", INCR, RIGHT) \
+	X(REVERSE, "Reverse", LAST, RIGHT) \
+\
+	X(ADD, "Add", INCR, LEFT) \
+	X(SUB, "Sub", LAST, LEFT) \
+\
+	X(MUL, "Mul", INCR, LEFT) \
+	X(DIV, "Div", LAST, LEFT) \
+\
+	X(TIMEMUL, "TimeMul", INCR, RIGHT) \
+	X(TIMEDIV, "TimeDiv", LAST, RIGHT) \
+\
+	X(EUC, "Euc", INCR, LEFT) \
+\
+	X(LCM, "Lcm", INCR, LEFT) \
+	X(GCD, "Gcd", LAST, LEFT) \
+\
+	X(ABS, "Abs", INCR, RIGHT) \
+	X(NEG, "Neg", LAST, RIGHT)
 
 #define X(sym, str, prec, ass) sym,
 	enum class SymbolKind : size_t {
@@ -420,8 +425,6 @@ namespace cane {
 		constexpr Symbol(std::string_view sv_): sv(sv_), kind(SymbolKind::NONE) {}
 
 		constexpr Symbol(std::string_view sv_, SymbolKind kind_): sv(sv_), kind(kind_) {}
-
-		bool operator==(const Symbol&) const = default;
 	};
 
 	inline std::ostream& operator<<(std::ostream& os, Symbol s) {
@@ -560,7 +563,7 @@ namespace cane {
 				sym.kind = SymbolKind::BEAT;
 			}
 
-			if (take_str(".")) {
+			else if (take_str(".")) {
 				sym.kind = SymbolKind::REST;
 			}
 
@@ -749,11 +752,14 @@ namespace cane {
 		return eq_any(s.kind,
 			SymbolKind::INVERT,
 			SymbolKind::REVERSE,
-			SymbolKind::ADD,  // Abs
-			SymbolKind::SUB,  // Neg
-			SymbolKind::MUL,  // Tempo Mul
-			SymbolKind::DIV   // Tempo Div
-		);
+			// SymbolKind::ADD,  // Abs
+			// SymbolKind::SUB,  // Neg
+			// SymbolKind::MUL,  // Tempo Mul
+			// SymbolKind::DIV,  // Tempo Div
+			SymbolKind::ABS,
+			SymbolKind::NEG,
+			SymbolKind::TIMEMUL,
+			SymbolKind::TIMEDIV);
 	}
 
 	constexpr bool is_expression(Symbol s) {
@@ -787,18 +793,20 @@ namespace cane {
 		return table.at(static_cast<size_t>(s.kind));
 	}
 
-	constexpr void expression(Lexer& lx, Tree& tree, size_t bp);
+	constexpr Tree expression(Lexer& lx, size_t bp);
 
-	constexpr void primary(Lexer& lx, Tree& tree, size_t bp) {
+	constexpr Tree primary(Lexer& lx) {
+		CANE_LOG(LogKind::OKAY, "sym: {}", lx.peek());
+
 		Symbol sym = lx.peek();
+		Tree tree;
 
 		switch (sym.kind) {
 			case SymbolKind::NUMBER:
 			case SymbolKind::IDENTIFIER:
 			case SymbolKind::BEAT:
 			case SymbolKind::REST: {
-				sym = lx.take();
-				tree.emplace_back(sym);
+				tree = { lx.take() };
 			} break;
 
 			// Grouping/layering/random
@@ -806,7 +814,7 @@ namespace cane {
 				[[maybe_unused]] auto lparen = lx.take();
 
 				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
-				expression(lx, tree, 0);  // Reset binding power
+				tree = expression(lx, 0);  // Reset binding power
 
 				lx.expect(is_sym(SymbolKind::PARENRIGHT), ErrorKind::EXPECTED_PARENRIGHT);
 				[[maybe_unused]] auto rparen = lx.take();
@@ -814,133 +822,160 @@ namespace cane {
 
 			case SymbolKind::BRACELEFT: {
 				[[maybe_unused]] auto lbrace = lx.take();
+				tree.emplace_back(lbrace);
 
 				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
 
 				do {
-					expression(lx, tree, 0);
+					auto expr = expression(lx, 0);
+					tree.insert(tree.end(), expr.begin(), expr.end());
 				} while (not is_sym(SymbolKind::BRACERIGHT, SymbolKind::ENDFILE)(lx.peek()));
 
 				lx.expect(is_sym(SymbolKind::BRACERIGHT), ErrorKind::EXPECTED_BRACERIGHT);
 				[[maybe_unused]] auto rbrace = lx.take();
+
+				tree.emplace_back(rbrace.sv, SymbolKind::END);
 			} break;
 
 			case SymbolKind::BRACKETLEFT: {
 				[[maybe_unused]] auto lbracket = lx.take();
+				tree.emplace_back(lbracket);
 
 				while (not is_sym(SymbolKind::BRACKETRIGHT, SymbolKind::ENDFILE)(lx.peek())) {
-					expression(lx, tree, 0);
+					auto expr = expression(lx, 0);
+					tree.insert(tree.end(), expr.begin(), expr.end());
 				}
 
 				lx.expect(is_sym(SymbolKind::BRACKETRIGHT), ErrorKind::EXPECTED_BRACKETRIGHT);
 				[[maybe_unused]] auto rbracket = lx.take();
+
+				tree.emplace_back(rbracket.sv, SymbolKind::END);
 			} break;
 
 			// ...
 			default: {
-				// error
+				report(sym.sv, ErrorKind::EXPECTED_PRIMARY);
 			} break;
 		}
+
+		return tree;
 	}
 
-	constexpr void prefix(Lexer& lx, Tree& tree, size_t bp) {
+	constexpr Tree prefix(Lexer& lx, size_t bp) {
+		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", lx.peek(), bp);
+
 		Symbol sym = lx.peek();
+		Tree tree;
 
 		switch (sym.kind) {
-			case SymbolKind::ABS: {
-			} break;
-
-			case SymbolKind::NEG: {
-			} break;
-
-			case SymbolKind::TIMEMUL: {
-			} break;
-
-			case SymbolKind::TIMEDIV: {
-			} break;
-
-			case SymbolKind::INVERT: {
-			} break;
-
+			case SymbolKind::ABS:
+			case SymbolKind::NEG:
+			case SymbolKind::TIMEMUL:
+			case SymbolKind::TIMEDIV:
+			case SymbolKind::INVERT:
 			case SymbolKind::REVERSE: {
+				auto op = lx.take();
+				tree.emplace_back(op);
+
+				auto expr = expression(lx, bp);
+				tree.insert(tree.end(), expr.begin(), expr.end());
+
+				tree.emplace_back(op.sv, SymbolKind::END);
 			} break;
 
 			// ...
 			default: {
-				// error
+				report(sym.sv, ErrorKind::EXPECTED_PREFIX);
 			} break;
 		}
+
+		return tree;
 	}
 
-	constexpr void infix(Lexer& lx, Tree& tree, size_t bp) {
+	constexpr Tree infix(Lexer& lx, Tree left, size_t bp) {
+		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", lx.peek(), bp);
+
 		Symbol sym = lx.peek();
+		Tree tree;
 
-		switch (sym.kind) {
-			case SymbolKind::ADD: {
-			} break;
+		if (is_expression(sym)) {
+			tree.emplace_back(sym.sv, SymbolKind::CONCAT);
 
-			case SymbolKind::SUB: {
-			} break;
+			tree.insert(tree.end(), left.begin(), left.end());
 
-			case SymbolKind::MUL: {
-			} break;
+			auto expr = expression(lx, bp);
+			tree.insert(tree.end(), expr.begin(), expr.end());
 
-			case SymbolKind::DIV: {
-			} break;
-
-			case SymbolKind::LCM: {
-			} break;
-
-			case SymbolKind::GCD: {
-			} break;
-
-			case SymbolKind::EUC: {
-			} break;
-
-			case SymbolKind::MAP: {
-			} break;
-
-			case SymbolKind::SHIFTLEFT: {
-			} break;
-
-			case SymbolKind::SHIFTRIGHT: {
-			} break;
-
-			case SymbolKind::REPEAT: {
-			} break;
-
-			case SymbolKind::OR: {
-			} break;
-
-			case SymbolKind::AND: {
-			} break;
-
-			case SymbolKind::XOR: {
-			} break;
-
-			// ...
-			default: {
-				// error
-			} break;
+			tree.emplace_back(sym.sv, SymbolKind::END);
 		}
+
+		else {
+			switch (sym.kind) {
+				case SymbolKind::ADD:
+				case SymbolKind::SUB:
+				case SymbolKind::MUL:
+				case SymbolKind::DIV:
+				case SymbolKind::LCM:
+				case SymbolKind::GCD:
+				case SymbolKind::EUC:
+				case SymbolKind::MAP:
+				case SymbolKind::SHIFTLEFT:
+				case SymbolKind::SHIFTRIGHT:
+				case SymbolKind::REPEAT:
+				case SymbolKind::OR:
+				case SymbolKind::AND:
+				case SymbolKind::XOR: {
+					auto op = lx.take();
+					tree.emplace_back(op);
+
+					tree.insert(tree.end(), left.begin(), left.end());
+
+					auto expr = expression(lx, bp);
+					tree.insert(tree.end(), expr.begin(), expr.end());
+
+					tree.emplace_back(op.sv, SymbolKind::END);
+				} break;
+
+				// ...
+				default: {
+					report(sym.sv, ErrorKind::EXPECTED_INFIX);
+				} break;
+			}
+		}
+
+		return tree;
 	}
 
-	constexpr void postfix(Lexer& lx, Tree& tree, size_t bp) {
+	constexpr Tree postfix(Lexer& lx, Tree left) {
+		CANE_LOG(LogKind::OKAY, "sym: {}", lx.peek());
+
 		Symbol sym = lx.peek();
+		Tree tree;
 
 		switch (sym.kind) {
 			case SymbolKind::ASSIGN: {
+				auto op = lx.take();
+				tree.emplace_back(op);
+
+				tree.insert(tree.end(), left.begin(), left.end());
+
+				tree.emplace_back(op.sv, SymbolKind::END);
 			} break;
 
 			// ...
 			default: {
-				// error
+				report(sym.sv, ErrorKind::EXPECTED_POSTFIX);
 			} break;
 		}
+
+		return tree;
 	}
 
-	constexpr void expression(Lexer& lx, Tree& tree, size_t bp) {
+	constexpr Tree expression(Lexer& lx, size_t bp) {
+		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", lx.peek(), bp);
+
 		Symbol sym = lx.peek();
+		Tree tree;
 
 		if (is_prefix(sym)) {  // prefix expression
 			// Re-assign overloaded sigils based on them being prefix.
@@ -956,11 +991,11 @@ namespace cane {
 			}
 
 			auto [lbp, rbp] = binding_power(sym);
-			prefix(lx, tree, rbp);
+			tree = prefix(lx, rbp);
 		}
 
 		else if (is_primary(sym)) {  // primary expr
-			primary(lx, tree, 0);
+			tree = primary(lx);
 		}
 
 		else {
@@ -969,23 +1004,25 @@ namespace cane {
 
 		sym = lx.peek();
 
-		while (is_infix(sym) or is_postfix(sym)) {  // infix or postfix
+		// We use is_expression here because concatenation is implicit
+		while (is_infix(sym) or is_postfix(sym) or is_expression(sym)) {  // infix or postfix
 			if (is_postfix(sym)) {
 				auto [lbp, rbp] = binding_power(sym);
 				if (lbp < bp) {
 					break;
 				}
 
-				postfix(lx, tree, 0);
+				tree = postfix(lx, tree);  // Re-assign tree because we've passed it in here to be consumed and we
+										   // create a new tree to be used afterwards.
 			}
 
-			else if (is_infix(sym)) {
+			else if (is_infix(sym) or is_expression(sym)) {  // Also handles implicit concat
 				auto [lbp, rbp] = binding_power(sym);
 				if (lbp < bp) {
 					break;
 				}
 
-				infix(lx, tree, rbp);
+				tree = infix(lx, tree, rbp);
 			}
 
 			else {
@@ -994,32 +1031,17 @@ namespace cane {
 
 			sym = lx.peek();
 		}
+
+		return tree;
 	}
 }  // namespace cane
 
 int main(int, const char* argv[]) {
 	try {
 		cane::Lexer lx { std::string_view { argv[1] } };
-		cane::Tree tree;
+		auto expr = cane::expression(lx, 0);
 
-		cane::expression(lx, tree, 0);
-
-		// [[maybe_unused]] cane::Symbol s;
-
-		// s = CANE_DBG(lx.take_or(cane::is_sym(cane::SymbolKind::NUMBER), cane::ErrorKind::EXPECTED_NUMBER));
-		// s = CANE_DBG(lx.take_or(cane::is_sym(cane::SymbolKind::ADD), cane::ErrorKind::EXPECTED_OPERATOR));
-		// s = CANE_DBG(lx.take_or(cane::is_sym(cane::SymbolKind::NUMBER), cane::ErrorKind::EXPECTED_NUMBER));
-
-		// lx.expect(s, cane::is_sym(cane::SymbolKind::IDENTIFIER), cane::ErrorKind::EXPECTED_IDENTIFIER);
-		// lx.take();
-
-		// while (lx.peek().kind != cane::SymbolKind::ENDFILE) {
-		// 	if (not lx.take(s)) {
-		// 		cane::report(s.sv, cane::ErrorKind::UNKNOWN_CHAR);
-		// 	}
-
-		// 	CANE_LOG(cane::LogKind::OKAY, "{}", s);
-		// }
+		fmt::print("{}\n", fmt::join(expr, "\n"));
 	}
 
 	catch (cane::Report r) {
