@@ -12,6 +12,10 @@ expression = expression '=>' ident
 // Expression
 expression = '(' expression ')'
 
+// Functions
+expression = '\' ident expr
+expression = expression '.' expression  // Function call
+
 // Scalars
 expression =
 	expression expression |   // Concatenate adjacent expressions
@@ -52,5 +56,7 @@ expression =
 	expression '=>' ident |
 	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
+// Program
+program = [ expression [(';' expression)* [ ';' ]]]
 
 
