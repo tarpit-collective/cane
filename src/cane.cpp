@@ -277,25 +277,76 @@ namespace cane {
 	}
 }  // namespace cane
 
-// Lexer
+// Precedence kinds
 namespace cane {
+#define PREC_KINDS \
+	X(NONE, "None", 0) \
+	X(LAST, "Last", 0) \
+	X(INCR, "Incr", 1)
+
+#define X(a, b, c) a = c,
 	enum class PrecKind : size_t {
-		NONE,
-		LAST,
-		INCR,
+		PREC_KINDS
 	};
+#undef X
 
+	namespace detail {
+#define X(a, b, c) std::string_view { b },
+		constexpr std::array PREC_TO_STR = { PREC_KINDS };
+#undef X
+
+		constexpr std::string_view prec_to_str(PrecKind x) {
+			return detail::PREC_TO_STR[static_cast<size_t>(x)];
+		}
+	}  // namespace detail
+
+	inline std::ostream& operator<<(std::ostream& os, PrecKind x) {
+		return (os << detail::prec_to_str(x));
+	}
+}  // namespace cane
+
+template <>
+struct fmt::formatter<cane::PrecKind>: fmt::ostream_formatter {};
+
+// Associativity kinds
+namespace cane {
+#define ASS_KINDS \
+	X(NONE, "None", 0) \
+	X(LEFT, "Left", 1) \
+	X(RIGHT, "Right", 0)
+
+#define X(a, b, c) a = c,
 	enum class AssKind : size_t {
-		NONE,
-		LEFT,
-		RIGHT,
+		ASS_KINDS
 	};
+#undef X
 
+	namespace detail {
+#define X(a, b, c) std::string_view { b },
+		constexpr std::array ASS_TO_STR = { ASS_KINDS };
+#undef X
+
+		constexpr std::string_view prec_to_str(AssKind x) {
+			return detail::ASS_TO_STR[static_cast<size_t>(x)];
+		}
+	}  // namespace detail
+
+	inline std::ostream& operator<<(std::ostream& os, AssKind x) {
+		return (os << detail::prec_to_str(x));
+	}
+}  // namespace cane
+
+template <>
+struct fmt::formatter<cane::AssKind>: fmt::ostream_formatter {};
+
+namespace cane {
 	// Token types
+	// Fields are: Name, String, Precedence, Associativity
 #define SYMBOL_KINDS \
 	X(NONE, "None", NONE, NONE) \
 	X(ENDFILE, "Eof", NONE, NONE) \
 	X(WHITESPACE, "Whitespace", NONE, NONE) \
+	X(COMMA, "Comma", NONE, NONE) \
 	X(END, "End", NONE, NONE) \
 \
 	X(BRACKETLEFT, "BracketLeft", NONE, NONE) \
@@ -366,43 +417,24 @@ namespace cane {
 	}
 
 	namespace detail {
-#define X(sym, str, prec, ass) table.at(static_cast<size_t>(SymbolKind::sym)) = { PrecKind::prec, AssKind::ass };
+#define X(sym, str, prec, ass) handle_op(SymbolKind::sym, PrecKind::prec, AssKind::ass);
 
-		constexpr decltype(auto) generate_precedence_table() {
-			std::array<std::pair<PrecKind, AssKind>, static_cast<size_t>(SymbolKind::TOTAL)> table;
-			table.fill({ PrecKind::NONE, AssKind::NONE });
+		constexpr decltype(auto) generate_bp_table() {
+			std::array<std::pair<size_t, size_t>, static_cast<size_t>(SymbolKind::TOTAL)> table;
+			size_t current_precedence_level = 0;
+
+			auto handle_op = [&](SymbolKind sym, PrecKind prec, AssKind ass) {
+				current_precedence_level += static_cast<size_t>(prec);
+
+				size_t op_prec = prec == PrecKind::NONE ? 0 : current_precedence_level;
+				size_t op_ass = ass == AssKind::NONE ? 0 : static_cast<size_t>(ass);
+
+				table.at(static_cast<size_t>(sym)) = { op_prec, op_prec + op_ass };
+			};
 
 			SYMBOL_KINDS
 
-			std::array<std::pair<size_t, size_t>, static_cast<size_t>(SymbolKind::TOTAL)> lookup;
-
-			size_t i = 0;
-			size_t running = 0;
-
-			for (auto [prec, ass]: table) {
-				size_t assoc = 0;
-				size_t prece = 0;
-
-				switch (prec) {
-					case PrecKind::NONE: prece = 0; break;
-					case PrecKind::LAST: prece = running; break;
-					case PrecKind::INCR: prece = ++running; break;
-
-					default: break;
-				}
-
-				switch (ass) {
-					case AssKind::RIGHT:
-					case AssKind::NONE: assoc = 0; break;
-					case AssKind::LEFT: assoc = 1; break;
-
-					default: break;
-				}
-
-				lookup.at(i++) = { prece, prece + assoc };
-			}
-
-			return lookup;
+			return table;
 		}
 
 #undef X
@@ -559,7 +591,11 @@ namespace cane {
 			sym = Symbol({ sv_it_, sv_it_ + 1 });
 			auto start_it = sv_it_;
 
-			if (take_str("!")) {
+			if (take_str(",")) {
+				sym.kind = SymbolKind::COMMA;
+			}
+
+			else if (take_str("!")) {
 				sym.kind = SymbolKind::BEAT;
 			}
 
@@ -705,36 +741,38 @@ namespace cane {
 
 }  // namespace cane
 
+// Types
 namespace cane {
-	// Token types
-#define OP_KINDS \
-	X(PREFIX, "Prefix") \
-	X(INFIX, "Infix") \
-	X(POSTFIX, "Postfix")
+#define TYPE_KINDS \
+	X(SCALAR, "Scalar") \
+	X(MELODY, "Melody") \
+	X(RHYTHM, "Rhythm") \
+	X(SEQUENCE, "Sequence") \
+	X(PATTERN, "Pattern")
 
 #define X(a, b) a,
-	enum class OpKind : size_t {
-		OP_KINDS
+	enum class TypeKind : size_t {
+		TYPE_KINDS
 	};
 #undef X
 
 	namespace detail {
 #define X(a, b) std::string_view { b },
-		constexpr std::array OP_TO_STR = { OP_KINDS };
+		constexpr std::array TYPE_TO_STR = { TYPE_KINDS };
 #undef X
 
-		constexpr std::string_view op_to_str(OpKind x) {
-			return detail::OP_TO_STR[static_cast<size_t>(x)];
+		constexpr std::string_view type_to_str(TypeKind x) {
+			return detail::TYPE_TO_STR[static_cast<size_t>(x)];
 		}
 	}  // namespace detail
 
-	inline std::ostream& operator<<(std::ostream& os, OpKind x) {
-		return (os << detail::op_to_str(x));
+	inline std::ostream& operator<<(std::ostream& os, TypeKind x) {
+		return (os << detail::type_to_str(x));
 	}
 }  // namespace cane
 
 template <>
-struct fmt::formatter<cane::OpKind>: fmt::ostream_formatter {};
+struct fmt::formatter<cane::TypeKind>: fmt::ostream_formatter {};
 
 namespace cane {
 	constexpr bool is_primary(Symbol s) {
@@ -789,7 +827,7 @@ namespace cane {
 	using Tree = std::vector<Symbol>;
 
 	inline std::pair<size_t, size_t> binding_power(Symbol s) {
-		constexpr auto table = detail::generate_precedence_table();
+		constexpr auto table = detail::generate_bp_table();
 		return table.at(static_cast<size_t>(s.kind));
 	}
 
@@ -829,6 +867,10 @@ namespace cane {
 				do {
 					auto expr = expression(lx, 0);
 					tree.insert(tree.end(), expr.begin(), expr.end());
+
+					if (lx.peek().kind == SymbolKind::COMMA) {
+						[[maybe_unused]] auto comma = lx.take();
+					}
 				} while (not is_sym(SymbolKind::BRACERIGHT, SymbolKind::ENDFILE)(lx.peek()));
 
 				lx.expect(is_sym(SymbolKind::BRACERIGHT), ErrorKind::EXPECTED_BRACERIGHT);
@@ -844,6 +886,10 @@ namespace cane {
 				while (not is_sym(SymbolKind::BRACKETRIGHT, SymbolKind::ENDFILE)(lx.peek())) {
 					auto expr = expression(lx, 0);
 					tree.insert(tree.end(), expr.begin(), expr.end());
+
+					if (lx.peek().kind == SymbolKind::COMMA) {
+						[[maybe_unused]] auto comma = lx.take();
+					}
 				}
 
 				lx.expect(is_sym(SymbolKind::BRACKETRIGHT), ErrorKind::EXPECTED_BRACKETRIGHT);
