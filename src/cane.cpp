@@ -364,10 +364,14 @@ namespace cane {
 	X(BEAT, "Beat", NONE, NONE) \
 	X(REST, "Rest", NONE, NONE) \
 \
-	X(MAP, "Map", LAST, LEFT) \
-	X(ASSIGN, "Assign", LAST, LEFT) \
+	X(CALL, "Call", INCR, LEFT) \
+\
+	X(ASSIGN, "Assign", INCR, LEFT) \
+\
+	X(FUNCTION, "Function", INCR, LEFT) \
 \
 	X(CONCAT, "Concat", INCR, LEFT) \
+	X(MAP, "Map", LAST, LEFT) \
 \
 	X(OR, "Or", INCR, LEFT) \
 	X(AND, "And", LAST, LEFT) \
@@ -595,6 +599,14 @@ namespace cane {
 				sym.kind = SymbolKind::COMMA;
 			}
 
+			else if (take_str(".")) {
+				sym.kind = SymbolKind::CALL;
+			}
+
+			else if (take_str("\\")) {
+				sym.kind = SymbolKind::FUNCTION;
+			}
+
 			else if (take_str("!")) {
 				sym.kind = SymbolKind::BEAT;
 			}
@@ -744,6 +756,7 @@ namespace cane {
 // Types
 namespace cane {
 #define TYPE_KINDS \
+	X(NONE, "None") \
 	X(SCALAR, "Scalar") \
 	X(MELODY, "Melody") \
 	X(RHYTHM, "Rhythm") \
@@ -797,7 +810,8 @@ namespace cane {
 			SymbolKind::ABS,
 			SymbolKind::NEG,
 			SymbolKind::TIMEMUL,
-			SymbolKind::TIMEDIV);
+			SymbolKind::TIMEDIV,
+			SymbolKind::FUNCTION);
 	}
 
 	constexpr bool is_expression(Symbol s) {
@@ -817,7 +831,8 @@ namespace cane {
 			SymbolKind::SHIFTRIGHT,
 			SymbolKind::OR,
 			SymbolKind::AND,
-			SymbolKind::XOR);
+			SymbolKind::XOR,
+			SymbolKind::CALL);
 	}
 
 	constexpr bool is_postfix(Symbol s) {
@@ -831,12 +846,30 @@ namespace cane {
 		return table.at(static_cast<size_t>(s.kind));
 	}
 
-	constexpr Tree expression(Lexer& lx, size_t bp);
+	class Context {
+		// symbol table
+		// type mappings
+	};
 
-	constexpr Tree primary(Lexer& lx) {
-		CANE_LOG(LogKind::OKAY, "sym: {}", lx.peek());
+	class Parser {
+		private:
+		Lexer lx;
+		Context& ctx;
 
-		Symbol sym = lx.peek();
+		public:
+		Parser(Context& ctx_, std::string_view sv): lx(sv), ctx(ctx_) {}
+
+		constexpr Tree expression(Symbol sym, size_t bp);
+		constexpr Tree primary(Symbol sym);
+		constexpr Tree prefix(Symbol sym, size_t bp);
+		constexpr Tree infix(Symbol sym, Tree left, size_t bp);
+		constexpr Tree postfix(Symbol sym, Tree left);
+		constexpr Tree parse();
+	};
+
+	constexpr Tree Parser::primary(Symbol sym) {
+		CANE_LOG(LogKind::OKAY, "sym: {}", sym);
+
 		Tree tree;
 
 		switch (sym.kind) {
@@ -852,7 +885,7 @@ namespace cane {
 				[[maybe_unused]] auto lparen = lx.take();
 
 				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
-				tree = expression(lx, 0);  // Reset binding power
+				tree = expression(lx.peek(), 0);  // Reset binding power
 
 				lx.expect(is_sym(SymbolKind::PARENRIGHT), ErrorKind::EXPECTED_PARENRIGHT);
 				[[maybe_unused]] auto rparen = lx.take();
@@ -860,12 +893,12 @@ namespace cane {
 
 			case SymbolKind::BRACELEFT: {
 				[[maybe_unused]] auto lbrace = lx.take();
-				tree.emplace_back(lbrace);
+				tree.emplace_back(sym);
 
 				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
 
 				do {
-					auto expr = expression(lx, 0);
+					auto expr = expression(lx.peek(), 0);
 					tree.insert(tree.end(), expr.begin(), expr.end());
 
 					if (lx.peek().kind == SymbolKind::COMMA) {
@@ -876,15 +909,15 @@ namespace cane {
 				lx.expect(is_sym(SymbolKind::BRACERIGHT), ErrorKind::EXPECTED_BRACERIGHT);
 				[[maybe_unused]] auto rbrace = lx.take();
 
-				tree.emplace_back(rbrace.sv, SymbolKind::END);
+				tree.emplace_back(sym.sv, SymbolKind::END);
 			} break;
 
 			case SymbolKind::BRACKETLEFT: {
 				[[maybe_unused]] auto lbracket = lx.take();
-				tree.emplace_back(lbracket);
+				tree.emplace_back(sym);
 
 				while (not is_sym(SymbolKind::BRACKETRIGHT, SymbolKind::ENDFILE)(lx.peek())) {
-					auto expr = expression(lx, 0);
+					auto expr = expression(lx.peek(), 0);
 					tree.insert(tree.end(), expr.begin(), expr.end());
 
 					if (lx.peek().kind == SymbolKind::COMMA) {
@@ -895,7 +928,7 @@ namespace cane {
 				lx.expect(is_sym(SymbolKind::BRACKETRIGHT), ErrorKind::EXPECTED_BRACKETRIGHT);
 				[[maybe_unused]] auto rbracket = lx.take();
 
-				tree.emplace_back(rbracket.sv, SymbolKind::END);
+				tree.emplace_back(sym.sv, SymbolKind::END);
 			} break;
 
 			// ...
@@ -907,26 +940,42 @@ namespace cane {
 		return tree;
 	}
 
-	constexpr Tree prefix(Lexer& lx, size_t bp) {
-		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", lx.peek(), bp);
+	constexpr Tree Parser::prefix(Symbol sym, size_t bp) {
+		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", sym, bp);
 
-		Symbol sym = lx.peek();
 		Tree tree;
 
 		switch (sym.kind) {
+			// Function definition
+			case SymbolKind::FUNCTION: {
+				[[maybe_unused]] auto slash = lx.take();
+				tree.emplace_back(sym);
+
+				lx.expect(is_sym(SymbolKind::IDENTIFIER), ErrorKind::EXPECTED_IDENTIFIER);
+				auto ident = lx.take();
+				tree.emplace_back(ident);
+
+				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
+				auto expr = expression(lx.peek(), bp);
+				tree.insert(tree.end(), expr.begin(), expr.end());
+
+				tree.emplace_back(sym.sv, SymbolKind::END);
+			} break;
+
 			case SymbolKind::ABS:
 			case SymbolKind::NEG:
 			case SymbolKind::TIMEMUL:
 			case SymbolKind::TIMEDIV:
+
 			case SymbolKind::INVERT:
 			case SymbolKind::REVERSE: {
-				auto op = lx.take();
-				tree.emplace_back(op);
+				[[maybe_unused]] auto op = lx.take();
+				tree.emplace_back(sym);
 
-				auto expr = expression(lx, bp);
+				auto expr = expression(lx.peek(), bp);
 				tree.insert(tree.end(), expr.begin(), expr.end());
 
-				tree.emplace_back(op.sv, SymbolKind::END);
+				tree.emplace_back(sym.sv, SymbolKind::END);
 			} break;
 
 			// ...
@@ -938,10 +987,9 @@ namespace cane {
 		return tree;
 	}
 
-	constexpr Tree infix(Lexer& lx, Tree left, size_t bp) {
-		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", lx.peek(), bp);
+	constexpr Tree Parser::infix(Symbol sym, Tree left, size_t bp) {
+		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", sym, bp);
 
-		Symbol sym = lx.peek();
 		Tree tree;
 
 		if (is_expression(sym)) {
@@ -949,7 +997,7 @@ namespace cane {
 
 			tree.insert(tree.end(), left.begin(), left.end());
 
-			auto expr = expression(lx, bp);
+			auto expr = expression(lx.peek(), bp);
 			tree.insert(tree.end(), expr.begin(), expr.end());
 
 			tree.emplace_back(sym.sv, SymbolKind::END);
@@ -961,25 +1009,32 @@ namespace cane {
 				case SymbolKind::SUB:
 				case SymbolKind::MUL:
 				case SymbolKind::DIV:
+
 				case SymbolKind::LCM:
 				case SymbolKind::GCD:
+
 				case SymbolKind::EUC:
 				case SymbolKind::MAP:
+
 				case SymbolKind::SHIFTLEFT:
 				case SymbolKind::SHIFTRIGHT:
+
 				case SymbolKind::REPEAT:
+
 				case SymbolKind::OR:
 				case SymbolKind::AND:
-				case SymbolKind::XOR: {
-					auto op = lx.take();
-					tree.emplace_back(op);
+				case SymbolKind::XOR:
+
+				case SymbolKind::CALL: {
+					[[maybe_unused]] auto op = lx.take();
+					tree.emplace_back(sym);
 
 					tree.insert(tree.end(), left.begin(), left.end());
 
-					auto expr = expression(lx, bp);
+					auto expr = expression(lx.peek(), bp);
 					tree.insert(tree.end(), expr.begin(), expr.end());
 
-					tree.emplace_back(op.sv, SymbolKind::END);
+					tree.emplace_back(sym.sv, SymbolKind::END);
 				} break;
 
 				// ...
@@ -992,20 +1047,19 @@ namespace cane {
 		return tree;
 	}
 
-	constexpr Tree postfix(Lexer& lx, Tree left) {
-		CANE_LOG(LogKind::OKAY, "sym: {}", lx.peek());
+	constexpr Tree Parser::postfix(Symbol sym, Tree left) {
+		CANE_LOG(LogKind::OKAY, "sym: {}", sym);
 
-		Symbol sym = lx.peek();
 		Tree tree;
 
 		switch (sym.kind) {
 			case SymbolKind::ASSIGN: {
-				auto op = lx.take();
-				tree.emplace_back(op);
+				[[maybe_unused]] auto op = lx.take();
+				tree.emplace_back(sym);
 
 				tree.insert(tree.end(), left.begin(), left.end());
 
-				tree.emplace_back(op.sv, SymbolKind::END);
+				tree.emplace_back(sym.sv, SymbolKind::END);
 			} break;
 
 			// ...
@@ -1017,31 +1071,30 @@ namespace cane {
 		return tree;
 	}
 
-	constexpr Tree expression(Lexer& lx, size_t bp) {
-		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", lx.peek(), bp);
+	constexpr Tree Parser::expression(Symbol sym, size_t bp) {
+		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", sym, bp);
 
-		Symbol sym = lx.peek();
 		Tree tree;
 
+		// Re-assign overloaded sigils based on them being prefix.
+		// This simplifies other logic later like for handling binding
+		// power.
+		switch (sym.kind) {
+			case SymbolKind::ADD: sym.kind = SymbolKind::ABS; break;
+			case SymbolKind::SUB: sym.kind = SymbolKind::NEG; break;
+			case SymbolKind::MUL: sym.kind = SymbolKind::TIMEMUL; break;
+			case SymbolKind::DIV: sym.kind = SymbolKind::TIMEDIV; break;
+
+			default: break;
+		}
+
 		if (is_prefix(sym)) {  // prefix expression
-			// Re-assign overloaded sigils based on them being prefix.
-			// This simplifies other logic later like for handling binding
-			// power.
-			switch (sym.kind) {
-				case SymbolKind::ADD: sym.kind = SymbolKind::ABS; break;
-				case SymbolKind::SUB: sym.kind = SymbolKind::NEG; break;
-				case SymbolKind::MUL: sym.kind = SymbolKind::TIMEMUL; break;
-				case SymbolKind::DIV: sym.kind = SymbolKind::TIMEDIV; break;
-
-				default: break;
-			}
-
 			auto [lbp, rbp] = binding_power(sym);
-			tree = prefix(lx, rbp);
+			tree = prefix(sym, rbp);
 		}
 
 		else if (is_primary(sym)) {  // primary expr
-			tree = primary(lx);
+			tree = primary(lx.peek());
 		}
 
 		else {
@@ -1058,8 +1111,8 @@ namespace cane {
 					break;
 				}
 
-				tree = postfix(lx, tree);  // Re-assign tree because we've passed it in here to be consumed and we
-										   // create a new tree to be used afterwards.
+				tree = postfix(lx.peek(), tree);  // Re-assign tree because we've passed it in here to be consumed and
+												  // we create a new tree to be used afterwards.
 			}
 
 			else if (is_infix(sym) or is_expression(sym)) {  // Also handles implicit concat
@@ -1068,7 +1121,7 @@ namespace cane {
 					break;
 				}
 
-				tree = infix(lx, tree, rbp);
+				tree = infix(lx.peek(), tree, rbp);
 			}
 
 			else {
@@ -1080,13 +1133,24 @@ namespace cane {
 
 		return tree;
 	}
+
+	constexpr Tree Parser::parse() {
+		Tree tree;
+
+		while (lx.peek().kind != SymbolKind::ENDFILE) {
+			tree = expression(lx.peek(), 0);  // Re-assign every time to discard last expression.
+		}
+
+		return tree;
+	}
 }  // namespace cane
 
 int main(int, const char* argv[]) {
 	try {
-		cane::Lexer lx { std::string_view { argv[1] } };
-		auto expr = cane::expression(lx, 0);
+		cane::Context ctx;
+		cane::Parser parser { ctx, std::string_view { argv[1] } };
 
+		auto expr = parser.parse();
 		fmt::print("{}\n", fmt::join(expr, "\n"));
 	}
 
