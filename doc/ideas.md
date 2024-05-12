@@ -46,6 +46,7 @@ sequences and patterns is different though they might look the same for the user
 ##### Scalar
 - `+` / `-` scalar => scalar : prefix arithmetic operators (abs/neg)
 - scalar `+` / `-` / `*` / `/` scalar => scalar : arithmetic operators
+- scalar `lcm` / `gcd` scalar => scalar : lcm and gcd of two numbers. useful for polymeters
 - scalar `:` scalar => rhythm : euclidean rhythm notation
 - scalar scalar => melody : implicit concatenation of scalars to a melody
 - scalar `=>` ident => scalar : assign scalar to identifier and evaluate to the expr
@@ -70,10 +71,10 @@ sequences and patterns is different though they might look the same for the user
 - rhythm `or` / `and` / `xor` rhythm => rhythm : bitwise operators that combine rhythms
 - rhythm `=>` ident => rhythm : assign rhythm to identifier and evaluate to the expr
 - `{` rhythm+ `}` => rhythm : pick a random rhythm to evaluate to
+- rhythm `/` / `*` scalar => rhythm : divide an expressions time relative to the parent expressions time
 
 ##### Sequence
 - sequence sequence => sequence : implicitly concatenate sequences to the end of eachother
-- `/` / `*` scalar sequence => sequence : divide an expressions time relative to the parent expressions time
 - sequence `=>` ident => sequence : assign sequence to identifier and evaluate to the expr
 - `{` sequence+ `}` => sequence : pick a random sequence to evaluate to
 
