@@ -88,11 +88,11 @@ namespace cane {
 
 namespace cane {
 #define LOG_KINDS \
-	X(INFO, CANE_RESET "[-] info") \
-	X(WARN, CANE_BLUE "[*] warn") \
-	X(FAIL, CANE_RED "[!] fail") \
-	X(OKAY, CANE_GREEN "[^] okay") \
-	X(EXPR, CANE_MAGENTA "[=] expr")
+	X(INFO, CANE_RESET "[-]") \
+	X(WARN, CANE_BLUE "[*]") \
+	X(FAIL, CANE_RED "[!]") \
+	X(OKAY, CANE_GREEN "[^]") \
+	X(EXPR, CANE_MAGENTA "[=]")
 
 #define X(a, b) a,
 	enum class LogKind : size_t {
@@ -199,28 +199,14 @@ namespace cane {
 namespace cane {
 	// Error types
 #define ERROR_KINDS \
-	X(GENERIC, "an error occurred") \
-	X(UNREACHABLE, "unreachable code") \
 	X(UNDEFINED, "undefined") \
+	X(UNREACHABLE, "unreachable") \
 	X(NOT_IMPLEMENTED, "not implemented") \
+	X(INTERNAL, "internal") \
 \
-	X(INVALID_AST, "invalid tree") \
-	X(UNKNOWN_SYMBOL, "unknown symbol") \
-\
-	X(UNEXPECTED_CHAR, "unknown character") \
-	X(UNEXPECTED_TOKEN, "unexpected token") \
-\
-	X(EXPECTED_EXPRESSION, "expected an expression") \
-	X(EXPECTED_PRIMARY, "expected a primary expression") \
-	X(EXPECTED_PREFIX, "expected a prefix operator") \
-	X(EXPECTED_INFIX, "expected a infix operator") \
-	X(EXPECTED_POSTFIX, "expected a postfix operator") \
-	X(EXPECTED_PARENRIGHT, "expected closing parenthesis") \
-	X(EXPECTED_BRACERIGHT, "expected closing brace") \
-	X(EXPECTED_BRACKETRIGHT, "expected closing bracket") \
-	X(EXPECTED_OPERATOR, "expected an operator") \
-	X(EXPECTED_IDENTIFIER, "expected an identifier") \
-	X(EXPECTED_NUMBER, "expected a number")
+	X(GENERIC, "error") \
+	X(UNEXPECTED, "unexpected") \
+	X(EXPECTED, "expected")
 
 #define X(a, b) a,
 	enum class ErrorKind : size_t {
@@ -248,32 +234,24 @@ struct fmt::formatter<cane::ErrorKind>: fmt::ostream_formatter {};
 
 namespace cane {
 	struct Report {
-		std::string_view sv;
+		std::string msg;
 		ErrorKind kind;
 	};
 
-	[[noreturn]] inline void report(std::string_view sv, ErrorKind x) {
-		throw Report { sv, x };
+	template <typename... Ts>
+	[[noreturn]] inline void report(ErrorKind kind, std::string_view fmt, Ts&&... args) {
+		std::string msg;
+		fmt::format_to(std::back_inserter(msg), fmt::runtime(fmt), std::forward<Ts>(args)...);
+
+		throw Report { msg, kind };
 	}
 
-	[[noreturn]] inline void report(ErrorKind x) {
-		throw Report { "", x };
+	inline void report_handler(Report report) {
+		fmt::print(stderr, "{} {}" CANE_RESET ": {}\n", LogKind::FAIL, report.kind, report.msg);
 	}
 
-	inline void report_handler(Report x) {
-		auto [sv, kind] = x;
-
-		if (sv.empty() or sv == "") {
-			fmt::print(stderr, "{}" CANE_RESET " {}!\n", LogKind::FAIL, kind);
-			return;
-		}
-
-		if (sv.front() == '\0') {
-			fmt::print(stderr, "{}" CANE_RESET " {}: `EOF`!\n", LogKind::FAIL, kind);
-			return;
-		}
-
-		fmt::print(stderr, "{}" CANE_RESET " {}: `{}`!\n", LogKind::FAIL, kind, sv);
+	inline std::string enclose(std::string_view sv) {
+		return sv.empty() ? "eof" : "`" + std::string { sv } + "`";
 	}
 }  // namespace cane
 
@@ -344,20 +322,21 @@ namespace cane {
 	// Fields are: Name, String, Precedence, Associativity
 #define SYMBOL_KINDS \
 	X(NONE, "None", NONE, NONE) \
-	X(ENDFILE, "Eof", NONE, NONE) \
+	X(END_FILE, "Eof", NONE, NONE) \
 	X(WHITESPACE, "Whitespace", NONE, NONE) \
 	X(COMMA, "Comma", NONE, NONE) \
+	X(SEMICOLON, "SemiColon", NONE, NONE) \
 	X(END, "End", NONE, NONE) \
 	X(CONS, "Cons", NONE, NONE) \
 \
-	X(BRACKETLEFT, "BracketLeft", NONE, NONE) \
-	X(BRACKETRIGHT, "BracketRight", NONE, NONE) \
+	X(PATTERN_BEGIN, "PatternBegin", NONE, NONE) \
+	X(PATTERN_END, "PatternEnd", NONE, NONE) \
 \
-	X(PARENLEFT, "ParenLeft", NONE, NONE) \
-	X(PARENRIGHT, "ParenRight", NONE, NONE) \
+	X(CHOICE_BEGIN, "ChoiceBegin", NONE, NONE) \
+	X(CHOICE_END, "ChoiceEnd", NONE, NONE) \
 \
-	X(BRACELEFT, "BraceLeft", NONE, NONE) \
-	X(BRACERIGHT, "BraceRight", NONE, NONE) \
+	X(PAREN_LEFT, "ParenLeft", NONE, NONE) \
+	X(PAREN_RIGHT, "ParenRight", NONE, NONE) \
 \
 	X(IDENTIFIER, "Identifier", NONE, NONE) \
 	X(NUMBER, "Number", NONE, NONE) \
@@ -375,8 +354,8 @@ namespace cane {
 	X(AND, "And", LAST, LEFT) \
 	X(XOR, "Xor", LAST, LEFT) \
 	X(REPEAT, "Repeat", LAST, LEFT) \
-	X(SHIFTLEFT, "ShiftLeft", LAST, LEFT) \
-	X(SHIFTRIGHT, "ShiftRight", LAST, LEFT) \
+	X(SHIFT_LEFT, "ShiftLeft", LAST, LEFT) \
+	X(SHIFT_RIGHT, "ShiftRight", LAST, LEFT) \
 \
 	X(MAP, "Map", INCR, LEFT) \
 \
@@ -390,9 +369,6 @@ namespace cane {
 \
 	X(MUL, "Mul", INCR, LEFT) \
 	X(DIV, "Div", LAST, LEFT) \
-\
-	X(TIMEMUL, "TimeMul", INCR, RIGHT) \
-	X(TIMEDIV, "TimeDiv", LAST, RIGHT) \
 \
 	X(EUC, "Euc", INCR, LEFT) \
 \
@@ -566,7 +542,7 @@ namespace cane {
 		}
 
 		constexpr bool take_ident(Symbol& sym) {
-			sym = Symbol({ sv_it_, sv_it_ + 1 });
+			sym = Symbol({ sv_it_, sv_it_ });
 			auto start_it = sv_it_;
 
 			if (not take_if(is_alpha)) {
@@ -588,7 +564,7 @@ namespace cane {
 		}
 
 		constexpr bool take_number(Symbol& sym) {
-			sym = Symbol({ sv_it_, sv_it_ + 1 });
+			sym = Symbol({ sv_it_, sv_it_ });
 			auto start_it = sv_it_;
 
 			if (not take_while(is_digit)) {
@@ -600,11 +576,15 @@ namespace cane {
 		}
 
 		constexpr bool take_sigil(Symbol& sym) {
-			sym = Symbol({ sv_it_, sv_it_ + 1 });
+			sym = Symbol({ sv_it_, sv_it_ });
 			auto start_it = sv_it_;
 
 			if (take_str(",")) {
 				sym.kind = SymbolKind::COMMA;
+			}
+
+			else if (take_str(";")) {
+				sym.kind = SymbolKind::SEMICOLON;
 			}
 
 			else if (take_str("$")) {
@@ -656,11 +636,11 @@ namespace cane {
 			}
 
 			else if (take_str("<")) {
-				sym.kind = SymbolKind::SHIFTLEFT;
+				sym.kind = SymbolKind::SHIFT_LEFT;
 			}
 
 			else if (take_str(">")) {
-				sym.kind = SymbolKind::SHIFTRIGHT;
+				sym.kind = SymbolKind::SHIFT_RIGHT;
 			}
 
 			else if (take_str("**")) {
@@ -672,27 +652,27 @@ namespace cane {
 			}
 
 			else if (take_str("[")) {
-				sym.kind = SymbolKind::BRACKETLEFT;
+				sym.kind = SymbolKind::PATTERN_BEGIN;
 			}
 
 			else if (take_str("]")) {
-				sym.kind = SymbolKind::BRACKETRIGHT;
+				sym.kind = SymbolKind::PATTERN_END;
 			}
 
 			else if (take_str("(")) {
-				sym.kind = SymbolKind::PARENLEFT;
+				sym.kind = SymbolKind::PAREN_LEFT;
 			}
 
 			else if (take_str(")")) {
-				sym.kind = SymbolKind::PARENRIGHT;
+				sym.kind = SymbolKind::PAREN_RIGHT;
 			}
 
 			else if (take_str("{")) {
-				sym.kind = SymbolKind::BRACELEFT;
+				sym.kind = SymbolKind::CHOICE_BEGIN;
 			}
 
 			else if (take_str("}")) {
-				sym.kind = SymbolKind::BRACERIGHT;
+				sym.kind = SymbolKind::CHOICE_END;
 			}
 
 			else {
@@ -704,7 +684,7 @@ namespace cane {
 		}
 
 		constexpr bool take_whitespace(Symbol& sym) {
-			sym = Symbol({ sv_it_, sv_it_ + 1 });
+			sym = Symbol({ sv_it_, sv_it_ });
 			auto start_it = sv_it_;
 
 			if (not take_while(is_whitespace)) {
@@ -725,7 +705,7 @@ namespace cane {
 			take_whitespace(sym);  // Skip whitespace.
 
 			if (sv_it_ >= sv_end_) {
-				sym.kind = SymbolKind::ENDFILE;
+				sym.kind = SymbolKind::END_FILE;
 			}
 
 			else if (take_number(sym)) {}
@@ -733,7 +713,8 @@ namespace cane {
 			else if (take_sigil(sym)) {}
 
 			else {
-				report(sym.sv, ErrorKind::UNEXPECTED_CHAR);
+				sym = Symbol({ sv_it_, sv_it_ + 1 });
+				report(ErrorKind::UNEXPECTED, "character {}", enclose(sym.sv));
 			}
 
 			Symbol out = peek_;
@@ -742,17 +723,17 @@ namespace cane {
 			return out;
 		}
 
-		template <typename F>
-		constexpr void expect(F&& fn, ErrorKind x) {
+		template <typename F, typename... Ts>
+		constexpr void expect(F&& fn, ErrorKind x, std::string_view fmt, Ts&&... args) {
 			if (not fn(peek_)) {
-				report(peek_.sv, x);
+				report(x, fmt, std::forward<Ts>(args)...);
 			}
 		}
 
-		template <typename F>
-		constexpr Symbol take_or_fail(F&& fn, ErrorKind x) {
+		template <typename F, typename... Ts>
+		constexpr Symbol take_or_fail(F&& fn, ErrorKind x, std::string_view fmt, Ts&&... args) {
 			if (not fn(peek_)) {
-				report(peek_.sv, x);
+				report(x, fmt, std::forward<Ts>(args)...);
 			}
 
 			return take();
@@ -780,7 +761,8 @@ namespace cane {
 	X(MELODY, "Melody") \
 	X(RHYTHM, "Rhythm") \
 	X(SEQUENCE, "Sequence") \
-	X(PATTERN, "Pattern")
+	X(PATTERN, "Pattern") \
+	X(FUCNTION, "Function")
 
 #define X(a, b) a,
 	enum class TypeKind : size_t {
@@ -811,33 +793,23 @@ namespace cane {
 		return eq_any(s.kind,
 			SymbolKind::IDENTIFIER,
 			SymbolKind::NUMBER,
-			SymbolKind::BRACKETLEFT,
-			SymbolKind::PARENLEFT,
-			SymbolKind::BRACELEFT,
+			SymbolKind::PATTERN_BEGIN,
+			SymbolKind::PAREN_LEFT,
+			SymbolKind::CHOICE_BEGIN,
 			SymbolKind::BEAT,
 			SymbolKind::REST);
 	}
 
 	constexpr bool is_prefix(Symbol s) {
-		return eq_any(s.kind,
-			SymbolKind::INVERT,
-			SymbolKind::REVERSE,
-			// SymbolKind::ADD,  // Abs
-			// SymbolKind::SUB,  // Neg
-			// SymbolKind::MUL,  // Tempo Mul
-			// SymbolKind::DIV,  // Tempo Div
-			SymbolKind::ABS,
-			SymbolKind::NEG,
-			SymbolKind::TIMEMUL,
-			SymbolKind::TIMEDIV,
-			SymbolKind::FUNCTION);
+		return eq_any(
+			s.kind, SymbolKind::INVERT, SymbolKind::REVERSE, SymbolKind::ABS, SymbolKind::NEG, SymbolKind::FUNCTION);
 	}
 
 	constexpr bool is_expression(Symbol s) {
 		return is_primary(s) or is_prefix(s);
 	}
 
-	constexpr bool is_concat(Symbol s) {
+	constexpr bool is_concat(Symbol s) {  // Concat is just two juxtaposed expressions.
 		return is_expression(s);
 	}
 
@@ -850,8 +822,8 @@ namespace cane {
 			SymbolKind::EUC,
 			SymbolKind::MAP,
 			SymbolKind::REPEAT,
-			SymbolKind::SHIFTLEFT,
-			SymbolKind::SHIFTRIGHT,
+			SymbolKind::SHIFT_LEFT,
+			SymbolKind::SHIFT_RIGHT,
 			SymbolKind::OR,
 			SymbolKind::AND,
 			SymbolKind::XOR,
@@ -867,49 +839,62 @@ namespace cane {
 		return is_infix(s) or is_postfix(s) or is_concat(s);
 	}
 
-	// Node
-	// Visit
-	// Iter children    (Iterate through nodes on the same level)
-	// Insert block     (Insert begin/end pair with some other nodes inbetween)
-	// Insert atom      (Insert non-block symbol like "Number")
-	// Get parent block (Get the parent sub-tree)
-	// Get Nth node
-	// Find "End" atom  (Given a begin symbol, find its corresponding end token)
-	// Extract inner nodes  (Return sub-tree with child nodes, removing the surrounding block)
-	// Wrap tree inside block  (Given a sub-tree, return a new one wrapped inside some block)
-
 	struct Type {
-		TypeKind type;
-		std::shared_ptr<Type> left;
-		std::shared_ptr<Type> right;
+		using Ptr = std::shared_ptr<Type>;
+
+		TypeKind kind;
+
+		Ptr left;
+		Ptr right;
+
+		Type(TypeKind kind_): kind(kind_), left(nullptr), right(nullptr) {}
+
+		Type(TypeKind kind_, Ptr left_, Ptr right_): kind(kind_), left(left_), right(right_) {}
 	};
 
 	struct Node {
+		using Ptr = std::shared_ptr<Node>;
+
 		SymbolKind kind;
 		std::string_view sv;
 
-		std::shared_ptr<Type> type;
-		std::shared_ptr<Node> left;
-		std::shared_ptr<Node> right;
+		Type::Ptr type;
 
-		Node(SymbolKind kind_): kind(kind_), sv(""), type(nullptr), left(nullptr), right(nullptr) {}
+		Ptr left;
+		Ptr right;
 
-		Node(Symbol sym_): kind(sym_.kind), sv(sym_.sv), type(nullptr), left(nullptr), right(nullptr) {}
+		// Constructors
+		Node(SymbolKind kind_):
+				kind(kind_), sv(""), type(std::make_shared<Type>(TypeKind::NONE)), left(nullptr), right(nullptr) {}
 
-		Node(Symbol sym_, std::shared_ptr<Node> left_, std::shared_ptr<Node> right_):
-				kind(sym_.kind), sv(sym_.sv), type(nullptr), left(left_), right(right_) {}
+		Node(Symbol sym_):
+				kind(sym_.kind),
+				sv(sym_.sv),
+				type(std::make_shared<Type>(TypeKind::NONE)),
+				left(nullptr),
+				right(nullptr) {}
 
-		Node(SymbolKind kind_, std::shared_ptr<Node> left_, std::shared_ptr<Node> right_):
-				kind(kind_), sv(""), type(nullptr), left(left_), right(right_) {}
+		// Composite nodes
+		Node(Symbol sym_, Ptr left_, Ptr right_):
+				kind(sym_.kind),
+				sv(sym_.sv),
+				type(std::make_shared<Type>(TypeKind::NONE)),
+				left(left_),
+				right(right_) {}
 
-		Node(SymbolKind kind_, std::string_view sv_, std::shared_ptr<Node> left_, std::shared_ptr<Node> right_):
-				kind(kind_), sv(sv_), type(nullptr), left(left_), right(right_) {}
+		Node(SymbolKind kind_, Ptr left_, Ptr right_):
+				kind(kind_), sv(""), type(std::make_shared<Type>(TypeKind::NONE)), left(left_), right(right_) {}
+
+		Node(SymbolKind kind_, std::string_view sv_, Ptr left_, Ptr right_):
+				kind(kind_), sv(sv_), type(std::make_shared<Type>(TypeKind::NONE)), left(left_), right(right_) {}
+
+		// Constructors with types
+		Node(SymbolKind kind_, TypeKind type_):
+				kind(kind_), sv(""), type(std::make_shared<Type>(type_)), left(nullptr), right(nullptr) {}
+
+		Node(Symbol sym_, TypeKind type_):
+				kind(sym_.kind), sv(sym_.sv), type(std::make_shared<Type>(type_)), left(nullptr), right(nullptr) {}
 	};
-
-	// class Context {
-	// 	// symbol table
-	// 	// type mappings
-	// };
 
 	class Parser {
 		private:
@@ -930,58 +915,73 @@ namespace cane {
 		CANE_LOG(LogKind::OKAY, "sym: {}", sym);
 
 		switch (sym.kind) {
-			case SymbolKind::NUMBER:
-			case SymbolKind::IDENTIFIER:
-			case SymbolKind::BEAT:
-			case SymbolKind::REST: {
+			case SymbolKind::IDENTIFIER: {
 				return std::make_shared<Node>(lx.take());
 			} break;
 
+			case SymbolKind::BEAT:
+			case SymbolKind::REST: {
+				return std::make_shared<Node>(lx.take(), TypeKind::RHYTHM);
+			} break;
+
+			case SymbolKind::NUMBER: {
+				return std::make_shared<Node>(lx.take(), TypeKind::SCALAR);
+			} break;
+
 			// Grouping/layering/random
-			case SymbolKind::PARENLEFT: {
+			case SymbolKind::PAREN_LEFT: {
 				lx.discard();  // lparen
 
-				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
+				lx.expect(is_expression, ErrorKind::EXPECTED, "expression");
 				auto expr = expression(lx.peek(), 0);  // Reset binding power
 
-				lx.take_or_fail(is_sym(SymbolKind::PARENRIGHT), ErrorKind::EXPECTED_PARENRIGHT);
+				lx.take_or_fail(is_sym(SymbolKind::PAREN_RIGHT), ErrorKind::EXPECTED, "closing paren {}", enclose(")"));
 				return expr;
 			} break;
 
-			case SymbolKind::BRACELEFT: {
-				lx.discard();  // lbrace
-
+			case SymbolKind::CHOICE_BEGIN: {
 				std::shared_ptr<Node> node = nullptr;
 
-				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
+				lx.discard();  // lbrace
+				lx.expect(is_expression, ErrorKind::EXPECTED, "expression");
 
 				do {
 					node = std::make_shared<Node>(SymbolKind::CONS, node, expression(lx.peek(), 0));
 					lx.discard_if(is_sym(SymbolKind::COMMA));  // seperating comma
-				} while (not is_sym(SymbolKind::BRACERIGHT, SymbolKind::ENDFILE)(lx.peek()));
+				} while (not is_sym(SymbolKind::CHOICE_END, SymbolKind::END_FILE)(lx.peek()));
 
-				lx.take_or_fail(is_sym(SymbolKind::BRACERIGHT), ErrorKind::EXPECTED_BRACERIGHT);
+				lx.take_or_fail(is_sym(SymbolKind::CHOICE_END), ErrorKind::EXPECTED, "closing brace {}", enclose("}"));
 				return node;
 			} break;
 
-			case SymbolKind::BRACKETLEFT: {
+			case SymbolKind::PATTERN_BEGIN: {
+				std::shared_ptr<Node> node = std::make_shared<Node>(SymbolKind::PATTERN_BEGIN);
+				auto root = node;
+
 				lx.discard();  // lbracket
 
-				std::shared_ptr<Node> node = nullptr;
+				while (is_expression(lx.peek())) {
+					node->left = expression(lx.peek(), 0);
 
-				while (not is_sym(SymbolKind::BRACKETRIGHT, SymbolKind::ENDFILE)(lx.peek())) {
-					node = std::make_shared<Node>(SymbolKind::CONS, node, expression(lx.peek(), 0));
 					lx.discard_if(is_sym(SymbolKind::COMMA));  // seperating comma
+
+					// If we have another expression following this, we create a cons
+					// node and set our new `node` to it.
+					if (is_expression(lx.peek())) {
+						node->right = std::make_shared<Node>(SymbolKind::CONS);
+						node = node->right;
+					}
 				}
 
-				lx.take_or_fail(is_sym(SymbolKind::BRACKETRIGHT), ErrorKind::EXPECTED_BRACKETRIGHT);
-				return node;
+				lx.take_or_fail(
+					is_sym(SymbolKind::PATTERN_END), ErrorKind::EXPECTED, "closing bracket {}", enclose("]"));
+				return root;
 			} break;
 
 			default: break;
 		}
 
-		report(sym.sv, ErrorKind::EXPECTED_PRIMARY);
+		report(ErrorKind::EXPECTED, "primary expression but got `{}`", sym.sv);
 	}
 
 	inline std::shared_ptr<Node> Parser::prefix(Symbol sym, size_t bp) {
@@ -994,23 +994,13 @@ namespace cane {
 
 				std::shared_ptr<Node> node = nullptr;
 
-				auto name = lx.take_or_fail(is_sym(SymbolKind::IDENTIFIER), ErrorKind::EXPECTED_IDENTIFIER);
+				auto name = lx.take_or_fail(is_sym(SymbolKind::IDENTIFIER), ErrorKind::EXPECTED, "identifier");
 				auto ident = std::make_shared<Node>(name);
 
-				lx.expect(is_expression, ErrorKind::EXPECTED_EXPRESSION);
+				lx.expect(is_expression, ErrorKind::EXPECTED, "expression");
 				auto expr = expression(lx.peek(), bp);
 
 				return std::make_shared<Node>(SymbolKind::FUNCTION, ident, expr);
-			} break;
-
-			case SymbolKind::TIMEMUL:
-			case SymbolKind::TIMEDIV: {
-				lx.discard();  // op
-
-				auto division = expression(lx.peek(), 0);
-				auto expr = expression(lx.peek(), 0);
-
-				return std::make_shared<Node>(sym, division, expr);
 			} break;
 
 			case SymbolKind::ABS:
@@ -1025,7 +1015,7 @@ namespace cane {
 			default: break;
 		}
 
-		report(sym.sv, ErrorKind::EXPECTED_PREFIX);
+		report(ErrorKind::EXPECTED, "prefix operator but got {}", enclose(sym.sv));
 	}
 
 	inline std::shared_ptr<Node> Parser::infix(Symbol sym, std::shared_ptr<Node> left, size_t bp) {
@@ -1048,8 +1038,8 @@ namespace cane {
 				case SymbolKind::EUC:
 				case SymbolKind::MAP:
 
-				case SymbolKind::SHIFTLEFT:
-				case SymbolKind::SHIFTRIGHT:
+				case SymbolKind::SHIFT_LEFT:
+				case SymbolKind::SHIFT_RIGHT:
 
 				case SymbolKind::REPEAT:
 
@@ -1066,7 +1056,7 @@ namespace cane {
 			}
 		}
 
-		report(sym.sv, ErrorKind::EXPECTED_INFIX);
+		report(ErrorKind::EXPECTED, "infix operator but got {}", enclose(sym.sv));
 	}
 
 	inline std::shared_ptr<Node> Parser::postfix(Symbol sym, std::shared_ptr<Node> left) {
@@ -1083,7 +1073,7 @@ namespace cane {
 			default: break;
 		}
 
-		report(sym.sv, ErrorKind::EXPECTED_POSTFIX);
+		report(ErrorKind::EXPECTED, "postfix operator but got {}", enclose(sym.sv));
 	}
 
 	inline std::shared_ptr<Node> Parser::expression(Symbol sym, size_t bp) {
@@ -1097,8 +1087,6 @@ namespace cane {
 		switch (sym.kind) {
 			case SymbolKind::ADD: sym.kind = SymbolKind::ABS; break;
 			case SymbolKind::SUB: sym.kind = SymbolKind::NEG; break;
-			case SymbolKind::MUL: sym.kind = SymbolKind::TIMEMUL; break;
-			case SymbolKind::DIV: sym.kind = SymbolKind::TIMEDIV; break;
 
 			default: break;
 		}
@@ -1114,7 +1102,7 @@ namespace cane {
 		}
 
 		else {
-			report(sym.sv, ErrorKind::EXPECTED_PRIMARY);
+			report(ErrorKind::EXPECTED, "primary expression or prefix operator but got {}", enclose(sym.sv));
 		}
 
 		sym = lx.peek();
@@ -1145,7 +1133,7 @@ namespace cane {
 			}
 
 			else {
-				report(sym.sv, ErrorKind::UNEXPECTED_TOKEN);
+				report(ErrorKind::EXPECTED, "infix or postfix operator {}", enclose(sym.sv));
 			}
 
 			sym = lx.peek();
@@ -1157,8 +1145,9 @@ namespace cane {
 	inline std::shared_ptr<Node> Parser::parse() {
 		std::shared_ptr<Node> node = nullptr;
 
-		while (lx.peek().kind != SymbolKind::ENDFILE) {
+		while (lx.peek().kind != SymbolKind::END_FILE) {
 			node = expression(lx.peek(), 0);  // Re-assign every time to discard last expression.
+			lx.discard_if(is_sym(SymbolKind::SEMICOLON));
 		}
 
 		return node;
@@ -1166,14 +1155,18 @@ namespace cane {
 }  // namespace cane
 
 // Visitors
-namespace cane {
-	inline void visit(std::shared_ptr<Node> node, int indent = 0) {
+namespace cane::passes {
+	inline void printer(std::shared_ptr<Node> node, int indent = 0) {
 		auto spaces = std::string(indent, ' ');
 
-		if (node == nullptr) {
-			CANE_LOG(LogKind::INFO, "{}<null>", spaces);
+		if (not node) {
+			CANE_LOG(LogKind::INFO, "{}Nil", spaces);
 			return;
 		}
+
+		// CANE_LOG(LogKind::OKAY, "kind -> {}", node->kind);
+
+		// TypeKind kind = node->type == nullptr ? TypeKind::NONE : node->type->kind;
 
 		switch (node->kind) {
 			case SymbolKind::BEAT:  // Atoms
@@ -1181,7 +1174,7 @@ namespace cane {
 
 			case SymbolKind::NUMBER:
 			case SymbolKind::IDENTIFIER: {
-				CANE_LOG(LogKind::INFO, "{}{} {}", spaces, node->kind, node->sv);
+				CANE_LOG(LogKind::INFO, "{}{} {} {}", spaces, node->kind, node->sv, node->type->kind);
 			} break;
 
 			case SymbolKind::INVERT:  // Unary
@@ -1189,8 +1182,8 @@ namespace cane {
 
 			case SymbolKind::ABS:
 			case SymbolKind::NEG: {
-				CANE_LOG(LogKind::INFO, "{}{}", spaces, node->kind);
-				visit(node->right, indent + 1);
+				CANE_LOG(LogKind::INFO, "{}{} {}", spaces, node->kind, node->type->kind);
+				printer(node->right, indent + 1);
 			} break;
 
 			case SymbolKind::ADD:  // Binary
@@ -1213,26 +1206,114 @@ namespace cane {
 
 			case SymbolKind::REPEAT:
 
-			case SymbolKind::SHIFTLEFT:
-			case SymbolKind::SHIFTRIGHT:
-
-			case SymbolKind::TIMEMUL:
-			case SymbolKind::TIMEDIV:
+			case SymbolKind::SHIFT_LEFT:
+			case SymbolKind::SHIFT_RIGHT:
 
 			case SymbolKind::EUC:
 
+			case SymbolKind::CONS:
+
 			case SymbolKind::LCM:
 			case SymbolKind::GCD: {
-				CANE_LOG(LogKind::INFO, "{}{}", spaces, node->kind);
+				CANE_LOG(LogKind::INFO, "{}{} {}", spaces, node->kind, node->type->kind);
 
-				visit(node->left, indent + 1);
-				visit(node->right, indent + 1);
+				printer(node->left, indent + 1);
+				printer(node->right, indent + 1);
 			} break;
 
-			default: break;
+			case SymbolKind::PATTERN_BEGIN:  // Lists
+			case SymbolKind::CHOICE_BEGIN: {
+				CANE_LOG(LogKind::INFO, "{}{}", spaces, node->kind);
+
+				printer(node->left, indent + 1);
+				printer(node->right, indent + 1);
+			} break;
+
+			default: {
+				CANE_LOG(LogKind::WARN, "unhandled symbol: {}", node->kind);
+			} break;
 		}
 	}
-}  // namespace cane
+
+	// type checking
+	inline Type::Ptr typer(Node::Ptr node) {
+		if (not node) {
+			return nullptr;
+		}
+
+		CANE_LOG(LogKind::OKAY, "kind -> {}", node->kind);
+
+		switch (node->kind) {
+			case SymbolKind::BEAT:  // Atoms
+			case SymbolKind::REST:
+
+			case SymbolKind::NUMBER:
+			case SymbolKind::IDENTIFIER: {
+				return node->type;
+			} break;
+
+			case SymbolKind::INVERT:  // Unary
+			case SymbolKind::REVERSE:
+
+			case SymbolKind::ABS:
+			case SymbolKind::NEG: {
+				return typer(node->right);
+			} break;
+
+			case SymbolKind::CALL: {
+				// At this point we should fill in the types for the
+				// argument to the function.
+				Type::Ptr arg = typer(node->right);
+				Type::Ptr fn = typer(node->left);
+
+				fn->left->kind = arg->kind;
+			} break;
+
+			case SymbolKind::ADD:
+			case SymbolKind::SUB:
+			case SymbolKind::MUL:
+			case SymbolKind::DIV:
+
+			case SymbolKind::ASSIGN:
+
+			case SymbolKind::FUNCTION:
+
+			case SymbolKind::CONCAT:
+			case SymbolKind::MAP:
+
+			case SymbolKind::OR:
+			case SymbolKind::AND:
+			case SymbolKind::XOR:
+
+			case SymbolKind::REPEAT:
+
+			case SymbolKind::SHIFT_LEFT:
+			case SymbolKind::SHIFT_RIGHT:
+
+			case SymbolKind::EUC:
+
+			case SymbolKind::CONS:
+
+			case SymbolKind::LCM:
+			case SymbolKind::GCD: {
+				typer(node->left);
+				typer(node->right);
+			} break;
+
+			case SymbolKind::PATTERN_BEGIN:  // Lists
+			case SymbolKind::CHOICE_BEGIN: {
+				typer(node->left);
+				typer(node->right);
+			} break;
+
+			default: {
+				CANE_LOG(LogKind::WARN, "unhandled symbol: {}", node->kind);
+			} break;
+		}
+
+		return nullptr;
+	}
+}  // namespace cane::passes
 
 int main(int, const char* argv[]) {
 	try {
@@ -1240,8 +1321,9 @@ int main(int, const char* argv[]) {
 		cane::Parser parser { std::string_view { argv[1] } };
 
 		auto expr = parser.parse();
-		cane::visit(expr);
-		// fmt::print("{}\n", fmt::join(expr, "\n"));
+
+		cane::passes::typer(expr);
+		cane::passes::printer(expr);
 	}
 
 	catch (cane::Report r) {
