@@ -3,6 +3,9 @@
 #include <fstream>
 #include <string>
 #include <string_view>
+#include <vector>
+#include <map>
+#include <array>
 #include <chrono>
 #include <thread>
 #include <filesystem>
@@ -203,10 +206,12 @@ namespace cane {
 	X(UNREACHABLE, "unreachable") \
 	X(NOT_IMPLEMENTED, "not implemented") \
 	X(INTERNAL, "internal") \
-\
 	X(GENERIC, "error") \
-	X(UNEXPECTED, "unexpected") \
-	X(EXPECTED, "expected")
+\
+	X(LEXICAL, "lexical") \
+	X(GRAMMATICAL, "grammatical") \
+	X(SEMANTIC, "semantic") \
+	X(TYPE, "type")
 
 #define X(a, b) a,
 	enum class ErrorKind : size_t {
@@ -714,7 +719,7 @@ namespace cane {
 
 			else {
 				sym = Symbol({ sv_it_, sv_it_ + 1 });
-				report(ErrorKind::UNEXPECTED, "character {}", enclose(sym.sv));
+				report(ErrorKind::LEXICAL, "unknown character {}", enclose(sym.sv));
 			}
 
 			Symbol out = peek_;
@@ -932,10 +937,13 @@ namespace cane {
 			case SymbolKind::PAREN_LEFT: {
 				lx.discard();  // lparen
 
-				lx.expect(is_expression, ErrorKind::EXPECTED, "expression");
+				lx.expect(is_expression, ErrorKind::GRAMMATICAL, "expected an expression");
 				auto expr = expression(lx.peek(), 0);  // Reset binding power
 
-				lx.take_or_fail(is_sym(SymbolKind::PAREN_RIGHT), ErrorKind::EXPECTED, "closing paren {}", enclose(")"));
+				lx.take_or_fail(is_sym(SymbolKind::PAREN_RIGHT),
+					ErrorKind::GRAMMATICAL,
+					"expected a closing paren {}",
+					enclose(")"));
 				return expr;
 			} break;
 
@@ -943,14 +951,17 @@ namespace cane {
 				std::shared_ptr<Node> node = nullptr;
 
 				lx.discard();  // lbrace
-				lx.expect(is_expression, ErrorKind::EXPECTED, "expression");
+				lx.expect(is_expression, ErrorKind::GRAMMATICAL, "expected an expression");
 
 				do {
 					node = std::make_shared<Node>(SymbolKind::CONS, node, expression(lx.peek(), 0));
 					lx.discard_if(is_sym(SymbolKind::COMMA));  // seperating comma
 				} while (not is_sym(SymbolKind::CHOICE_END, SymbolKind::END_FILE)(lx.peek()));
 
-				lx.take_or_fail(is_sym(SymbolKind::CHOICE_END), ErrorKind::EXPECTED, "closing brace {}", enclose("}"));
+				lx.take_or_fail(is_sym(SymbolKind::CHOICE_END),
+					ErrorKind::GRAMMATICAL,
+					"expected a closing brace {}",
+					enclose("}"));
 				return node;
 			} break;
 
@@ -973,15 +984,17 @@ namespace cane {
 					}
 				}
 
-				lx.take_or_fail(
-					is_sym(SymbolKind::PATTERN_END), ErrorKind::EXPECTED, "closing bracket {}", enclose("]"));
+				lx.take_or_fail(is_sym(SymbolKind::PATTERN_END),
+					ErrorKind::GRAMMATICAL,
+					"expected a closing bracket {}",
+					enclose("]"));
 				return root;
 			} break;
 
 			default: break;
 		}
 
-		report(ErrorKind::EXPECTED, "primary expression but got `{}`", sym.sv);
+		report(ErrorKind::GRAMMATICAL, "expected a primary expression but got `{}`", sym.sv);
 	}
 
 	inline std::shared_ptr<Node> Parser::prefix(Symbol sym, size_t bp) {
@@ -994,10 +1007,11 @@ namespace cane {
 
 				std::shared_ptr<Node> node = nullptr;
 
-				auto name = lx.take_or_fail(is_sym(SymbolKind::IDENTIFIER), ErrorKind::EXPECTED, "identifier");
+				auto name =
+					lx.take_or_fail(is_sym(SymbolKind::IDENTIFIER), ErrorKind::GRAMMATICAL, "expected an identifier");
 				auto ident = std::make_shared<Node>(name);
 
-				lx.expect(is_expression, ErrorKind::EXPECTED, "expression");
+				lx.expect(is_expression, ErrorKind::GRAMMATICAL, "expected an expression");
 				auto expr = expression(lx.peek(), bp);
 
 				return std::make_shared<Node>(SymbolKind::FUNCTION, ident, expr);
@@ -1015,7 +1029,7 @@ namespace cane {
 			default: break;
 		}
 
-		report(ErrorKind::EXPECTED, "prefix operator but got {}", enclose(sym.sv));
+		report(ErrorKind::GRAMMATICAL, "expected a prefix operator but got {}", enclose(sym.sv));
 	}
 
 	inline std::shared_ptr<Node> Parser::infix(Symbol sym, std::shared_ptr<Node> left, size_t bp) {
@@ -1056,7 +1070,7 @@ namespace cane {
 			}
 		}
 
-		report(ErrorKind::EXPECTED, "infix operator but got {}", enclose(sym.sv));
+		report(ErrorKind::GRAMMATICAL, "expected an infix operator but got {}", enclose(sym.sv));
 	}
 
 	inline std::shared_ptr<Node> Parser::postfix(Symbol sym, std::shared_ptr<Node> left) {
@@ -1073,7 +1087,7 @@ namespace cane {
 			default: break;
 		}
 
-		report(ErrorKind::EXPECTED, "postfix operator but got {}", enclose(sym.sv));
+		report(ErrorKind::GRAMMATICAL, "expected a postfix operator but got {}", enclose(sym.sv));
 	}
 
 	inline std::shared_ptr<Node> Parser::expression(Symbol sym, size_t bp) {
@@ -1102,7 +1116,8 @@ namespace cane {
 		}
 
 		else {
-			report(ErrorKind::EXPECTED, "primary expression or prefix operator but got {}", enclose(sym.sv));
+			report(
+				ErrorKind::GRAMMATICAL, "expected a primary expression or prefix operator but got {}", enclose(sym.sv));
 		}
 
 		sym = lx.peek();
@@ -1133,7 +1148,7 @@ namespace cane {
 			}
 
 			else {
-				report(ErrorKind::EXPECTED, "infix or postfix operator {}", enclose(sym.sv));
+				report(ErrorKind::GRAMMATICAL, "expected an infix or postfix operator {}", enclose(sym.sv));
 			}
 
 			sym = lx.peek();
@@ -1236,37 +1251,92 @@ namespace cane::passes {
 	}
 
 	// type checking
-	inline Type::Ptr typer(Node::Ptr node) {
+	// We need to add a map of types to describe which operators allow which
+	// types as arguments and then what the result types are.
+	// Easiest solution is probably to have a vector of pairs of types to some
+	// result type and if we can't find 2 types in this vector, it's a type error.
+	// Should try to implement it using an X macro like for symbols.
+	using Environment = std::multimap<std::string_view, Node::Ptr>;
+
+	inline Type::Ptr typer(Node::Ptr node, Environment env) {
+		struct TypeMapping {
+			SymbolKind left;
+			SymbolKind right;
+
+			SymbolKind output;
+		};
+
+		const std::vector<TypeMapping> type_map = {};
+
 		if (not node) {
-			return nullptr;
+			return std::make_shared<Type>(TypeKind::NONE);
 		}
 
 		CANE_LOG(LogKind::OKAY, "kind -> {}", node->kind);
 
 		switch (node->kind) {
+			case SymbolKind::IDENTIFIER: {
+				auto [first, last] = env.equal_range(node->sv);
+
+				if (first != last) {
+					Node::Ptr binding = std::prev(last, 1)->second;
+					node->type = binding->type;
+
+					return node->type;
+				}
+
+				report(ErrorKind::SEMANTIC, "unknown binding {}", enclose(node->sv));
+			} break;
+
 			case SymbolKind::BEAT:  // Atoms
 			case SymbolKind::REST:
-
-			case SymbolKind::NUMBER:
-			case SymbolKind::IDENTIFIER: {
+			case SymbolKind::NUMBER: {
 				return node->type;
 			} break;
+
+			case SymbolKind::FUNCTION:
 
 			case SymbolKind::INVERT:  // Unary
 			case SymbolKind::REVERSE:
 
 			case SymbolKind::ABS:
 			case SymbolKind::NEG: {
-				return typer(node->right);
+				return typer(node->right, env);
 			} break;
 
 			case SymbolKind::CALL: {
-				// At this point we should fill in the types for the
-				// argument to the function.
-				Type::Ptr arg = typer(node->right);
-				Type::Ptr fn = typer(node->left);
+				// At this point, we can infer the types of a function
+				// since we can access the type of the argument. The process
+				// of inference is to call another function which walks down the
+				// tree of the function, picking up its argument name and propagating
+				// the type of the argument through this. We may end up with a case
+				// like in closures where we cannot fully type the function but
+				// this is okay because the assumption is that at some later point
+				// we will have another call to this function where we will then again
+				// infer the types.
 
-				fn->left->kind = arg->kind;
+				if (node->left->kind != SymbolKind::FUNCTION) {
+					report(ErrorKind::TYPE, "expected a function");
+				}
+
+				Node::Ptr fn = node->left;
+				Node::Ptr arg = node->right;
+
+				if (fn->left->kind != SymbolKind::IDENTIFIER) {
+					report(ErrorKind::TYPE, "expected an identifier");
+				}
+
+				Node::Ptr binding = fn->left;
+
+				arg->type = typer(arg, env);
+				fn->left->type = arg->type;
+
+				env.emplace(binding->sv, arg);
+
+				fn->type = typer(fn, env);
+				node->type = fn->type;
+
+				return node->type;
 			} break;
 
 			case SymbolKind::ADD:
@@ -1275,8 +1345,6 @@ namespace cane::passes {
 			case SymbolKind::DIV:
 
 			case SymbolKind::ASSIGN:
-
-			case SymbolKind::FUNCTION:
 
 			case SymbolKind::CONCAT:
 			case SymbolKind::MAP:
@@ -1296,14 +1364,14 @@ namespace cane::passes {
 
 			case SymbolKind::LCM:
 			case SymbolKind::GCD: {
-				typer(node->left);
-				typer(node->right);
+				typer(node->left, env);
+				typer(node->right, env);
 			} break;
 
 			case SymbolKind::PATTERN_BEGIN:  // Lists
 			case SymbolKind::CHOICE_BEGIN: {
-				typer(node->left);
-				typer(node->right);
+				typer(node->left, env);
+				typer(node->right, env);
 			} break;
 
 			default: {
@@ -1311,7 +1379,7 @@ namespace cane::passes {
 			} break;
 		}
 
-		return nullptr;
+		return std::make_shared<Type>(TypeKind::NONE);
 	}
 }  // namespace cane::passes
 
@@ -1322,7 +1390,7 @@ int main(int, const char* argv[]) {
 
 		auto expr = parser.parse();
 
-		cane::passes::typer(expr);
+		cane::passes::typer(expr, {});
 		cane::passes::printer(expr);
 	}
 
