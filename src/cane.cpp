@@ -126,7 +126,7 @@ namespace cane {
 		template <typename T>
 		inline decltype(auto) dbg_impl(
 			std::string_view file, std::string_view line, std::string_view func, std::string_view str, T&& expr) {
-			fmt::print(std::cerr,
+			fmt::print(stderr,
 				"{} [{}:{}] `{}`" CANE_RESET " {} = {}\n",
 				LogKind::EXPR,
 				std::filesystem::relative(file).native(),
@@ -948,7 +948,7 @@ namespace cane {
 			} break;
 
 			case SymbolKind::CHOICE_BEGIN: {
-				std::shared_ptr<Node> node = nullptr;
+				auto node = std::make_shared<Node>(SymbolKind::NONE);
 
 				lx.discard();  // lbrace
 				lx.expect(is_expression, ErrorKind::GRAMMATICAL, "expected an expression");
@@ -1005,16 +1005,16 @@ namespace cane {
 			case SymbolKind::FUNCTION: {
 				lx.discard();  // slash
 
-				std::shared_ptr<Node> node = nullptr;
+				auto node = std::make_shared<Node>(SymbolKind::NONE);
 
 				auto name =
 					lx.take_or_fail(is_sym(SymbolKind::IDENTIFIER), ErrorKind::GRAMMATICAL, "expected an identifier");
-				auto ident = std::make_shared<Node>(name);
 
 				lx.expect(is_expression, ErrorKind::GRAMMATICAL, "expected an expression");
 				auto expr = expression(lx.peek(), bp);
 
-				return std::make_shared<Node>(SymbolKind::FUNCTION, ident, expr);
+				return std::make_shared<Node>(
+					SymbolKind::FUNCTION, name.sv, std::make_shared<Node>(SymbolKind::NONE), expr);
 			} break;
 
 			case SymbolKind::ABS:
@@ -1023,7 +1023,7 @@ namespace cane {
 			case SymbolKind::INVERT:
 			case SymbolKind::REVERSE: {
 				lx.discard();  // op
-				return std::make_shared<Node>(sym, nullptr, expression(lx.peek(), bp));
+				return std::make_shared<Node>(sym, std::make_shared<Node>(SymbolKind::NONE), expression(lx.peek(), bp));
 			} break;
 
 			default: break;
@@ -1093,7 +1093,7 @@ namespace cane {
 	inline std::shared_ptr<Node> Parser::expression(Symbol sym, size_t bp) {
 		CANE_LOG(LogKind::OKAY, "sym: {}, bp: {}", sym, bp);
 
-		std::shared_ptr<Node> node = nullptr;
+		auto node = std::make_shared<Node>(SymbolKind::NONE);
 
 		// Re-assign overloaded sigils based on them being prefix.
 		// This simplifies other logic later like for handling binding
@@ -1158,7 +1158,7 @@ namespace cane {
 	}
 
 	inline std::shared_ptr<Node> Parser::parse() {
-		std::shared_ptr<Node> node = nullptr;
+		auto node = std::make_shared<Node>(SymbolKind::NONE);
 
 		while (lx.peek().kind != SymbolKind::END_FILE) {
 			node = expression(lx.peek(), 0);  // Re-assign every time to discard last expression.
@@ -1201,6 +1201,11 @@ namespace cane::passes {
 				printer(node->right, indent + 1);
 			} break;
 
+			case SymbolKind::FUNCTION: {
+				CANE_LOG(LogKind::INFO, "{}{} {} {}", spaces, node->kind, node->type->kind, node->sv);
+				printer(node->right, indent + 1);
+			} break;
+
 			case SymbolKind::ADD:  // Binary
 			case SymbolKind::SUB:
 			case SymbolKind::MUL:
@@ -1209,8 +1214,6 @@ namespace cane::passes {
 			case SymbolKind::CALL:
 
 			case SymbolKind::ASSIGN:
-
-			case SymbolKind::FUNCTION:
 
 			case SymbolKind::CONCAT:
 			case SymbolKind::MAP:
@@ -1258,7 +1261,7 @@ namespace cane::passes {
 	// Should try to implement it using an X macro like for symbols.
 	using Environment = std::multimap<std::string_view, Node::Ptr>;
 
-	inline Type::Ptr typer(Node::Ptr node, Environment env) {
+	inline Node::Ptr typer(Node::Ptr node, Environment env) {
 		struct TypeMapping {
 			SymbolKind left;
 			SymbolKind right;
@@ -1269,7 +1272,7 @@ namespace cane::passes {
 		const std::vector<TypeMapping> type_map = {};
 
 		if (not node) {
-			return std::make_shared<Type>(TypeKind::NONE);
+			return std::make_shared<Node>(SymbolKind::NONE);
 		}
 
 		CANE_LOG(LogKind::OKAY, "kind -> {}", node->kind);
@@ -1282,7 +1285,7 @@ namespace cane::passes {
 					Node::Ptr binding = std::prev(last, 1)->second;
 					node->type = binding->type;
 
-					return node->type;
+					return node;
 				}
 
 				report(ErrorKind::SEMANTIC, "unknown binding {}", enclose(node->sv));
@@ -1291,13 +1294,13 @@ namespace cane::passes {
 			case SymbolKind::BEAT:  // Atoms
 			case SymbolKind::REST:
 			case SymbolKind::NUMBER: {
-				return node->type;
+				return node;
 			} break;
-
-			case SymbolKind::FUNCTION:
 
 			case SymbolKind::INVERT:  // Unary
 			case SymbolKind::REVERSE:
+
+			case SymbolKind::FUNCTION:
 
 			case SymbolKind::ABS:
 			case SymbolKind::NEG: {
@@ -1315,28 +1318,23 @@ namespace cane::passes {
 				// we will have another call to this function where we will then again
 				// infer the types.
 
-				if (node->left->kind != SymbolKind::FUNCTION) {
-					report(ErrorKind::TYPE, "expected a function");
-				}
-
 				Node::Ptr fn = node->left;
 				Node::Ptr arg = node->right;
 
-				if (fn->left->kind != SymbolKind::IDENTIFIER) {
-					report(ErrorKind::TYPE, "expected an identifier");
-				}
+				CANE_LOG(LogKind::WARN, "fn: {}, arg: {}", fn->kind, arg->kind);
 
-				Node::Ptr binding = fn->left;
+				std::string_view binding = fn->sv;
+				Node::Ptr body = fn->right;
 
-				arg->type = typer(arg, env);
-				fn->left->type = arg->type;
+				typer(arg, env);
 
-				env.emplace(binding->sv, arg);
+				env.emplace(binding, arg);
+				CANE_LOG(LogKind::WARN, "bind {} -> {}", binding, arg->kind);
 
-				fn->type = typer(fn, env);
+				fn->type = typer(fn, env)->type;
 				node->type = fn->type;
 
-				return node->type;
+				return node;
 			} break;
 
 			case SymbolKind::ADD:
@@ -1379,7 +1377,7 @@ namespace cane::passes {
 			} break;
 		}
 
-		return std::make_shared<Type>(TypeKind::NONE);
+		return std::make_shared<Node>(SymbolKind::NONE);
 	}
 }  // namespace cane::passes
 
