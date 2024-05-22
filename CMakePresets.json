@@ -13,7 +13,9 @@
 			"cacheVariables": {
 				"CMAKE_CXX_COMPILER_LAUNCHER": "ccache",
 				"CMAKE_EXPORT_COMPILE_COMMANDS": true,
-				"CMAKE_COLOR_DIAGNOSTICS": true
+				"CMAKE_COLOR_DIAGNOSTICS": true,
+				"SANITIZE_ADDRESS": true,
+				"SANITIZE_UNDEFINED": true
 			}
 		},
 		{
