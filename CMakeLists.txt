@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.5)
 project(cane CXX)
 
 add_executable(cane src/cane.cpp)
