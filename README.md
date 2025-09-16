@@ -3,11 +3,9 @@
 
 Cane is a live-coding language designed to sequence your MIDI capable devices.
 
-![C](https://img.shields.io/badge/c-17-blue.svg?style=flat)
-[![issues](https://img.shields.io/github/issues/tarpit-collective/cane.svg?style=flat)](https://github.com/tarpit-collective/cane/issues)
-[![pull requests](https://img.shields.io/github/issues-pr/tarpit-collective/cane?style=flat)](https://github.com/tarpit-collective/cane/pulls)
-[![license](https://img.shields.io/github/license/tarpit-collective/cane.svg?style=flat)](./LICENSE)
-[![discord](https://img.shields.io/discord/997102432133849088.svg?label=discord&style=flat)](https://discord.gg/UVYAtpYYD2)
+![C](https://badgen.net/static/C/17/orange)
+[![license](https://badgen.net/github/license/tarpit-collective/cane)](./LICENSE)
+[![discord](https://badgen.net/discord/members/UVYAtpYYD2)](https://discord.gg/UVYAtpYYD2)
 
 ### What Can Cane Do?
 - Live-coding
