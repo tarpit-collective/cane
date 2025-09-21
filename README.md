@@ -1,4 +1,4 @@
-# neo cane
+# cane (v2)
 > The beatings will continue until a banger is made
 
 Cane is a live-coding language designed to sequence your MIDI capable devices.
