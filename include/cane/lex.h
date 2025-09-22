@@ -81,15 +81,46 @@ const char* CANE_SYMBOL_TO_STR[] = {SYMBOLS};
 
 #undef SYMBOLS
 
-typedef struct cane_symbol_t cane_symbol_t;
+/////////////
+// Strings //
+/////////////
 
-struct cane_symbol_t {
+typedef struct cane_string_view cane_string_view_t;
+
+struct cane_string_view {
+	const char* begin;
+	const char* end;
+};
+
+// String functions
+static size_t cane_string_view_length(cane_string_view_t sv) {
+	return cane_ptrdiff(sv.begin, sv.end);
+}
+
+static bool
+cane_string_view_eq(cane_string_view_t lhs, cane_string_view_t rhs) {
+	size_t lhs_length = cane_ptrdiff(lhs.begin, lhs.end);
+	size_t rhs_length = cane_ptrdiff(rhs.begin, rhs.end);
+
+	if (lhs_length != rhs_length) {
+		return false;
+	}
+
+	return strncmp(lhs.begin, rhs.begin, lhs_length) == 0;
+}
+
+#define CANE_SV(str) \
+	((cane_string_view_t){str, ((const char*)str) + (sizeof(str) - 1)})
+
+/////////////
+// Symbols //
+/////////////
+
+typedef struct cane_symbol cane_symbol_t;
+
+struct cane_symbol {
 	cane_symbol_kind_t kind;
-
-	struct {
-		const char* ptr;
-		const char* end;
-	} str;
+	cane_string_view_t str;
 };
 
 ///////////
@@ -101,7 +132,7 @@ typedef bool (*cane_lexer_pred_t)(char);  // Used for lexer predicates
 typedef struct cane_lexer cane_lexer_t;
 
 struct cane_lexer {
-	const char* const src;
+	cane_string_view_t source;
 
 	const char* ptr;
 	const char* end;
@@ -109,29 +140,30 @@ struct cane_lexer {
 	cane_symbol_t peek;
 };
 
-static bool
-cane_lexer_take(cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol);
+static bool cane_lexer_take(cane_lexer_t* lx, cane_symbol_t* symbol);
 
-// static cane_lexer_t
-// cane_lexer_create(cane_logger_t log, const char* ptr, const char* end) {
-// 	cane_lexer_t lx = (cane_lexer_t){
-// 		.src = ptr,
+static cane_lexer_t cane_lexer_create(cane_string_view_t sv) {
+	cane_lexer_t lx = (cane_lexer_t){
+		.source = sv,  // Original source for error reporting
 
-// 		.ptr = ptr,
-// 		.end = end,
+		.ptr = sv.begin,  // Initialise lexer pointers
+		.end = sv.end,
 
-// 		.peek =
-// 			(cane_symbol_t){
-// 				.kind = CANE_SYMBOL_NONE,
-// 				.str.ptr = ptr,
-// 				.str.end = ptr,
-// 			},
-// 	};
+		.peek =  // Initialise peek to NONE
+		{
+			.kind = CANE_SYMBOL_NONE,
+			.str =
+				{
+					.begin = sv.begin,
+					.end = sv.end,
+				},
+		},
+	};
 
-// 	cane_lexer_take(log, &lx, NULL);
+	cane_lexer_take(&lx, NULL);
 
-// 	return lx;
-// }
+	return lx;
+}
 
 // Basic stream interaction
 static char cane_lexer_char_peek(cane_lexer_t* lx) {
@@ -173,15 +205,19 @@ static bool cane_lexer_take_ifc(cane_lexer_t* lx, char c) {
 	return true;
 }
 
-static bool cane_lexer_take_str(cane_lexer_t* lx, const char* str) {
-	size_t length = strlen(str);
+static bool cane_lexer_take_str(cane_lexer_t* lx, cane_string_view_t sv) {
+	size_t length = cane_string_view_length(sv);
 
-	if (lx->ptr + length >= lx->end) {
+	if (lx->ptr + length > lx->end) {
 		return false;
 	}
 
-	// TODO: Use custom strncmp to avoid iterating strings twice.
-	if (strncmp(lx->ptr, str, length) != 0) {
+	cane_string_view_t current_symbol = (cane_string_view_t){
+		.begin = lx->ptr,
+		.end = lx->ptr + length,
+	};
+
+	if (!cane_string_view_eq(sv, current_symbol)) {
 		return false;
 	}
 
@@ -228,7 +264,6 @@ static bool cane_is_ident(char c) {
 // These functions wrap the basic "lexer_take" functions so that we can
 // wrap them into a symbol type/token.
 static bool cane_lexer_produce_if(
-	cane_logger_t log,
 	cane_lexer_t* lx,
 	cane_symbol_t* symbol,
 	cane_symbol_kind_t kind,
@@ -236,7 +271,8 @@ static bool cane_lexer_produce_if(
 ) {
 	cane_symbol_t next_symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
-		.str.ptr = lx->ptr,
+
+		.str.begin = lx->ptr,
 		.str.end = lx->ptr,
 	};
 
@@ -255,7 +291,6 @@ static bool cane_lexer_produce_if(
 }
 
 static bool cane_lexer_produce_while(
-	cane_logger_t log,
 	cane_lexer_t* lx,
 	cane_symbol_t* symbol,
 	cane_symbol_kind_t kind,
@@ -263,7 +298,8 @@ static bool cane_lexer_produce_while(
 ) {
 	cane_symbol_t next_symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
-		.str.ptr = lx->ptr,
+
+		.str.begin = lx->ptr,
 		.str.end = lx->ptr,
 	};
 
@@ -282,19 +318,19 @@ static bool cane_lexer_produce_while(
 }
 
 static bool cane_lexer_produce_str(
-	cane_logger_t log,
 	cane_lexer_t* lx,
 	cane_symbol_t* symbol,
 	cane_symbol_kind_t kind,
-	const char* str
+	cane_string_view_t sv
 ) {
 	cane_symbol_t next_symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
-		.str.ptr = lx->ptr,
+
+		.str.begin = lx->ptr,
 		.str.end = lx->ptr,
 	};
 
-	if (!cane_lexer_take_str(lx, str)) {
+	if (!cane_lexer_take_str(lx, sv)) {
 		return false;
 	}
 
@@ -309,13 +345,11 @@ static bool cane_lexer_produce_str(
 }
 
 // Cane specific lexer functions
-static bool cane_lexer_produce_ident(
-	cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol
-) {
+static bool cane_lexer_produce_ident(cane_lexer_t* lx, cane_symbol_t* symbol) {
 	cane_symbol_t next_symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
 
-		.str.ptr = lx->ptr,
+		.str.begin = lx->ptr,
 		.str.end = lx->ptr,
 	};
 
@@ -334,28 +368,28 @@ static bool cane_lexer_produce_ident(
 	// as 2 seperate tokens because it sees `let` and stops there.
 
 	// Keywords
-	if (strcmp(next_symbol.str.ptr, "lcm") != 0) {
+	if (cane_string_view_eq(next_symbol.str, CANE_SV("lcm"))) {
 		next_symbol.kind = CANE_SYMBOL_LCM;
 	}
 
-	else if (strcmp(next_symbol.str.ptr, "gcd") != 0) {
+	else if (cane_string_view_eq(next_symbol.str, CANE_SV("gcd"))) {
 		next_symbol.kind = CANE_SYMBOL_GCD;
 	}
 
 	// Operators
-	else if (strcmp(next_symbol.str.ptr, "or") != 0) {
+	else if (cane_string_view_eq(next_symbol.str, CANE_SV("or"))) {
 		next_symbol.kind = CANE_SYMBOL_OR;
 	}
 
-	else if (strcmp(next_symbol.str.ptr, "xor") != 0) {
+	else if (cane_string_view_eq(next_symbol.str, CANE_SV("xor"))) {
 		next_symbol.kind = CANE_SYMBOL_XOR;
 	}
 
-	else if (strcmp(next_symbol.str.ptr, "and") != 0) {
+	else if (cane_string_view_eq(next_symbol.str, CANE_SV("and"))) {
 		next_symbol.kind = CANE_SYMBOL_AND;
 	}
 
-	else if (strcmp(next_symbol.str.ptr, "not") != 0) {
+	else if (cane_string_view_eq(next_symbol.str, CANE_SV("not"))) {
 		next_symbol.kind = CANE_SYMBOL_NOT;
 	}
 
@@ -371,73 +405,67 @@ static bool cane_lexer_produce_ident(
 	return true;
 }
 
-static bool cane_lexer_produce_number(
-	cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol
-) {
+static bool cane_lexer_produce_number(cane_lexer_t* lx, cane_symbol_t* symbol) {
 	return cane_lexer_produce_while(
-		log, lx, symbol, CANE_SYMBOL_NUMBER, cane_is_digit
+		lx, symbol, CANE_SYMBOL_NUMBER, cane_is_digit
 	);
 }
 
-static bool cane_lexer_produce_sigil(
-	cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol
-) {
+static bool cane_lexer_produce_sigil(cane_lexer_t* lx, cane_symbol_t* symbol) {
 	// clang-format off
 	#define CANE_PRODUCE_SIGIL(sym, str) \
-		cane_lexer_produce_str(log, lx, symbol, sym, str)
+		cane_lexer_produce_str(lx, symbol, sym, str)
 
 	return
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_BEAT,  "!") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REST,  ".") ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_BEAT, CANE_SV("!")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REST, CANE_SV(".")) ||
 
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_ASSIGN,  "=>") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RHYTHM,  ":")  ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REVERSE, "'")  ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_MAP,     "@")  ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REPEAT,  "**") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_INVERT,  "~")  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_ASSIGN,  CANE_SV("=>")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RHYTHM,  CANE_SV(":"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REVERSE, CANE_SV("'"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_MAP,     CANE_SV("@"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REPEAT,  CANE_SV("**")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_INVERT,  CANE_SV("~"))  ||
 
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_ADD, "+") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_SUB, "-") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_MUL, "*") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_DIV, "/") ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_ADD, CANE_SV("+")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_SUB, CANE_SV("-")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_MUL, CANE_SV("*")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_DIV, CANE_SV("/")) ||
 
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_LPAREN,   "(") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RPAREN,   ")") ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_LPAREN, CANE_SV("(")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RPAREN, CANE_SV(")")) ||
 
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_LBRACE,   "{") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RBRACE,   "}") ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_LBRACE, CANE_SV("{")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RBRACE, CANE_SV("}")) ||
 
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_LBRACKET, "[") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RBRACKET, "]") ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_LBRACKET, CANE_SV("[")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RBRACKET, CANE_SV("]")) ||
 
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_LCHEVRON, "<") ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RCHEVRON, ">")
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_LCHEVRON, CANE_SV("<")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RCHEVRON, CANE_SV(">"))
 	;
 
 	#undef CANE_PRODUCE_SIGIL
-	// clang-fcane_fail()ormat on
+	// clang-format on
 }
 
-static bool cane_lexer_produce_whitespace(
-	cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol
-) {
+static bool
+cane_lexer_produce_whitespace(cane_lexer_t* lx, cane_symbol_t* symbol) {
 	return cane_lexer_produce_while(
-		log, lx, symbol, CANE_SYMBOL_WHITESPACE, cane_is_whitespace
+		lx, symbol, CANE_SYMBOL_WHITESPACE, cane_is_whitespace
 	);
 }
 
-static bool cane_lexer_produce_comment(
-	cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol
-) {
+static bool
+cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* symbol) {
 	cane_symbol_t next_symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
 
-		.str.ptr = lx->ptr,
+		.str.begin = lx->ptr,
 		.str.end = lx->ptr,
 	};
 
-	if (!cane_lexer_take_str(lx, "#!")) {
+	if (!cane_lexer_take_str(lx, CANE_SV("#!"))) {
 		return false;
 	}
 
@@ -457,8 +485,7 @@ static bool cane_lexer_produce_comment(
 
 // Core lexer interface
 // TODO: Reconsider implementation. Is it safe to always return true?
-static bool
-cane_lexer_peek(cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol) {
+static bool cane_lexer_peek(cane_lexer_t* lx, cane_symbol_t* symbol) {
 	if (symbol != NULL) {
 		*symbol = lx->peek;
 	}
@@ -468,17 +495,19 @@ cane_lexer_peek(cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol) {
 
 // TODO: Make lexer_next produce all tokens and then wrap it in
 // another function which skips whitespace and comments.
-static bool
-cane_lexer_take(cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol) {
+static bool cane_lexer_take(cane_lexer_t* lx, cane_symbol_t* symbol) {
+	cane_logger_t log = cane_logger_create_default();
+	CANE_FUNCTION_ENTER(log);
+
 	cane_symbol_t next_symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
 
-		.str.ptr = lx->ptr,
+		.str.begin = lx->ptr,
 		.str.end = lx->ptr,
 	};
 
-	while (cane_lexer_produce_whitespace(log, lx, NULL) ||
-		   cane_lexer_produce_comment(log, lx, NULL)) {}
+	while (cane_lexer_produce_whitespace(lx, NULL) ||
+		   cane_lexer_produce_comment(lx, NULL)) {}
 
 	// Handle EOF
 	if (lx->ptr >= lx->end) {
@@ -486,17 +515,17 @@ cane_lexer_take(cane_logger_t log, cane_lexer_t* lx, cane_symbol_t* symbol) {
 	}
 
 	// Handle normal tokens
-	else if (!(cane_lexer_produce_ident(log, lx, &next_symbol) ||
-			   cane_lexer_produce_number(log, lx, &next_symbol) ||
-			   cane_lexer_produce_sigil(log, lx, &next_symbol))) {
-		cane_log(log, CANE_PRIORITY_FAIL, "unknown character");
+	else if (!(cane_lexer_produce_ident(lx, &next_symbol) ||
+			   cane_lexer_produce_number(lx, &next_symbol) ||
+			   cane_lexer_produce_sigil(lx, &next_symbol))) {
+		cane_die(log, NULL, NULL, NULL, "unknown character `%c`!", lx->ptr[0]);
 		return false;
 	}
 
 	// Return previously peeked token and then store newly
 	// lexed token to be used on the next call to peek.
 	if (symbol != NULL) {
-		cane_lexer_peek(log, lx, symbol);
+		cane_lexer_peek(lx, symbol);
 	}
 
 	lx->peek = next_symbol;

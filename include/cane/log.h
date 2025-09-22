@@ -2,7 +2,9 @@
 #define CANE_LOG_H
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 // ANSI Colours
 #define CANE_RESET "\x1b[0m"
@@ -46,7 +48,7 @@
 
 // Logging
 #define LOGLEVELS \
-	X(CANE_PRIORITY_INFO, "[.]", "info", CANE_CYAN_BRIGHT) \
+	X(CANE_PRIORITY_INFO, "[.]", "info", CANE_WHITE) \
 	X(CANE_PRIORITY_WARN, "[*]", "warn", CANE_BLUE) \
 	X(CANE_PRIORITY_FAIL, "[!]", "fail", CANE_RED) \
 	X(CANE_PRIORITY_OKAY, "[^]", "okay", CANE_GREEN) \
@@ -76,7 +78,10 @@ const char* CANE_LOGLEVEL_COLOUR[] = {LOGLEVELS};
 
 #undef LOGLEVELS
 
-// Logger
+////////////
+// Logger //
+////////////
+
 typedef struct cane_logger cane_logger_t;
 
 struct cane_logger {
@@ -85,6 +90,15 @@ struct cane_logger {
 	cane_loglevel_t level;
 	size_t indent;
 };
+
+static cane_logger_t cane_logger_create_default() {
+	return (cane_logger_t){
+		.name = "global",
+		.dest = stderr,
+		.level = CANE_PRIORITY_INFO,
+		.indent = 0,
+	};
+}
 
 static void cane_log_lineinfo_v(
 	cane_logger_t log,

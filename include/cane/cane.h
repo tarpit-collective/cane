@@ -30,22 +30,19 @@ typedef struct {
 // }
 
 // Primary call that sets up lexer and context automatically.
-static cane_symbol_t*
-cane_parse(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx);
+static cane_symbol_t* cane_parse(cane_context_t* ctx, cane_lexer_t* lx);
 
 // Forward declarations for mutual recursion
-static cane_symbol_t*
-cane_parse_program(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx);
+static cane_symbol_t* cane_parse_program(cane_context_t* ctx, cane_lexer_t* lx);
 
 // static cane_symbol_t*
-// cane_parse_expression(cane_logger_t log, cane_context_t* ctx, cane_lexer_t*
+// cane_parse_expression(cane_context_t* ctx, cane_lexer_t*
 // lx);
 
 static cane_symbol_t*
-cane_parse_function(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx);
+cane_parse_function(cane_context_t* ctx, cane_lexer_t* lx);
 
-static cane_symbol_t*
-cane_parse_literal(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx);
+static cane_symbol_t* cane_parse_literal(cane_context_t* ctx, cane_lexer_t* lx);
 
 // Convenience functions
 typedef bool (*cane_parser_pred_t)(cane_symbol_t);  // For parser predicates
@@ -85,63 +82,62 @@ static bool cane_is_expression(cane_symbol_t symbol) {
 }
 
 // Automatically handle peeking
-static bool cane_peek_is_kind(
-	cane_logger_t log, cane_lexer_t* lx, cane_symbol_kind_t kind
-) {
+static bool cane_peek_is_kind(cane_lexer_t* lx, cane_symbol_kind_t kind) {
 	cane_symbol_t symbol;
-	cane_lexer_peek(log, lx, &symbol);
+	cane_lexer_peek(lx, &symbol);
 
 	return symbol.kind == kind;
 }
 
-static bool
-cane_peek_is(cane_logger_t log, cane_lexer_t* lx, cane_parser_pred_t cond) {
+static bool cane_peek_is(cane_lexer_t* lx, cane_parser_pred_t cond) {
 	cane_symbol_t symbol;
-	cane_lexer_peek(log, lx, &symbol);
+	cane_lexer_peek(lx, &symbol);
 
 	return cond(symbol);
 }
 
-static bool cane_peek_is_expression(cane_logger_t log, cane_lexer_t* lx) {
-	return cane_peek_is(log, lx, cane_is_expression);
+static bool cane_peek_is_expression(cane_lexer_t* lx) {
+	return cane_peek_is(lx, cane_is_expression);
 }
 
-static bool cane_peek_is_operator(cane_logger_t log, cane_lexer_t* lx) {
-	return cane_peek_is(log, lx, cane_is_operator);
+static bool cane_peek_is_operator(cane_lexer_t* lx) {
+	return cane_peek_is(lx, cane_is_operator);
 }
 
-static bool cane_peek_is_literal(cane_logger_t log, cane_lexer_t* lx) {
-	return cane_peek_is(log, lx, cane_is_literal);
+static bool cane_peek_is_literal(cane_lexer_t* lx) {
+	return cane_peek_is(lx, cane_is_literal);
 }
 
 // Parsing utilities
 static void cane_expect_kind(
-	cane_logger_t log,
-	cane_lexer_t* lx,
-	cane_symbol_kind_t kind,
-	const char* fmt,
-	...
+	cane_lexer_t* lx, cane_symbol_kind_t kind, const char* fmt, ...
 ) {
 	// TODO: Report line info from cane lexer. (use cane_log_info function).
+	cane_logger_t log = cane_logger_create_default();
 
-	if (cane_peek_is_kind(log, lx, kind)) {
+	if (cane_peek_is_kind(lx, kind)) {
 		return;
 	}
 
 	cane_symbol_t peeker;
-	cane_lexer_peek(log, lx, &peeker);
+	cane_lexer_peek(lx, &peeker);
 
 	CANE_LOG_INFO(
 		log,
+
 		"expected = %s, kind = %s, ptr = %p, end = %p, size = %lu, str = "
 		"'%.*s'",
+
 		CANE_SYMBOL_KIND_TO_STR[kind],
 		CANE_SYMBOL_KIND_TO_STR[peeker.kind],
-		(void*)peeker.str.ptr,
+
+		(void*)peeker.str.begin,
 		(void*)peeker.str.end,
-		cane_ptrdiff(peeker.str.ptr, peeker.str.end),
-		cane_ptrdiff(peeker.str.ptr, peeker.str.end),
-		peeker.str.ptr
+
+		cane_ptrdiff(peeker.str.begin, peeker.str.end),
+		cane_ptrdiff(peeker.str.begin, peeker.str.end),
+
+		peeker.str.begin
 	);
 
 	va_list args;
@@ -154,16 +150,12 @@ static void cane_expect_kind(
 	exit(EXIT_FAILURE);
 }
 
-static void cane_expect(
-	cane_logger_t log,
-	cane_lexer_t* lx,
-	cane_parser_pred_t cond,
-	const char* fmt,
-	...
-) {
+static void
+cane_expect(cane_lexer_t* lx, cane_parser_pred_t cond, const char* fmt, ...) {
 	// TODO: Report line info from cane lexer. (use cane_log_info function).
+	cane_logger_t log = cane_logger_create_default();
 
-	if (cane_peek_is(log, lx, cond)) {
+	if (cane_peek_is(lx, cond)) {
 		return;
 	}
 
@@ -178,35 +170,32 @@ static void cane_expect(
 }
 
 // Implementation of core parsing functions
-static cane_symbol_t*
-cane_parse(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx) {
+static cane_symbol_t* cane_parse(cane_context_t* ctx, cane_lexer_t* lx) {
+	cane_logger_t log = cane_logger_create_default();
 	CANE_FUNCTION_ENTER(log);
 
-	cane_symbol_t* program = cane_parse_program(log, ctx, lx);
+	cane_symbol_t* program = cane_parse_program(ctx, lx);
 
 	return program;
 }
 
 // Core parsing functions
 static cane_symbol_t*
-cane_parse_program(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx) {
-	CANE_FUNCTION_ENTER(log);
-
+cane_parse_program(cane_context_t* ctx, cane_lexer_t* lx) {
 	cane_symbol_t* program =
 		NULL;  // TODO: Use allocator API to construct linked list.
 
-	while (cane_peek_is_expression(log, lx)) {
+	while (cane_peek_is_expression(lx)) {
 		// TODO: Concatenate `expr` with `program` to build up a linked list of
 		// instructions which will act as our intermediate representation in the
 		// compiler.
-		// cane_symbol_t* expr = cane_parse_expression(log, ctx, lx);
+		// cane_symbol_t* expr = cane_parse_expression(ctx, lx);
 	}
 
 	cane_symbol_t symbol;
-	cane_lexer_peek(log, lx, &symbol);
+	cane_lexer_peek(lx, &symbol);
 
 	cane_expect_kind(
-		log,
 		lx,
 		CANE_SYMBOL_ENDFILE,
 		"expected EOF but found: '%s'",
@@ -217,55 +206,55 @@ cane_parse_program(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx) {
 }
 
 // static cane_symbol_t* cane_parse_expression(
-// 	cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx
+// 	cane_context_t* ctx, cane_lexer_t* lx
 // ) {
 // 	CANE_FUNCTION_ENTER(log);
 
-// 	cane_expect(log, lx, cane_is_expression, "expected an expression");
+// 	cane_expect(lx, cane_is_expression, "expected an expression");
 
 // 	cane_symbol_t* expression =
 // 		NULL;  // TODO: Use allocator API to construct linked list.
 
 // 	// Integers/strings
-// 	if (cane_peek_is_literal(log, lx)) {
-// 		expression = cane_parse_literal(log, ctx, lx);
+// 	if (cane_peek_is_literal(lx)) {
+// 		expression = cane_parse_literal(ctx, lx);
 // 	}
 
 // 	// Builtin operators/functions
-// 	else if (cane_peek_is_operator(log, lx)) {
-// 		expression = cane_parse_operator(log, ctx, lx);
+// 	else if (cane_peek_is_operator(lx)) {
+// 		expression = cane_parse_operator(ctx, lx);
 // 	}
 
 // 	// Symbol reference
-// 	else if (cane_peek_is_kind(log, lx, CANE_IDENT)) {
+// 	else if (cane_peek_is_kind(lx, CANE_IDENT)) {
 // 		cane_symbol_t symbol;
-// 		cane_lexer_take(log, lx, &symbol);
+// 		cane_lexer_take(lx, &symbol);
 
 // 		// TODO: Handle symbol reference that isn't a builtin
 // 		CANE_WHEREAMI(log);
 // 	}
 
 // 	// Functions
-// 	else if (cane_peek_is_kind(log, lx, CANE_LBRACKET)) {
-// 		expression = cane_parse_function(log, ctx, lx);
+// 	else if (cane_peek_is_kind(lx, CANE_LBRACKET)) {
+// 		expression = cane_parse_function(ctx, lx);
 // 	}
 
 // 	// Swizzle
-// 	else if (cane_peek_is_kind(log, lx, CANE_LPAREN)) {
-// 		expression = cane_parse_swizzle(log, ctx, lx);
+// 	else if (cane_peek_is_kind(lx, CANE_LPAREN)) {
+// 		expression = cane_parse_swizzle(ctx, lx);
 // 	}
 
 // 	// Type assertion
-// 	else if (cane_peek_is_kind(log, lx, CANE_TYPE)) {
+// 	else if (cane_peek_is_kind(lx, CANE_TYPE)) {
 // 		// TODO: Should we even concatenate this expression? Maybe we should
 // 		// just discard it.
-// 		expression = cane_parse_assertion(log, ctx, lx);
+// 		expression = cane_parse_assertion(ctx, lx);
 // 	}
 
 // 	else {
 // 		// TODO: Unreachable
 // 		cane_symbol_t symbol;
-// 		cane_lexer_peek(log, lx, &symbol);
+// 		cane_lexer_peek(lx, &symbol);
 
 // 		cane_log(
 // 			log,
@@ -281,49 +270,47 @@ cane_parse_program(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx) {
 // }
 
 // static cane_symbol_t*
-// cane_parse_function(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx)
+// cane_parse_function(cane_context_t* ctx, cane_lexer_t* lx)
 // { 	CANE_FUNCTION_ENTER(log);
 
-// 	cane_expect_kind(log, lx, CANE_LBRACKET, "expected '['");
-// 	cane_lexer_take(log, lx, NULL);
+// 	cane_expect_kind(lx, CANE_LBRACKET, "expected '['");
+// 	cane_lexer_take(lx, NULL);
 
 // 	cane_symbol_t* function = NULL;
 
-// 	while (cane_peek_is_expression(log, lx)) {
+// 	while (cane_peek_is_expression(lx)) {
 // 		// TODO: Concatenate `expr` with `function` to build up a linked list of
 // 		// instructions which will act as our intermediate representation in the
 // 		// compiler.
-// 		cane_symbol_t* expr = cane_parse_expression(log, ctx, lx);
+// 		cane_symbol_t* expr = cane_parse_expression(ctx, lx);
 // 	}
 
-// 	cane_expect_kind(log, lx, CANE_RBRACKET, "expected ']'");
-// 	cane_lexer_take(log, lx, NULL);
+// 	cane_expect_kind(lx, CANE_RBRACKET, "expected ']'");
+// 	cane_lexer_take(lx, NULL);
 
 // 	return function;
 // }
 
 // static cane_symbol_t*
-// cane_parse_builtin(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx)
+// cane_parse_builtin(cane_context_t* ctx, cane_lexer_t* lx)
 // { 	CANE_FUNCTION_ENTER(log);
 
-// 	cane_expect(log, lx, cane_is_builtin, "expected a built-in");
+// 	cane_expect(lx, cane_is_builtin, "expected a built-in");
 
 // 	// TODO: Allocate this node on the heap and return the pointer.
 // 	cane_symbol_t symbol;
-// 	cane_lexer_take(log, lx, &symbol);
+// 	cane_lexer_take(lx, &symbol);
 
 // 	return NULL;
 // }
 
 static cane_symbol_t*
-cane_parse_literal(cane_logger_t log, cane_context_t* ctx, cane_lexer_t* lx) {
-	CANE_FUNCTION_ENTER(log);
-
-	cane_expect(log, lx, cane_is_literal, "expected a literal");
+cane_parse_literal(cane_context_t* ctx, cane_lexer_t* lx) {
+	cane_expect(lx, cane_is_literal, "expected a literal");
 
 	// TODO: Allocate this node on the heap and return the pointer.
 	cane_symbol_t symbol;
-	cane_lexer_take(log, lx, &symbol);
+	cane_lexer_take(lx, &symbol);
 
 	return NULL;
 }
