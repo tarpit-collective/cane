@@ -31,7 +31,7 @@ The EBNF grammar is [here](doc/syntax.ebnf).
 - [Gwion](https://github.com/Gwion/Gwion)
 - [Prop](https://pbat.ch/proj/prop.html)
 - [fennecdjay](https://github.com/fennecdjay) (for inspiring the project)
-- [qookei](https://github.com/qookei) (for conflict)
+- [qookei](https://github.com/qookei)
 
 ### Resources
 See the list of resources [here](doc/resources.md)
