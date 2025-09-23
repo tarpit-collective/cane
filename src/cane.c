@@ -8,7 +8,7 @@ int main(int argc, const char* argv[]) {
 		.indent = 0,
 	};
 
-	cane_string_view_t sv = CANE_SV("or xor and not + - * / () {} [] <>");
+	cane_string_view_t sv = CANE_SV("or xor and not");
 	cane_lexer_t lx = cane_lexer_create(sv);
 
 	cane_symbol_t sym;

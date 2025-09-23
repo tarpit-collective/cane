@@ -1,7 +1,6 @@
 #ifndef CANE_LEX_H
 #define CANE_LEX_H
 
-#include <ctype.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -14,37 +13,67 @@
 // TOKENS //
 ////////////
 
+// clang-format off
+
 #define SYMBOLS \
-	X(CANE_SYMBOL_NONE, "none") \
-	X(CANE_SYMBOL_ENDFILE, "end of file") \
-\
+	X(CANE_SYMBOL_NONE,       "none") \
+	X(CANE_SYMBOL_ENDFILE,    "end of file") \
 	X(CANE_SYMBOL_WHITESPACE, "whitespace") \
-	X(CANE_SYMBOL_COMMENT, "comment") \
+	X(CANE_SYMBOL_COMMENT,    "comment") \
+\
+	/* Misc. */ \
+	X(CANE_SYMBOL_BACKSLASH, "backslash `\\`") \
+	X(CANE_SYMBOL_COMMA,     "comma `,`") \
+	X(CANE_SYMBOL_DOT,       "dot `.`") \
+	X(CANE_SYMBOL_EXCLAIM,   "exclaim `!`") \
+	X(CANE_SYMBOL_ARROW,     "arrow `=>`") \
+	X(CANE_SYMBOL_COLON,     "colon `:`") \
+	X(CANE_SYMBOL_SEMICOLON, "semicolon `;`") \
+	X(CANE_SYMBOL_QUOTE,     "quote `'`") \
+	X(CANE_SYMBOL_AT,        "at `@`") \
+	X(CANE_SYMBOL_STARS,     "stars `**`") \
+	X(CANE_SYMBOL_TILDA,     "tilda `~`") \
+\
+	/* AST */ \
+	X(CANE_SYMBOL_STATEMENT, "statement") \
+	X(CANE_SYMBOL_CHOICE, "choice") \
+	X(CANE_SYMBOL_LAYER, "layer") \
+	X(CANE_SYMBOL_CONCATENATE, "concatenate") \
+	X(CANE_SYMBOL_CALL, "call") \
+	X(CANE_SYMBOL_CONST, "const") \
+	X(CANE_SYMBOL_ASSIGN, "assign") \
+	X(CANE_SYMBOL_FUNCTION, "function") \
+	X(CANE_SYMBOL_REPEAT, "repeat") \
+	X(CANE_SYMBOL_MAP, "map") \
+	X(CANE_SYMBOL_INVERT, "invert") \
+	X(CANE_SYMBOL_REVERSE, "reverse") \
+	X(CANE_SYMBOL_RHYTHM, "rhythm") \
+\
+	X(CANE_SYMBOL_ABS, "abs") \
+	X(CANE_SYMBOL_NEG, "neg") \
+\
+	X(CANE_SYMBOL_TIMEMUL, "timemul") \
+	X(CANE_SYMBOL_TIMEDIV, "timediv") \
+\
+	X(CANE_SYMBOL_BEAT, "beat") \
+	X(CANE_SYMBOL_REST, "rest") \
+\
+	X(CANE_SYMBOL_LSHIFT, "lshift") \
+	X(CANE_SYMBOL_RSHIFT, "rshift") \
 \
 	/* Atoms */ \
-	X(CANE_SYMBOL_NUMBER, "number") \
-	X(CANE_SYMBOL_STRING, "string") \
-	X(CANE_SYMBOL_IDENT, "ident") \
-\
-	X(CANE_SYMBOL_BEAT, "beat `!`") \
-	X(CANE_SYMBOL_REST, "rest `.`") \
+	X(CANE_SYMBOL_NUMBER,     "number") \
+	X(CANE_SYMBOL_STRING,     "string") \
+	X(CANE_SYMBOL_IDENTIFIER, "identifier") \
 \
 	/* Keywords */ \
 	X(CANE_SYMBOL_LCM, "lcm") \
 	X(CANE_SYMBOL_GCD, "gcd") \
 \
 	/* Operators */ \
-	X(CANE_SYMBOL_ASSIGN, "assign `=>`") \
-	X(CANE_SYMBOL_RHYTHM, "rhythm `:`") \
-	X(CANE_SYMBOL_REVERSE, "reverse `'`") \
-	X(CANE_SYMBOL_MAP, "map `@`") \
-	X(CANE_SYMBOL_REPEAT, "repeat `**`") \
-	X(CANE_SYMBOL_INVERT, "invert `~`") \
-\
-	X(CANE_SYMBOL_OR, "or") \
+	X(CANE_SYMBOL_OR,  "or") \
 	X(CANE_SYMBOL_XOR, "xor") \
 	X(CANE_SYMBOL_AND, "and") \
-	X(CANE_SYMBOL_NOT, "not") \
 \
 	X(CANE_SYMBOL_ADD, "add `+`") \
 	X(CANE_SYMBOL_SUB, "sub `-`") \
@@ -64,18 +93,22 @@
 	X(CANE_SYMBOL_LCHEVRON, "lchevron `<`") \
 	X(CANE_SYMBOL_RCHEVRON, "rchevron `>`")
 
+// clang-format on
+
 #define X(x, y) x,
 
 typedef enum {
-	SYMBOLS
+	SYMBOLS CANE_SYMBOL_TOTAL
 } cane_symbol_kind_t;
 
 #undef X
 
+// Maps the enum const direct to a string
 #define X(x, y) [x] = #x,
 const char* CANE_SYMBOL_KIND_TO_STR[] = {SYMBOLS};
 #undef X
 
+// Map the enum const to a human readable string
 #define X(x, y) [x] = y,
 const char* CANE_SYMBOL_TO_STR[] = {SYMBOLS};
 #undef X
@@ -119,17 +152,19 @@ static cane_lexer_t cane_lexer_create(cane_string_view_t sv) {
 		.ptr = sv.begin,  // Initialise lexer pointers
 		.end = sv.end,
 
-		.peek =  // Initialise peek to NONE
-		{
-			.kind = CANE_SYMBOL_NONE,
-			.str =
-				{
-					.begin = sv.begin,
-					.end = sv.end,
-				},
-		},
+		// Initialise peek to NONE
+		.peek =
+			{
+				.kind = CANE_SYMBOL_NONE,
+				.str =
+					{
+						.begin = sv.begin,
+						.end = sv.end,
+					},
+			},
 	};
 
+	// Prime the lexer by storing a peek token
 	cane_lexer_take(&lx, NULL);
 
 	return lx;
@@ -283,7 +318,8 @@ static bool cane_lexer_produce_str(
 }
 
 // Cane specific lexer functions
-static bool cane_lexer_produce_ident(cane_lexer_t* lx, cane_symbol_t* out) {
+static bool
+cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
 		.str = {lx->ptr, lx->ptr},
@@ -325,13 +361,9 @@ static bool cane_lexer_produce_ident(cane_lexer_t* lx, cane_symbol_t* out) {
 		symbol.kind = CANE_SYMBOL_AND;
 	}
 
-	else if (cane_string_view_eq(symbol.str, CANE_SV("not"))) {
-		symbol.kind = CANE_SYMBOL_NOT;
-	}
-
 	// User identifier
 	else {
-		symbol.kind = CANE_SYMBOL_IDENT;
+		symbol.kind = CANE_SYMBOL_IDENTIFIER;
 	}
 
 	if (out != NULL) {
@@ -351,15 +383,17 @@ static bool cane_lexer_produce_sigil(cane_lexer_t* lx, cane_symbol_t* out) {
 		cane_lexer_produce_str(lx, out, kind, sv)
 
 	return
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_BEAT, CANE_SV("!")) ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REST, CANE_SV(".")) ||
-
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_ASSIGN,  CANE_SV("=>")) ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_RHYTHM,  CANE_SV(":"))  ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REVERSE, CANE_SV("'"))  ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_MAP,     CANE_SV("@"))  ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_REPEAT,  CANE_SV("**")) ||
-		CANE_PRODUCE_SIGIL(CANE_SYMBOL_INVERT,  CANE_SV("~"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_BACKSLASH, CANE_SV("\\")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_COMMA,     CANE_SV(","))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_DOT,       CANE_SV("."))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_EXCLAIM,   CANE_SV("!"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_ARROW,     CANE_SV("=>")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_COLON,     CANE_SV(":"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_SEMICOLON, CANE_SV(";"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_QUOTE,     CANE_SV("'"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_AT,        CANE_SV("@"))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_STARS,     CANE_SV("**")) ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_TILDA,     CANE_SV("~"))  ||
 
 		CANE_PRODUCE_SIGIL(CANE_SYMBOL_ADD, CANE_SV("+")) ||
 		CANE_PRODUCE_SIGIL(CANE_SYMBOL_SUB, CANE_SV("-")) ||
@@ -439,7 +473,7 @@ static bool cane_lexer_take(cane_lexer_t* lx, cane_symbol_t* out) {
 	}
 
 	// Handle normal tokens
-	else if (!(cane_lexer_produce_ident(lx, &symbol) ||
+	else if (!(cane_lexer_produce_identifier(lx, &symbol) ||
 			   cane_lexer_produce_number(lx, &symbol) ||
 			   cane_lexer_produce_sigil(lx, &symbol))) {
 		cane_die(log, NULL, NULL, NULL, "unknown character `%c`!", lx->ptr[0]);
