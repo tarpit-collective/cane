@@ -49,9 +49,6 @@ static cane_ast_node_t* cane_parse(cane_string_view_t sv);
 
 // Forward declarations for mutual recursion
 static cane_ast_node_t* cane_parse_program(cane_parser_t* p, cane_lexer_t* lx);
-static cane_ast_node_t* cane_parse_function(cane_parser_t* p, cane_lexer_t* lx);
-static cane_ast_node_t* cane_parse_choice(cane_parser_t* p, cane_lexer_t* lx);
-static cane_ast_node_t* cane_parse_layer(cane_parser_t* p, cane_lexer_t* lx);
 static cane_ast_node_t* cane_parse_literal(cane_parser_t* p, cane_lexer_t* lx);
 
 // Expression parsing
@@ -60,11 +57,12 @@ static cane_ast_node_t* cane_parse_primary(cane_parser_t* p, cane_lexer_t* lx);
 static cane_ast_node_t*
 cane_parse_prefix(cane_parser_t* p, cane_lexer_t* lx, size_t bp);
 
-static cane_ast_node_t*
-cane_parse_infix(cane_parser_t* p, cane_lexer_t* lx, size_t bp);
+static cane_ast_node_t* cane_parse_infix(
+	cane_parser_t* p, cane_lexer_t* lx, cane_ast_node_t* lhs, size_t bp
+);
 
 static cane_ast_node_t*
-cane_parse_postfix(cane_parser_t* p, cane_lexer_t* lx, size_t bp);
+cane_parse_postfix(cane_parser_t* p, cane_lexer_t* lx, cane_ast_node_t* lhs);
 
 static cane_ast_node_t*
 cane_parse_expression(cane_parser_t* p, cane_lexer_t* lx, size_t bp);
@@ -79,7 +77,8 @@ static bool cane_is_literal(cane_symbol_t symbol) {
 }
 
 static bool cane_is_primary(cane_symbol_t symbol) {
-	return cane_is_literal(symbol) || symbol.kind == CANE_SYMBOL_IDENTIFIER ||
+	return cane_is_literal(symbol) || symbol.kind == CANE_SYMBOL_BACKSLASH ||
+		symbol.kind == CANE_SYMBOL_IDENTIFIER ||
 		symbol.kind == CANE_SYMBOL_LPAREN ||
 		symbol.kind == CANE_SYMBOL_LBRACE ||
 		symbol.kind == CANE_SYMBOL_LBRACKET;
@@ -94,9 +93,7 @@ static bool cane_is_prefix(cane_symbol_t symbol) {
 		symbol.kind == CANE_SYMBOL_MUL || symbol.kind == CANE_SYMBOL_DIV ||
 
 		symbol.kind == CANE_SYMBOL_TILDA ||  // Invert
-		symbol.kind == CANE_SYMBOL_QUOTE ||  // Reverse
-
-		symbol.kind == CANE_SYMBOL_BACKSLASH  // Function
+		symbol.kind == CANE_SYMBOL_QUOTE     // Reverse
 		;
 }
 
@@ -108,10 +105,11 @@ static bool cane_is_infix(cane_symbol_t symbol) {
 
 		symbol.kind == CANE_SYMBOL_LCM || symbol.kind == CANE_SYMBOL_GCD ||
 
-		symbol.kind == CANE_SYMBOL_COLON ||  // Euclidean rhythm
-
+		// Misc.
+		symbol.kind == CANE_SYMBOL_COLON ||  // Euclide
 		symbol.kind == CANE_SYMBOL_STARS ||  // Repeat
 		symbol.kind == CANE_SYMBOL_AT ||     // Map
+		symbol.kind == CANE_SYMBOL_DOT ||    // Concatenate
 
 		// Logic
 		symbol.kind == CANE_SYMBOL_OR || symbol.kind == CANE_SYMBOL_XOR ||
@@ -259,20 +257,6 @@ static cane_ast_node_t* cane_parse_program(cane_parser_t* p, cane_lexer_t* lx) {
 	return NULL;
 }
 
-static cane_ast_node_t*
-cane_parse_function(cane_parser_t* p, cane_lexer_t* lx) {
-	cane_expect_kind(lx, CANE_SYMBOL_BACKSLASH, "expected '\\'");
-	cane_lexer_take(lx, NULL);
-
-	cane_symbol_t ident;
-	cane_expect_kind(lx, CANE_SYMBOL_IDENTIFIER, "expected an identifier");
-	cane_lexer_take(lx, &ident);
-
-	cane_ast_node_t* expr = cane_parse_expression(p, lx, 0);
-
-	return NULL;
-}
-
 static cane_ast_node_t* cane_parse_literal(cane_parser_t* p, cane_lexer_t* lx) {
 	cane_expect(lx, cane_is_literal, "expected a literal");
 
@@ -284,30 +268,57 @@ static cane_ast_node_t* cane_parse_literal(cane_parser_t* p, cane_lexer_t* lx) {
 
 // Expression parsing
 static cane_ast_node_t* cane_parse_primary(cane_parser_t* p, cane_lexer_t* lx) {
+	cane_logger_t log = cane_logger_create_default();
 	cane_symbol_t symbol;
+
 	cane_expect(lx, cane_is_primary, "expected a primary expression");
 	cane_lexer_take(lx, &symbol);
 
 	switch (symbol.kind) {
-		case CANE_SYMBOL_CONST: break;
+		case CANE_SYMBOL_IDENTIFIER:
+		case CANE_SYMBOL_NUMBER:
 
-		case CANE_SYMBOL_BEAT: break;
-		case CANE_SYMBOL_REST: break;
+		case CANE_SYMBOL_BEAT:
+		case CANE_SYMBOL_REST: {
+			// TODO: Allocate node and set lhs/rhs to NULL
+			// How we should we handle chains of ! and . without implicit
+			// concat?
+			return NULL;
+		} break;
 
-		case CANE_SYMBOL_NUMBER: break;
+		case CANE_SYMBOL_LPAREN: {
+			cane_ast_node_t* expr = cane_parse_expression(p, lx, 0);
 
-		case CANE_SYMBOL_CHOICE: break;
-		case CANE_SYMBOL_LAYER: break;
+			cane_expect_kind(lx, CANE_SYMBOL_RPAREN, "expected `)`");
+			cane_lexer_take(lx, NULL);
 
-		case CANE_SYMBOL_FUNCTION: break;
+			return expr;
+		} break;
 
-		case CANE_SYMBOL_LPAREN: break;
+		case CANE_SYMBOL_CHOICE:
+		case CANE_SYMBOL_LAYER: {
+			CANE_UNIMPLEMENTED(log);
+		} break;
+
+		case CANE_SYMBOL_FUNCTION: {
+			cane_symbol_t ident;
+
+			cane_expect_kind(
+				lx, CANE_SYMBOL_IDENTIFIER, "expected an identifier"
+			);
+
+			cane_lexer_take(lx, &ident);
+
+			// Reset binding power
+			cane_ast_node_t* expr = cane_parse_expression(p, lx, 0);
+
+			return NULL;
+		} break;
 
 		default: break;
 	}
 
 	// TODO: Report an error here.
-	cane_logger_t log = cane_logger_create_default();
 	cane_die(log, NULL, NULL, NULL, "expected a primary expression");
 
 	return NULL;
@@ -320,14 +331,18 @@ cane_parse_prefix(cane_parser_t* p, cane_lexer_t* lx, size_t bp) {
 	cane_lexer_take(lx, &symbol);
 
 	switch (symbol.kind) {
-		case CANE_SYMBOL_ABS: break;
-		case CANE_SYMBOL_NEG: break;
+		case CANE_SYMBOL_ABS:
+		case CANE_SYMBOL_NEG:
 
-		case CANE_SYMBOL_TIMEMUL: break;
-		case CANE_SYMBOL_TIMEDIV: break;
+		case CANE_SYMBOL_TIMEMUL:
+		case CANE_SYMBOL_TIMEDIV:
 
-		case CANE_SYMBOL_INVERT: break;
-		case CANE_SYMBOL_REVERSE: break;
+		case CANE_SYMBOL_INVERT:
+		case CANE_SYMBOL_REVERSE: {
+			cane_ast_node_t* rhs = cane_parse_expression(p, lx, bp);
+
+			return NULL;
+		} break;
 
 		default: break;
 	}
@@ -339,33 +354,39 @@ cane_parse_prefix(cane_parser_t* p, cane_lexer_t* lx, size_t bp) {
 	return NULL;
 }
 
-static cane_ast_node_t*
-cane_parse_infix(cane_parser_t* p, cane_lexer_t* lx, size_t bp) {
+static cane_ast_node_t* cane_parse_infix(
+	cane_parser_t* p, cane_lexer_t* lx, cane_ast_node_t* lhs, size_t bp
+) {
 	cane_symbol_t symbol;
 	cane_expect(lx, cane_is_infix, "expected an infix operator");
 	cane_lexer_take(lx, &symbol);
 
 	switch (symbol.kind) {
-		case CANE_SYMBOL_ADD: break;
-		case CANE_SYMBOL_SUB: break;
-		case CANE_SYMBOL_MUL: break;
-		case CANE_SYMBOL_DIV: break;
+		case CANE_SYMBOL_ADD:
+		case CANE_SYMBOL_SUB:
+		case CANE_SYMBOL_MUL:
+		case CANE_SYMBOL_DIV:
 
-		case CANE_SYMBOL_LCM: break;
-		case CANE_SYMBOL_GCD: break;
+		case CANE_SYMBOL_LCM:
+		case CANE_SYMBOL_GCD:
 
-		case CANE_SYMBOL_RHYTHM: break;
-		case CANE_SYMBOL_MAP: break;
-		case CANE_SYMBOL_REPEAT: break;
+		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_MAP:
+		case CANE_SYMBOL_REPEAT:
 
-		case CANE_SYMBOL_LSHIFT: break;
-		case CANE_SYMBOL_RSHIFT: break;
+		case CANE_SYMBOL_LSHIFT:
+		case CANE_SYMBOL_RSHIFT:
 
-		case CANE_SYMBOL_OR: break;
-		case CANE_SYMBOL_XOR: break;
-		case CANE_SYMBOL_AND: break;
+		case CANE_SYMBOL_OR:
+		case CANE_SYMBOL_XOR:
+		case CANE_SYMBOL_AND:
 
-		case CANE_SYMBOL_CALL: break;
+		case CANE_SYMBOL_CALL:
+		case CANE_SYMBOL_CONCATENATE: {
+			// TODO: allocate node and set lhs and rhs pointers.
+			cane_ast_node_t* rhs = cane_parse_expression(p, lx, bp);
+			return NULL;
+		} break;
 
 		default: break;
 	}
@@ -378,13 +399,17 @@ cane_parse_infix(cane_parser_t* p, cane_lexer_t* lx, size_t bp) {
 }
 
 static cane_ast_node_t*
-cane_parse_postfix(cane_parser_t* p, cane_lexer_t* lx, size_t bp) {
+cane_parse_postfix(cane_parser_t* p, cane_lexer_t* lx, cane_ast_node_t* lhs) {
 	cane_symbol_t symbol;
 	cane_expect(lx, cane_is_postfix, "expected a postfix operator");
 	cane_lexer_take(lx, &symbol);
 
 	switch (symbol.kind) {
-		case CANE_SYMBOL_ASSIGN: break;
+		case CANE_SYMBOL_ASSIGN: {
+			// TODO: expression already consumed and operator token discarded.
+			// Just need to create an AST node.
+			return NULL;
+		} break;
 
 		default: break;
 	}
@@ -404,6 +429,22 @@ cane_parse_expression(cane_parser_t* p, cane_lexer_t* lx, size_t bp) {
 
 	cane_symbol_t symbol;
 	cane_lexer_take(lx, &symbol);
+
+	// Convert symbols in prefix location.
+	// Makes it easier to reason about operator kinds during parsing and when
+	// constructing the AST.
+	switch (symbol.kind) {
+		case CANE_SYMBOL_ADD: symbol.kind = CANE_SYMBOL_ABS; break;
+		case CANE_SYMBOL_SUB: symbol.kind = CANE_SYMBOL_NEG; break;
+
+		case CANE_SYMBOL_MUL: symbol.kind = CANE_SYMBOL_TIMEMUL; break;
+		case CANE_SYMBOL_DIV: symbol.kind = CANE_SYMBOL_TIMEDIV; break;
+
+		case CANE_SYMBOL_LBRACE: symbol.kind = CANE_SYMBOL_CHOICE; break;
+		case CANE_SYMBOL_LBRACKET: symbol.kind = CANE_SYMBOL_LAYER; break;
+
+		default: break;
+	}
 
 	if (cane_is_prefix(symbol)) {
 		size_t rbp = 0;  // TODO: Get binding power for operator
@@ -427,10 +468,12 @@ cane_parse_expression(cane_parser_t* p, cane_lexer_t* lx, size_t bp) {
 
 	cane_lexer_peek(lx, &symbol);
 
-	// TODO: Include concat here (implicit)
-	while (cane_is_infix(symbol) || cane_is_postfix(symbol)) {
-		// TODO: handle concat case...
-		// if (cane_is_concat(symbol)) {}
+	while (cane_is_infix(symbol) || cane_is_postfix(symbol) ||
+		   cane_is_expression(symbol)) {
+		// Two expressions juxtaposed is a function call
+		if (cane_is_expression(symbol)) {
+			symbol.kind = CANE_SYMBOL_CALL;
+		}
 
 		size_t lbp = 0;
 		size_t rbp = 0;
@@ -440,11 +483,11 @@ cane_parse_expression(cane_parser_t* p, cane_lexer_t* lx, size_t bp) {
 		}
 
 		if (cane_is_postfix(symbol)) {
-			node = cane_parse_postfix(p, lx, 0);
+			node = cane_parse_postfix(p, lx, node);
 		}
 
 		else if (cane_is_infix(symbol)) {
-			node = cane_parse_infix(p, lx, rbp);
+			node = cane_parse_infix(p, lx, node, rbp);
 		}
 
 		else {
