@@ -1,7 +1,7 @@
 // Literals
 ident = ? {XID_Start}{XID_Continue}* ?
 number = ? 0-9* ?
-comment = ? #.*\n ?
+comment = ? #!.*\n ?
 
 rhythm = '!' | '.'
 expression = ident | number | rhythm
@@ -14,46 +14,43 @@ expression = '(' expression ')'
 
 // Functions
 expression = '\' ident expr
-expression = expression '.' expression  // Function call
+expression = expression expression  // Function call
 
 // Scalars
 expression =
-	expression expression |   // Concatenate adjacent expressions
 	( '+' | '-' ) expression |
-	expression ( '+' | '-' | '*' | '/' | 'lcm' | 'gcd' ) expression |
+	expression ( '+' | '-' | '*' | '/' | 'lcm' | 'gcd' | '.' ) expression |
 	expression ':' expression |
 	expression '=>' ident |
 	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Rhythm
 expression =
-	expression expression |   // Concat
 	( '~' | '\'' ) expression |
-	expression ( '<' | '>' | '**' | 'or' | 'and' | 'xor' ) expression |
+	expression ( '<' | '>' | '**' | 'or' | 'and' | 'xor' | '.' ) expression |
 	expression '=>' ident |
 	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Melody
 expression =
-	expression expression |  // Concat
-	expression '@' expression |   // Mapping
 	'rev' expression |
-	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' ) expression |
+	expression '@' expression |   // Mapping
+	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' | '.' ) expression |
 	expression '=>' ident |
 	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Sequence
 expression =
-	expression expression |
-	( '/' | '*' ) expression expression |
+	( '/' | '*' ) expression |
+	expression '.' expression |
 	expression '=>' ident |
 	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Pattern
 expression =
-	expression expression |
-	'[' [( ',' expression )* [ ',' ]] ']' |  // Layer sequences
+	expression '.' expression |
 	expression '=>' ident |
+	'[' [( ',' expression )* [ ',' ]] ']' |  // Layer sequences
 	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Program
