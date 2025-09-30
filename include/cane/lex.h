@@ -131,7 +131,9 @@ struct cane_symbol {
 // LEXER //
 ///////////
 
-typedef bool (*cane_lexer_pred_t)(char);  // Used for lexer predicates
+typedef bool (*cane_char_pred_t)(char);  // Used for lexer predicates
+typedef bool (*cane_symbol_pred_t)(cane_symbol_kind_t
+);  // For parser predicates
 
 typedef struct cane_lexer cane_lexer_t;
 
@@ -172,7 +174,7 @@ static cane_lexer_t cane_lexer_create(cane_string_view_t sv) {
 }
 
 // Basic stream interaction
-static char cane_lexer_char_peek(cane_lexer_t* lx) {
+static char cane_str_peek(cane_lexer_t* lx) {
 	if (lx->ptr > lx->end) {
 		return '\0';
 	}
@@ -180,7 +182,7 @@ static char cane_lexer_char_peek(cane_lexer_t* lx) {
 	return *lx->ptr;
 }
 
-static char cane_lexer_char_take(cane_lexer_t* lx) {
+static char cane_str_take(cane_lexer_t* lx) {
 	if (lx->ptr > lx->end) {
 		return '\0';
 	}
@@ -189,30 +191,30 @@ static char cane_lexer_char_take(cane_lexer_t* lx) {
 }
 
 // Conditional consumers
-static bool cane_lexer_take_if(cane_lexer_t* lx, cane_lexer_pred_t pred) {
-	char c = cane_lexer_char_peek(lx);
+static bool cane_str_take_if(cane_lexer_t* lx, cane_char_pred_t pred) {
+	char c = cane_str_peek(lx);
 
 	if (!c || !pred(c)) {
 		return false;
 	}
 
-	cane_lexer_char_take(lx);
+	cane_str_take(lx);
 	return true;
 }
 
 // Same as take_if but just takes a character directly
 // for common usecases.
-static bool cane_lexer_take_ifc(cane_lexer_t* lx, char c) {
-	if (c != cane_lexer_char_peek(lx)) {
+static bool cane_str_take_ifc(cane_lexer_t* lx, char c) {
+	if (c != cane_str_peek(lx)) {
 		return false;
 	}
 
-	cane_lexer_char_take(lx);
+	cane_str_take(lx);
 	return true;
 }
 
 // Consumes a given string from the lexer stream or nothing at all.
-static bool cane_lexer_take_str(cane_lexer_t* lx, cane_string_view_t sv) {
+static bool cane_str_take_str(cane_lexer_t* lx, cane_string_view_t sv) {
 	size_t length = cane_string_view_length(sv);
 
 	if (lx->ptr + length > lx->end) {
@@ -233,10 +235,10 @@ static bool cane_lexer_take_str(cane_lexer_t* lx, cane_string_view_t sv) {
 }
 
 // Continue to consume characters while the predicate holds.
-static bool cane_lexer_take_while(cane_lexer_t* lx, cane_lexer_pred_t pred) {
+static bool cane_str_take_while(cane_lexer_t* lx, cane_char_pred_t pred) {
 	bool taken = false;
 
-	while (cane_lexer_take_if(lx, pred)) {
+	while (cane_str_take_if(lx, pred)) {
 		taken = true;
 	}
 
@@ -244,20 +246,20 @@ static bool cane_lexer_take_while(cane_lexer_t* lx, cane_lexer_pred_t pred) {
 }
 
 // Token producers
-// These functions wrap the basic "lexer_take" functions so that we can
+// These functions wrap the basic "str_take" functions so that we can
 // wrap them into a symbol type/token.
 static bool cane_lexer_produce_if(
 	cane_lexer_t* lx,
 	cane_symbol_t* out,
 	cane_symbol_kind_t kind,
-	cane_lexer_pred_t pred
+	cane_char_pred_t pred
 ) {
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = kind,
 		.sv = {lx->ptr, lx->ptr},
 	};
 
-	if (!cane_lexer_take_if(lx, pred)) {
+	if (!cane_str_take_if(lx, pred)) {
 		return false;
 	}
 
@@ -274,14 +276,14 @@ static bool cane_lexer_produce_while(
 	cane_lexer_t* lx,
 	cane_symbol_t* out,
 	cane_symbol_kind_t kind,
-	cane_lexer_pred_t pred
+	cane_char_pred_t pred
 ) {
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = kind,
 		.sv = {lx->ptr, lx->ptr},
 	};
 
-	if (!cane_lexer_take_while(lx, pred)) {
+	if (!cane_str_take_while(lx, pred)) {
 		return false;
 	}
 
@@ -305,7 +307,7 @@ static bool cane_lexer_produce_str(
 		.sv = {lx->ptr, lx->ptr},
 	};
 
-	if (!cane_lexer_take_str(lx, sv)) {
+	if (!cane_str_take_str(lx, sv)) {
 		return false;
 	}
 
@@ -326,11 +328,11 @@ cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
 		.sv = {lx->ptr, lx->ptr},
 	};
 
-	if (!cane_lexer_take_if(lx, cane_is_alpha)) {
+	if (!cane_str_take_if(lx, cane_is_alpha)) {
 		return false;
 	}
 
-	cane_lexer_take_while(lx, cane_is_ident);
+	cane_str_take_while(lx, cane_is_ident);
 
 	symbol.sv.end = lx->ptr;
 
@@ -431,8 +433,8 @@ static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
 		.sv = {lx->ptr, lx->ptr},
 	};
 
-	if (!cane_lexer_take_str(lx, CANE_SV("#!")) ||
-		!cane_lexer_take_while(lx, cane_is_comment)) {
+	if (!cane_str_take_str(lx, CANE_SV("#!")) ||
+		!cane_str_take_while(lx, cane_is_comment)) {
 		return false;
 	}
 
@@ -489,13 +491,35 @@ static bool cane_lexer_take(cane_lexer_t* lx, cane_symbol_t* out) {
 
 	lx->peek = symbol;
 
-	CANE_LOG_INFO(
-		cane_logger_create_default(),
-		"lexer token => %s",
-		CANE_SYMBOL_KIND_TO_STR[lx->peek.kind]
-	);
+	// CANE_LOG_INFO(
+	// 	cane_logger_create_default(),
+	// 	"lexer token => %s",
+	// 	CANE_SYMBOL_KIND_TO_STR[lx->peek.kind]
+	// );
 
 	return true;
+}
+
+static bool cane_lexer_take_if(
+	cane_lexer_t* lx, cane_symbol_pred_t pred, cane_symbol_t* out
+) {
+	cane_symbol_t symbol;
+	cane_lexer_peek(lx, &symbol);
+
+	if (!pred(symbol.kind)) {
+		return false;
+	}
+
+	cane_lexer_take(lx, out);
+	return true;
+}
+
+static bool cane_lexer_discard(cane_lexer_t* lx) {
+	return cane_lexer_take(lx, NULL);
+}
+
+static bool cane_lexer_discard_if(cane_lexer_t* lx, cane_symbol_pred_t pred) {
+	return cane_lexer_take_if(lx, pred, NULL);
 }
 
 #endif
