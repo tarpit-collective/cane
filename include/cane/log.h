@@ -124,9 +124,11 @@ static void cane_log_lineinfo_v(
 
 	fprintf(
 		log.dest,
-		CANE_BOLD "%s%s" CANE_RESET
+		CANE_BOLD "%*s%s%s" CANE_RESET
 				  " "
 				  "%s%s" CANE_RESET,
+		(int)log.indent * 4,
+		"",
 		lvl_colour,
 		lvl_str,
 		lvl_colour,

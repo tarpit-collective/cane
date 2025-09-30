@@ -8,22 +8,10 @@ int main(int argc, const char* argv[]) {
 		.indent = 0,
 	};
 
-	cane_string_view_t sv = CANE_SV("or xor and not");
-	cane_lexer_t lx = cane_lexer_create(sv);
+	cane_string_view_t sv = CANE_SV("(\\x 1 + 2) . 2");
 
-	cane_symbol_t sym;
-	while (sym.kind != CANE_SYMBOL_ENDFILE) {
-		cane_lexer_peek(&lx, &sym);
-		CANE_LOG_OKAY(
-			log,
-			"kind = %s, str = %.*s",
-			CANE_SYMBOL_KIND_TO_STR[sym.kind],
-			cane_ptrdiff(sym.str.begin, sym.str.end),
-			sym.str.begin
-		);
-
-		cane_lexer_take(&lx, &sym);
-	}
+	cane_ast_node_t* root = cane_parse(sv);
+	cane_pass_print(root, cane_logger_create_default());
 
 	return 0;
 }

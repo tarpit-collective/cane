@@ -22,6 +22,12 @@ cane_description = 'MIDI Sequencing Language'
 
 cane_hdr = files(
   'include/cane/cane.h',
+  'include/cane/def.h',
+  'include/cane/log.h',
+  'include/cane/util.h',
+  'include/cane/str.h',
+  'include/cane/lex.h',
+  'include/cane/parse.h',
 )
 
 cane_src = files(
