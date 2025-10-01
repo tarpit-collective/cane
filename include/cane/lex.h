@@ -207,7 +207,7 @@ static bool cane_str_take_if(cane_lexer_t* lx, cane_char_pred_t pred, char* c) {
 
 // Same as take_if but just takes a character directly
 // for common usecases.
-static bool cane_str_take_ifc(cane_lexer_t* lx, char c) {
+static bool cane_str_take_if_char(cane_lexer_t* lx, char c) {
 	char peek;
 
 	if (!cane_str_peek(lx, &peek)) {
@@ -458,12 +458,58 @@ static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
 
 // Core lexer interface
 static bool cane_lexer_peek(cane_lexer_t* lx, cane_symbol_t* out) {
+	if (out != NULL) {
+		*out = lx->peek;
+	}
+
 	if (!cane_str_peek(lx, NULL)) {  // Check for EOF
 		return false;
 	}
 
+	return true;
+}
+
+static bool cane_lexer_peek_is(
+	cane_lexer_t* lx, cane_symbol_pred_t cond, cane_symbol_t* out
+) {
+	cane_symbol_t symbol = (cane_symbol_t){
+		.kind = CANE_SYMBOL_NONE,
+		.sv = {lx->ptr, lx->ptr},
+	};
+
+	if (!cane_lexer_peek(lx, &symbol)) {
+		return false;
+	}
+
 	if (out != NULL) {
-		*out = lx->peek;
+		*out = symbol;
+	}
+
+	if (!cond(symbol.kind)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool cane_lexer_peek_is_kind(
+	cane_lexer_t* lx, cane_symbol_kind_t kind, cane_symbol_t* out
+) {
+	cane_symbol_t symbol = (cane_symbol_t){
+		.kind = CANE_SYMBOL_NONE,
+		.sv = {lx->ptr, lx->ptr},
+	};
+
+	if (!cane_lexer_peek(lx, &symbol)) {
+		return false;
+	}
+
+	if (out != NULL) {
+		*out = symbol;
+	}
+
+	if (symbol.kind != kind) {
+		return false;
 	}
 
 	return true;
@@ -513,10 +559,32 @@ static bool cane_lexer_take(cane_lexer_t* lx, cane_symbol_t* out) {
 static bool cane_lexer_take_if(
 	cane_lexer_t* lx, cane_symbol_pred_t pred, cane_symbol_t* out
 ) {
-	cane_symbol_t symbol;
+	cane_symbol_t symbol = (cane_symbol_t){
+		.kind = CANE_SYMBOL_NONE,
+		.sv = {lx->ptr, lx->ptr},
+	};
+
 	cane_lexer_peek(lx, &symbol);
 
 	if (!pred(symbol.kind)) {
+		return false;
+	}
+
+	cane_lexer_take(lx, out);
+	return true;
+}
+
+static bool cane_lexer_take_if_kind(
+	cane_lexer_t* lx, cane_symbol_kind_t kind, cane_symbol_t* out
+) {
+	cane_symbol_t symbol = (cane_symbol_t){
+		.kind = CANE_SYMBOL_NONE,
+		.sv = {lx->ptr, lx->ptr},
+	};
+
+	cane_lexer_peek(lx, &symbol);
+
+	if (symbol.kind != kind) {
 		return false;
 	}
 
@@ -530,6 +598,11 @@ static bool cane_lexer_discard(cane_lexer_t* lx) {
 
 static bool cane_lexer_discard_if(cane_lexer_t* lx, cane_symbol_pred_t pred) {
 	return cane_lexer_take_if(lx, pred, NULL);
+}
+
+static bool
+cane_lexer_discard_if_kind(cane_lexer_t* lx, cane_symbol_kind_t kind) {
+	return cane_lexer_take_if_kind(lx, kind, NULL);
 }
 
 #endif
