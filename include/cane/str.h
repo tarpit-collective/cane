@@ -42,7 +42,7 @@ static bool cane_is_whitespace(char c) {
 	return isspace(c);
 }
 
-static bool cane_is_comment(char c) {
+static bool cane_is_not_newline(char c) {
 	return c != '\n';
 }
 
@@ -54,12 +54,16 @@ static bool cane_is_digit(char c) {
 	return c >= '0' && c <= '9';
 }
 
-static bool cane_is_alphanum(char c) {
+static bool cane_is_alpha_numeric(char c) {
 	return cane_is_alpha(c) || cane_is_digit(c);
 }
 
-static bool cane_is_ident(char c) {
-	return cane_is_alphanum(c) || c == '_';
+static bool cane_is_identifier(char c) {
+	return cane_is_alpha_numeric(c) || c == '_';
+}
+
+static bool cane_is_identifier_start(char c) {
+	return cane_is_alpha(c) || c == '_';
 }
 
 #endif
