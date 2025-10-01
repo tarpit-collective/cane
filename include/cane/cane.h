@@ -38,11 +38,7 @@ static void cane_pass_print(cane_ast_node_t* node, cane_logger_t log) {
 		case CANE_SYMBOL_BEAT:
 		case CANE_SYMBOL_REST: {
 			CANE_LOG_OKAY(
-				log,
-				"%s %.*s",
-				CANE_SYMBOL_KIND_TO_STR[kind],
-				sv_length,
-				sv_begin
+				log, "%s %.*s", CANE_SYMBOL_TO_STR[kind], sv_length, sv_begin
 			);
 		} break;
 
@@ -58,7 +54,7 @@ static void cane_pass_print(cane_ast_node_t* node, cane_logger_t log) {
 
 		case CANE_SYMBOL_ASSIGN: {
 			// Unary nodes only have a `rhs` child.
-			CANE_LOG_OKAY(log, "%s", CANE_SYMBOL_KIND_TO_STR[kind]);
+			CANE_LOG_OKAY(log, "%s", CANE_SYMBOL_TO_STR[kind]);
 
 			cane_logger_t indented_log = log;
 			indented_log.indent++;
@@ -88,7 +84,7 @@ static void cane_pass_print(cane_ast_node_t* node, cane_logger_t log) {
 
 		case CANE_SYMBOL_CALL:
 		case CANE_SYMBOL_CONCATENATE: {
-			CANE_LOG_OKAY(log, "%s", CANE_SYMBOL_KIND_TO_STR[kind]);
+			CANE_LOG_OKAY(log, "%s", CANE_SYMBOL_TO_STR[kind]);
 
 			cane_logger_t indented_log = log;
 			indented_log.indent++;
@@ -99,7 +95,7 @@ static void cane_pass_print(cane_ast_node_t* node, cane_logger_t log) {
 
 		// Complex Nodes
 		case CANE_SYMBOL_FUNCTION: {
-			CANE_LOG_OKAY(log, "%s", CANE_SYMBOL_KIND_TO_STR[kind]);
+			CANE_LOG_OKAY(log, "%s", CANE_SYMBOL_TO_STR[kind]);
 
 			cane_logger_t indented_log = log;
 			indented_log.indent++;
@@ -115,7 +111,7 @@ static void cane_pass_print(cane_ast_node_t* node, cane_logger_t log) {
 			CANE_DIE(
 				cane_logger_create_default(),
 				"unimplemented %s",
-				CANE_SYMBOL_KIND_TO_STR[kind]
+				CANE_SYMBOL_TO_STR[kind]
 			);
 		} break;
 
@@ -123,7 +119,7 @@ static void cane_pass_print(cane_ast_node_t* node, cane_logger_t log) {
 			CANE_DIE(
 				cane_logger_create_default(),
 				"unimplemented %s",
-				CANE_SYMBOL_KIND_TO_STR[kind]
+				CANE_SYMBOL_TO_STR[kind]
 			);
 		} break;
 	}

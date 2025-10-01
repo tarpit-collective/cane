@@ -106,12 +106,12 @@ typedef enum {
 
 // Maps the enum const direct to a string
 #define X(x, y) [x] = #x,
-const char* CANE_SYMBOL_KIND_TO_STR[] = {SYMBOLS};
+const char* CANE_SYMBOL_TO_STR[] = {SYMBOLS};
 #undef X
 
 // Map the enum const to a human readable string
 #define X(x, y) [x] = y,
-const char* CANE_SYMBOL_TO_STR[] = {SYMBOLS};
+const char* CANE_SYMBOL_TO_STR_HUMAN[] = {SYMBOLS};
 #undef X
 
 #undef SYMBOLS

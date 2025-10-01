@@ -45,29 +45,48 @@ cane_ast_node_create(cane_symbol_kind_t kind, cane_string_view_t sv) {
 // PARSER //
 ////////////
 
+#define OPFIX \
+	X(PREFIX, "prefix") \
+	X(INFIX, "infix") \
+	X(POSTFIX, "postfix")
+
+#define X(x, y) x,
+
+typedef enum {
+	OPFIX CANE_OPFIX_TOTAL
+} cane_opfix_t;
+
+#undef X
+
+// Maps the enum const direct to a string
+#define X(x, y) [x] = #x,
+const char* CANE_OPFIX_TO_STR[] = {OPFIX};
+#undef X
+
+// Map the enum const to a human readable string
+#define X(x, y) [x] = y,
+const char* CANE_OPFIX_TO_STR_HUMAN[] = {OPFIX};
+#undef X
+
+#undef OPFIX
+
 typedef struct cane_binding_power cane_binding_power_t;
 
 struct cane_binding_power {
-	size_t lhs;
-	size_t rhs;
+	size_t lbp;
+	size_t rbp;
 };
 
-static size_t cane_prefix_binding_power(cane_symbol_kind_t s) {
+static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t s) {
 	switch (s) {
-		case CANE_SYMBOL_ABS: return 0;
-		case CANE_SYMBOL_NEG: return 0;
+		// Prefix
+		case CANE_SYMBOL_ABS: return (cane_binding_power_t){0, 0};
+		case CANE_SYMBOL_NEG: return (cane_binding_power_t){0, 0};
 
-		case CANE_SYMBOL_INVERT: return 0;
-		case CANE_SYMBOL_REVERSE: return 0;
+		case CANE_SYMBOL_INVERT: return (cane_binding_power_t){0, 0};
+		case CANE_SYMBOL_REVERSE: return (cane_binding_power_t){0, 0};
 
-		default: break;
-	}
-
-	return 0;
-}
-
-static cane_binding_power_t cane_infix_binding_power(cane_symbol_kind_t s) {
-	switch (s) {
+		// Infix
 		case CANE_SYMBOL_ADD: return (cane_binding_power_t){0, 0};
 		case CANE_SYMBOL_SUB: return (cane_binding_power_t){0, 0};
 		case CANE_SYMBOL_MUL: return (cane_binding_power_t){0, 0};
@@ -90,22 +109,16 @@ static cane_binding_power_t cane_infix_binding_power(cane_symbol_kind_t s) {
 		case CANE_SYMBOL_CALL: return (cane_binding_power_t){0, 0};
 		case CANE_SYMBOL_CONCATENATE: return (cane_binding_power_t){0, 0};
 
+		// Postfix
+		case CANE_SYMBOL_ASSIGN: return (cane_binding_power_t){0, 0};
+
 		default: break;
 	}
 
 	return (cane_binding_power_t){
-		.lhs = 0,
-		.rhs = 0,
+		.lbp = 0,
+		.rbp = 0,
 	};
-}
-
-static size_t cane_postfix_binding_power(cane_symbol_kind_t s) {
-	switch (s) {
-		case CANE_SYMBOL_ASSIGN: return 0;
-		default: break;
-	}
-
-	return 0;
 }
 
 // Primary call that sets up lexer and context automatically.
@@ -385,7 +398,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 	CANE_DIE(
 		log,
 		"expected a primary expression `%s`",
-		CANE_SYMBOL_KIND_TO_STR[symbol.kind]
+		CANE_SYMBOL_TO_STR[symbol.kind]
 	);
 
 	return NULL;
@@ -423,9 +436,7 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 
 	// TODO: Report an error here.
 	CANE_DIE(
-		log,
-		"expected a prefix operator `%s`",
-		CANE_SYMBOL_KIND_TO_STR[symbol.kind]
+		log, "expected a prefix operator `%s`", CANE_SYMBOL_TO_STR[symbol.kind]
 	);
 
 	return NULL;
@@ -483,9 +494,7 @@ static cane_ast_node_t* cane_parse_infix(
 
 	// TODO: Report an error here.
 	CANE_DIE(
-		log,
-		"expected an infix operator `%s`",
-		CANE_SYMBOL_KIND_TO_STR[symbol.kind]
+		log, "expected an infix operator `%s`", CANE_SYMBOL_TO_STR[symbol.kind]
 	);
 
 	return NULL;
@@ -517,9 +526,7 @@ static cane_ast_node_t* cane_parse_postfix(
 
 	// TODO: Report an error here.
 	CANE_DIE(
-		log,
-		"expected a postfix operator `%s`",
-		CANE_SYMBOL_KIND_TO_STR[symbol.kind]
+		log, "expected a postfix operator `%s`", CANE_SYMBOL_TO_STR[symbol.kind]
 	);
 
 	return NULL;
@@ -553,8 +560,8 @@ static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
 	CANE_LOG_WARN(
 		cane_logger_create_default(),
 		"fixup unary %s => %s",
-		CANE_SYMBOL_KIND_TO_STR[kind],
-		CANE_SYMBOL_KIND_TO_STR[new_kind]
+		CANE_SYMBOL_TO_STR[kind],
+		CANE_SYMBOL_TO_STR[new_kind]
 	);
 
 	return new_kind;
@@ -578,15 +585,15 @@ static cane_symbol_kind_t cane_fix_binary_symbol(cane_symbol_kind_t kind) {
 	CANE_LOG_WARN(
 		cane_logger_create_default(),
 		"fixup binary %s => %s",
-		CANE_SYMBOL_KIND_TO_STR[kind],
-		CANE_SYMBOL_KIND_TO_STR[new_kind]
+		CANE_SYMBOL_TO_STR[kind],
+		CANE_SYMBOL_TO_STR[new_kind]
 	);
 
 	return new_kind;
 }
 
 static cane_ast_node_t*
-cane_parse_expression(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
+cane_parse_expression(cane_lexer_t* lx, cane_symbol_t symbol, size_t min_bp) {
 	cane_ast_node_t* node = NULL;
 
 	cane_logger_t log = cane_logger_create_default();
@@ -599,7 +606,7 @@ cane_parse_expression(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 	}
 
 	else if (cane_parser_is_prefix(symbol.kind)) {
-		size_t rbp = cane_prefix_binding_power(symbol.kind);
+		size_t rbp = cane_parser_binding_power(symbol.kind).rbp;
 		node = cane_parse_prefix(lx, symbol, rbp);
 	}
 
@@ -608,7 +615,7 @@ cane_parse_expression(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 		CANE_DIE(
 			log,
 			"expected a primary expression or a prefix operator `%s`",
-			CANE_SYMBOL_KIND_TO_STR[symbol.kind]
+			CANE_SYMBOL_TO_STR[symbol.kind]
 		);
 	}
 
@@ -625,25 +632,19 @@ cane_parse_expression(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 		// 	symbol.kind = CANE_SYMBOL_CALL;
 		// }
 
+		cane_binding_power_t binding_power =
+			cane_parser_binding_power(symbol.kind);
+
+		if (binding_power.lbp < min_bp) {
+			break;
+		}
+
 		if (cane_parser_is_postfix(symbol.kind)) {
-			size_t lbp = cane_postfix_binding_power(symbol.kind);
-
-			if (lbp < bp) {
-				break;
-			}
-
 			node = cane_parse_postfix(lx, symbol, node);
 		}
 
 		else if (cane_parser_is_infix(symbol.kind)) {
-			cane_binding_power_t binding_power =
-				cane_infix_binding_power(symbol.kind);
-
-			if (binding_power.lhs < bp) {
-				break;
-			}
-
-			node = cane_parse_infix(lx, symbol, node, binding_power.rhs);
+			node = cane_parse_infix(lx, symbol, node, binding_power.rbp);
 		}
 
 		else {
@@ -653,7 +654,7 @@ cane_parse_expression(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 			CANE_DIE(
 				log,
 				"expected an infix or postfix operator `%s`",
-				CANE_SYMBOL_KIND_TO_STR[symbol.kind]
+				CANE_SYMBOL_TO_STR[symbol.kind]
 			);
 		}
 
