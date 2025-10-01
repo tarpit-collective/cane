@@ -45,6 +45,31 @@ cane_ast_node_create(cane_symbol_kind_t kind, cane_string_view_t sv) {
 // PARSER //
 ////////////
 
+// Primary call that sets up lexer and context automatically.
+static cane_ast_node_t* cane_parse(cane_string_view_t sv);
+
+// Forward declarations for mutual recursion
+static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx);
+
+// Expression parsing
+static cane_ast_node_t*
+cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol);
+
+static cane_ast_node_t*
+cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp);
+
+static cane_ast_node_t* cane_parse_infix(
+	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs, size_t bp
+);
+
+static cane_ast_node_t* cane_parse_postfix(
+	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs
+);
+
+static cane_ast_node_t*
+cane_parse_expression(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp);
+
+// Operator prefix/infix/postfix
 #define OPFIX \
 	X(PREFIX, "prefix") \
 	X(INFIX, "infix") \
@@ -70,6 +95,7 @@ const char* CANE_OPFIX_TO_STR_HUMAN[] = {OPFIX};
 
 #undef OPFIX
 
+// Binding power
 typedef struct cane_binding_power cane_binding_power_t;
 
 struct cane_binding_power {
@@ -121,30 +147,6 @@ static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t s) {
 	};
 }
 
-// Primary call that sets up lexer and context automatically.
-static cane_ast_node_t* cane_parse(cane_string_view_t sv);
-
-// Forward declarations for mutual recursion
-static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx);
-
-// Expression parsing
-static cane_ast_node_t*
-cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol);
-
-static cane_ast_node_t*
-cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp);
-
-static cane_ast_node_t* cane_parse_infix(
-	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs, size_t bp
-);
-
-static cane_ast_node_t* cane_parse_postfix(
-	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs
-);
-
-static cane_ast_node_t*
-cane_parse_expression(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp);
-
 // Convenience functions
 static bool cane_parser_is_literal(cane_symbol_kind_t kind) {
 	return kind == CANE_SYMBOL_NUMBER || kind == CANE_SYMBOL_STRING ||
@@ -158,15 +160,15 @@ static bool cane_parser_is_primary(cane_symbol_kind_t kind) {
 }
 
 static bool cane_parser_is_prefix(cane_symbol_kind_t kind) {
-	return
-		// Arithmetic
-		kind == CANE_SYMBOL_ABS || kind == CANE_SYMBOL_NEG ||
-
-		kind == CANE_SYMBOL_INVERT ||  // Invert
-		kind == CANE_SYMBOL_REVERSE;   // Reverse
+	return kind == CANE_SYMBOL_ABS || kind == CANE_SYMBOL_NEG ||
+		kind == CANE_SYMBOL_INVERT || kind == CANE_SYMBOL_REVERSE;
 }
 
 static bool cane_parser_is_infix(cane_symbol_kind_t kind) {
+	CANE_LOG_OKAY(
+		cane_logger_create_default(), "%s", CANE_SYMBOL_TO_STR_HUMAN[kind]
+	);
+
 	return
 		// Arithmetic
 		kind == CANE_SYMBOL_ADD || kind == CANE_SYMBOL_SUB ||
@@ -409,37 +411,24 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 	cane_logger_t log = cane_logger_create_default();
 	CANE_FUNCTION_ENTER(log);
 
-	switch (symbol.kind) {
-		case CANE_SYMBOL_ABS:
-		case CANE_SYMBOL_NEG:
-
-		case CANE_SYMBOL_INVERT:
-		case CANE_SYMBOL_REVERSE: {
-			cane_lexer_take(lx, &symbol);
-
-			cane_ast_node_t* node =
-				cane_ast_node_create(symbol.kind, symbol.sv);
-
-			cane_symbol_t symbol;
-			cane_lexer_peek(lx, &symbol);
-
-			cane_ast_node_t* expr = cane_parse_expression(lx, symbol, bp);
-
-			node->lhs = NULL;
-			node->rhs = expr;
-
-			return node;
-		} break;
-
-		default: break;
+	// We need to call this function directly instead of using something like
+	// `cane_lexer_discard_if` because we have fixed up the symbol earlier and
+	// peeking again would return the incorrect/lexical token kind instead.
+	if (!cane_parser_is_prefix(symbol.kind)) {
+		CANE_DIE(log, "expected a prefix operator");
 	}
 
-	// TODO: Report an error here.
-	CANE_DIE(
-		log, "expected a prefix operator `%s`", CANE_SYMBOL_TO_STR[symbol.kind]
-	);
+	cane_lexer_discard(lx);
+	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
 
-	return NULL;
+	cane_lexer_peek(lx, &symbol);
+	cane_ast_node_t* expr = cane_parse_expression(lx, symbol, bp);
+
+	// Prefix nodes don't have a left-hand side.
+	node->lhs = NULL;
+	node->rhs = expr;
+
+	return node;
 }
 
 static cane_ast_node_t* cane_parse_infix(
@@ -448,56 +437,20 @@ static cane_ast_node_t* cane_parse_infix(
 	cane_logger_t log = cane_logger_create_default();
 	CANE_FUNCTION_ENTER(log);
 
-	// TODO: Can we ignore this switch entirely and just do the check with
-	// `cane_is_infix` and then allocate the node the exact same way?
-	// It's redundant.
-	switch (symbol.kind) {
-		case CANE_SYMBOL_ADD:
-		case CANE_SYMBOL_SUB:
-		case CANE_SYMBOL_MUL:
-		case CANE_SYMBOL_DIV:
-
-		case CANE_SYMBOL_LCM:
-		case CANE_SYMBOL_GCD:
-
-		case CANE_SYMBOL_RHYTHM:
-		case CANE_SYMBOL_MAP:
-		case CANE_SYMBOL_REPEAT:
-
-		case CANE_SYMBOL_LSHIFT:
-		case CANE_SYMBOL_RSHIFT:
-
-		case CANE_SYMBOL_OR:
-		case CANE_SYMBOL_XOR:
-		case CANE_SYMBOL_AND:
-
-		case CANE_SYMBOL_CALL:
-		case CANE_SYMBOL_CONCATENATE: {
-			cane_ast_node_t* node =
-				cane_ast_node_create(symbol.kind, symbol.sv);
-
-			cane_lexer_take(lx, &symbol);
-
-			cane_symbol_t symbol;
-			cane_lexer_peek(lx, &symbol);
-
-			cane_ast_node_t* rhs = cane_parse_expression(lx, symbol, bp);
-
-			node->lhs = lhs;
-			node->rhs = rhs;
-
-			return node;
-		} break;
-
-		default: break;
+	if (!cane_parser_is_infix(symbol.kind)) {
+		CANE_DIE(log, "expected an infix operator");
 	}
 
-	// TODO: Report an error here.
-	CANE_DIE(
-		log, "expected an infix operator `%s`", CANE_SYMBOL_TO_STR[symbol.kind]
-	);
+	cane_lexer_discard(lx);
+	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
 
-	return NULL;
+	cane_lexer_peek(lx, &symbol);
+	cane_ast_node_t* rhs = cane_parse_expression(lx, symbol, bp);
+
+	node->lhs = lhs;
+	node->rhs = rhs;
+
+	return node;
 }
 
 static cane_ast_node_t* cane_parse_postfix(
@@ -506,30 +459,31 @@ static cane_ast_node_t* cane_parse_postfix(
 	cane_logger_t log = cane_logger_create_default();
 	CANE_FUNCTION_ENTER(log);
 
-	switch (symbol.kind) {
-		case CANE_SYMBOL_ASSIGN: {
-			cane_lexer_take(lx, &symbol);
-
-			cane_ast_node_t* node =
-				cane_ast_node_create(symbol.kind, symbol.sv);
-
-			// We put the child node on the `rhs` to be consistent with prefix
-			// expressions so we don't have to have seperate handling for them.
-			node->lhs = NULL;
-			node->rhs = lhs;
-
-			return node;
-		} break;
-
-		default: break;
+	if (!cane_parser_is_postfix(symbol.kind)) {
+		CANE_DIE(log, "expected a postfix operator");
 	}
 
-	// TODO: Report an error here.
-	CANE_DIE(
-		log, "expected a postfix operator `%s`", CANE_SYMBOL_TO_STR[symbol.kind]
-	);
+	cane_lexer_discard(lx);
+	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
 
-	return NULL;
+	// We put the child node on the `rhs` to be consistent with prefix
+	// expressions so we don't have to have seperate handling for them.
+	node->lhs = NULL;
+	node->rhs = lhs;
+
+	// Assignment is a bit special in that it has a parameter in the form of an
+	// identifier to bind the expression's value to.
+	if (symbol.kind == CANE_SYMBOL_ASSIGN) {
+		cane_symbol_t ident;
+
+		if (!cane_lexer_take_if_kind(lx, CANE_SYMBOL_IDENTIFIER, &ident)) {
+			CANE_DIE(log, "expected an identifier");
+		}
+
+		node->lhs = cane_ast_node_create(CANE_SYMBOL_CONST, ident.sv);
+	}
+
+	return node;
 }
 
 static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
@@ -578,6 +532,8 @@ static cane_symbol_kind_t cane_fix_binary_symbol(cane_symbol_kind_t kind) {
 
 		case CANE_SYMBOL_LCHEVRON: new_kind = CANE_SYMBOL_LSHIFT; break;
 		case CANE_SYMBOL_RCHEVRON: new_kind = CANE_SYMBOL_RSHIFT; break;
+
+		case CANE_SYMBOL_ARROW: new_kind = CANE_SYMBOL_ASSIGN; break;
 
 		default: break;
 	}
