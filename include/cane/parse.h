@@ -14,6 +14,65 @@
 #include <cane/util.h>
 #include <cane/lex.h>
 
+// Types
+#define TYPES \
+	X(CANE_TYPE_NONE, "none") \
+\
+	X(CANE_TYPE_NUMBER, "number") \
+	X(CANE_TYPE_STRING, "string") \
+\
+	X(CANE_TYPE_MELODY, "melody") \
+	X(CANE_TYPE_RHYTHM, "rhythm") \
+	X(CANE_TYPE_SEQUENCE, "sequence") \
+	X(CANE_TYPE_PATTERN, "pattern") \
+	X(CANE_TYPE_FUNCTION, "function")
+
+#define X(x, y) x,
+
+typedef enum {
+	TYPES CANE_TYPE_TOTAL
+} cane_type_t;
+
+#undef X
+
+// Maps the enum const direct to a string
+#define X(x, y) [x] = #x,
+const char* CANE_TYPE_TO_STR[] = {TYPES};
+#undef X
+
+// Map the enum const to a human readable string
+#define X(x, y) [x] = y,
+const char* CANE_TYPE_TO_STR_HUMAN[] = {TYPES};
+#undef X
+
+#undef TYPES
+
+// Operator prefix/infix/postfix
+#define OPFIX \
+	X(CANE_OPFIX_PREFIX, "prefix") \
+	X(CANE_OPFIX_INFIX, "infix") \
+	X(CANE_OPFIX_POSTFIX, "postfix")
+
+#define X(x, y) x,
+
+typedef enum {
+	OPFIX CANE_OPFIX_TOTAL
+} cane_opfix_t;
+
+#undef X
+
+// Maps the enum const direct to a string
+#define X(x, y) [x] = #x,
+const char* CANE_OPFIX_TO_STR[] = {OPFIX};
+#undef X
+
+// Map the enum const to a human readable string
+#define X(x, y) [x] = y,
+const char* CANE_OPFIX_TO_STR_HUMAN[] = {OPFIX};
+#undef X
+
+#undef OPFIX
+
 /////////
 // AST //
 /////////
@@ -23,6 +82,8 @@ typedef struct cane_ast_node cane_ast_node_t;
 struct cane_ast_node {
 	cane_symbol_kind_t kind;
 	cane_string_view_t sv;
+
+	cane_type_t type;
 
 	cane_ast_node_t* lhs;
 	cane_ast_node_t* rhs;
@@ -130,32 +191,6 @@ static cane_symbol_kind_t cane_fix_binary_symbol(cane_symbol_kind_t kind) {
 
 	return new_kind;
 }
-
-// Operator prefix/infix/postfix
-#define OPFIX \
-	X(PREFIX, "prefix") \
-	X(INFIX, "infix") \
-	X(POSTFIX, "postfix")
-
-#define X(x, y) x,
-
-typedef enum {
-	OPFIX CANE_OPFIX_TOTAL
-} cane_opfix_t;
-
-#undef X
-
-// Maps the enum const direct to a string
-#define X(x, y) [x] = #x,
-const char* CANE_OPFIX_TO_STR[] = {OPFIX};
-#undef X
-
-// Map the enum const to a human readable string
-#define X(x, y) [x] = y,
-const char* CANE_OPFIX_TO_STR_HUMAN[] = {OPFIX};
-#undef X
-
-#undef OPFIX
 
 // Binding power
 typedef struct cane_binding_power cane_binding_power_t;
@@ -281,68 +316,6 @@ static bool cane_peek_is_expression(cane_lexer_t* lx) {
 	return cane_lexer_peek_is(lx, cane_parser_is_expression, NULL, NULL);
 }
 
-// Parsing utilities
-// static void cane_expect_kind(
-// 	cane_lexer_t* lx, cane_symbol_kind_t kind, const char* fmt, ...
-// ) {
-// 	// TODO: Report line info from cane lexer. (use cane_log_info function).
-// 	cane_logger_t log = cane_logger_create_default();
-
-// 	if (cane_lexer_peek_is_kind(lx, kind, NULL)) {
-// 		return;
-// 	}
-
-// 	cane_symbol_t peeker;
-// 	cane_lexer_peek(lx, &peeker);
-
-// 	CANE_LOG_INFO(
-// 		log,
-
-// 		"expected = %s, kind = %s, ptr = %p, end = %p, size = %lu, str = "
-// 		"'%.*s'",
-
-// 		CANE_SYMBOL_KIND_TO_STR[kind],
-// 		CANE_SYMBOL_KIND_TO_STR[peeker.kind],
-
-// 		(void*)peeker.sv.begin,
-// 		(void*)peeker.sv.end,
-
-// 		cane_ptrdiff(peeker.sv.begin, peeker.sv.end),
-// 		cane_ptrdiff(peeker.sv.begin, peeker.sv.end),
-
-// 		peeker.sv.begin
-// 	);
-
-// 	va_list args;
-// 	va_start(args, fmt);
-
-// 	cane_log(log, CANE_PRIORITY_FAIL, fmt, args);
-
-// 	va_end(args);
-
-// 	exit(EXIT_FAILURE);
-// }
-
-// static void
-// cane_expect(cane_lexer_t* lx, cane_symbol_pred_t cond, const char* fmt, ...)
-// {
-// 	// TODO: Report line info from cane lexer. (use cane_log_info function).
-// 	cane_logger_t log = cane_logger_create_default();
-
-// 	if (cane_lexer_peek_is(lx, cond, NULL)) {
-// 		return;
-// 	}
-
-// 	va_list args;
-// 	va_start(args, fmt);
-
-// 	cane_log_lineinfo_v(log, CANE_PRIORITY_FAIL, NULL, NULL, NULL, fmt, args);
-
-// 	va_end(args);
-
-// 	exit(EXIT_FAILURE);
-// }
-
 //////////////////////
 // PARSER FUNCTIONS //
 //////////////////////
@@ -359,19 +332,15 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 	cane_logger_t log = cane_logger_create_default();
 	CANE_FUNCTION_ENTER(log);
 
-	cane_ast_node_t* node = NULL;
+	cane_ast_node_t* root = NULL;
 
 	// TODO: To keep things simple, we can use a binary tree for everything
 	// and join statements together with a CANE_SYMBOL_STATEMENT node.
 	// We can just evaluate both sides in isolation.
 	// Basically a "cons" list like in lisp.
 
-	while (true) {
-		if (cane_lexer_peek_is_kind(lx, CANE_SYMBOL_ENDFILE, NULL, NULL)) {
-			break;
-		}
-
-		node = cane_parse_expression(lx, 0);
+	while (!cane_lexer_peek_is_kind(lx, CANE_SYMBOL_ENDFILE, NULL, NULL)) {
+		root = cane_parse_expression(lx, 0);
 		cane_lexer_discard_if_kind(lx, CANE_SYMBOL_SEMICOLON);
 	}
 
@@ -379,7 +348,7 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 		CANE_DIE(log, "expected end of file");
 	}
 
-	return node;
+	return root;
 }
 
 // Expression parsing
@@ -517,7 +486,6 @@ static cane_ast_node_t* cane_parse_infix(
 	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
 	cane_lexer_discard(lx);
 
-	// cane_lexer_peek(lx, &symbol, cane_fix_unary_symbol);
 	cane_ast_node_t* rhs = cane_parse_expression(lx, bp);
 
 	node->lhs = lhs;
@@ -567,8 +535,6 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 	cane_logger_t log = cane_logger_create_default();
 	CANE_FUNCTION_ENTER(log);
 
-	// symbol.kind = cane_fix_unary_symbol(symbol.kind);
-
 	cane_symbol_t symbol;
 	cane_lexer_peek(lx, &symbol, cane_fix_unary_symbol);
 
@@ -593,7 +559,6 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 	// State has changed since we called prefix/primary parser functions
 	// so we need to peek again.
 	cane_lexer_peek(lx, &symbol, cane_fix_binary_symbol);
-	// symbol.kind = cane_fix_binary_symbol(symbol.kind);
 
 	while (cane_parser_is_infix(symbol.kind) ||
 		   cane_parser_is_postfix(symbol.kind) ||
@@ -630,7 +595,6 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 		}
 
 		cane_lexer_peek(lx, &symbol, cane_fix_binary_symbol);
-		// symbol.kind = cane_fix_binary_symbol(symbol.kind);
 	}
 
 	return node;
