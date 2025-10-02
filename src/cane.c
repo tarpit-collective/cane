@@ -8,7 +8,7 @@ int main(int argc, const char* argv[]) {
 		.indent = 0,
 	};
 
-	cane_string_view_t sv = CANE_SV("1 => a");
+	cane_string_view_t sv = CANE_SV("!!!");
 	// cane_string_view_t sv = CANE_SV("(\\x 16 + 24) . 123");
 
 	cane_ast_node_t* root = cane_parse(sv);
