@@ -5,114 +5,10 @@
 #include <string.h>
 
 #include <cane/def.h>
+#include <cane/enum.h>
 #include <cane/log.h>
 #include <cane/util.h>
 #include <cane/str.h>
-
-////////////
-// TOKENS //
-////////////
-
-// clang-format off
-
-#define SYMBOLS \
-	X(CANE_SYMBOL_NONE,       "none") \
-\
-	X(CANE_SYMBOL_ENDFILE,    "end of file") \
-	X(CANE_SYMBOL_WHITESPACE, "whitespace") \
-	X(CANE_SYMBOL_COMMENT,    "comment") \
-\
-	/* Misc. */ \
-	X(CANE_SYMBOL_BACKSLASH, "backslash `\\`") \
-	X(CANE_SYMBOL_COMMA,     "comma `,`") \
-	X(CANE_SYMBOL_DOT,       "dot `.`") \
-	X(CANE_SYMBOL_EXCLAIM,   "exclaim `!`") \
-	X(CANE_SYMBOL_ARROW,     "arrow `=>`") \
-	X(CANE_SYMBOL_COLON,     "colon `:`") \
-	X(CANE_SYMBOL_SEMICOLON, "semicolon `;`") \
-	X(CANE_SYMBOL_QUOTE,     "quote `'`") \
-	X(CANE_SYMBOL_AT,        "at `@`") \
-	X(CANE_SYMBOL_STARS,     "stars `**`") \
-	X(CANE_SYMBOL_TILDA,     "tilda `~`") \
-\
-	/* Cons Lists */ \
-	X(CANE_SYMBOL_STATEMENT, "statement") \
-	X(CANE_SYMBOL_CHOICE, "choice") \
-	X(CANE_SYMBOL_LAYER, "layer") \
-\
-	/* AST */ \
-	X(CANE_SYMBOL_CONCATENATE, "concatenate") \
-	X(CANE_SYMBOL_CALL, "call") \
-	X(CANE_SYMBOL_ASSIGN, "assign") \
-	X(CANE_SYMBOL_FUNCTION, "function") \
-	X(CANE_SYMBOL_REPEAT, "repeat") \
-	X(CANE_SYMBOL_MAP, "map") \
-	X(CANE_SYMBOL_INVERT, "invert") \
-	X(CANE_SYMBOL_REVERSE, "reverse") \
-	X(CANE_SYMBOL_RHYTHM, "rhythm") \
-\
-	X(CANE_SYMBOL_ABS, "abs") \
-	X(CANE_SYMBOL_NEG, "neg") \
-\
-	X(CANE_SYMBOL_BEAT, "beat") \
-	X(CANE_SYMBOL_REST, "rest") \
-\
-	X(CANE_SYMBOL_LSHIFT, "lshift") \
-	X(CANE_SYMBOL_RSHIFT, "rshift") \
-\
-	/* Atoms */ \
-	X(CANE_SYMBOL_NUMBER,     "number") \
-	X(CANE_SYMBOL_STRING,     "string") \
-	X(CANE_SYMBOL_IDENTIFIER, "identifier") \
-\
-	/* Keywords */ \
-	X(CANE_SYMBOL_LCM, "lcm") \
-	X(CANE_SYMBOL_GCD, "gcd") \
-\
-	/* Operators */ \
-	X(CANE_SYMBOL_OR,  "or") \
-	X(CANE_SYMBOL_XOR, "xor") \
-	X(CANE_SYMBOL_AND, "and") \
-\
-	X(CANE_SYMBOL_ADD, "add `+`") \
-	X(CANE_SYMBOL_SUB, "sub `-`") \
-	X(CANE_SYMBOL_MUL, "mul `*`") \
-	X(CANE_SYMBOL_DIV, "div `/`") \
-\
-	/* Grouping */ \
-	X(CANE_SYMBOL_LPAREN, "lparen `(`") \
-	X(CANE_SYMBOL_RPAREN, "rparen `)`") \
-\
-	X(CANE_SYMBOL_LBRACE, "lbrace `{`") \
-	X(CANE_SYMBOL_RBRACE, "rbrace `}`") \
-\
-	X(CANE_SYMBOL_LBRACKET, "lbracket `[`") \
-	X(CANE_SYMBOL_RBRACKET, "rbracket `]`") \
-\
-	X(CANE_SYMBOL_LCHEVRON, "lchevron `<`") \
-	X(CANE_SYMBOL_RCHEVRON, "rchevron `>`")
-
-// clang-format on
-
-#define X(x, y) x,
-
-typedef enum {
-	SYMBOLS CANE_SYMBOL_TOTAL
-} cane_symbol_kind_t;
-
-#undef X
-
-// Maps the enum const direct to a string
-#define X(x, y) [x] = #x,
-const char* CANE_SYMBOL_TO_STR[] = {SYMBOLS};
-#undef X
-
-// Map the enum const to a human readable string
-#define X(x, y) [x] = y,
-const char* CANE_SYMBOL_TO_STR_HUMAN[] = {SYMBOLS};
-#undef X
-
-#undef SYMBOLS
 
 /////////////
 // Symbols //
@@ -483,11 +379,6 @@ static bool cane_lexer_peek_is(
 	cane_symbol_t* out,
 	cane_lexer_fixup_t fixup
 ) {
-	// cane_symbol_t symbol = (cane_symbol_t){
-	// 	.kind = CANE_SYMBOL_NONE,
-	// 	.sv = {lx->ptr, lx->ptr},
-	// };
-
 	cane_symbol_t symbol;
 
 	if (!cane_lexer_peek(lx, &symbol, fixup)) {
@@ -514,10 +405,6 @@ static bool cane_lexer_peek_is_kind(
 	cane_lexer_fixup_t fixup
 ) {
 	cane_symbol_t symbol;
-	// cane_symbol_t symbol = (cane_symbol_t){
-	// 	.kind = CANE_SYMBOL_NONE,
-	// 	.sv = {lx->ptr, lx->ptr},
-	// };
 
 	if (!cane_lexer_peek(lx, &symbol, fixup)) {
 		return false;
@@ -553,7 +440,10 @@ static bool cane_lexer_take_any(
 	else if (!(cane_lexer_produce_identifier(lx, &symbol) ||
 			   cane_lexer_produce_number(lx, &symbol) ||
 			   cane_lexer_produce_sigil(lx, &symbol))) {
-		CANE_DIE(log, "unknown character `%c`!", lx->ptr[0]);
+		cane_report_and_die(
+			CANE_REPORT_LEXICAL, "unknown character `%c`!", *lx->ptr
+		);
+
 		return false;
 	}
 
@@ -590,11 +480,6 @@ static bool cane_lexer_take_if(
 	cane_lexer_fixup_t fixup
 ) {
 	cane_symbol_t symbol;
-	// cane_symbol_t symbol = (cane_symbol_t){
-	// 	.kind = CANE_SYMBOL_NONE,
-	// 	.sv = {lx->ptr, lx->ptr},
-	// };
-
 	cane_lexer_peek(lx, &symbol, fixup);
 
 	if (!pred(symbol.kind)) {
@@ -611,11 +496,6 @@ static bool cane_lexer_take_if_kind(
 	cane_lexer_fixup_t fixup
 ) {
 	cane_symbol_t symbol;
-	// cane_symbol_t symbol = (cane_symbol_t){
-	// 	.kind = CANE_SYMBOL_NONE,
-	// 	.sv = {lx->ptr, lx->ptr},
-	// };
-
 	cane_lexer_peek(lx, &symbol, fixup);
 
 	if (symbol.kind != kind) {

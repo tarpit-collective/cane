@@ -10,68 +10,10 @@
 #include <string.h>
 
 #include <cane/def.h>
+#include <cane/enum.h>
 #include <cane/log.h>
 #include <cane/util.h>
 #include <cane/lex.h>
-
-// Types
-#define TYPES \
-	X(CANE_TYPE_NONE, "none") \
-\
-	X(CANE_TYPE_NUMBER, "number") \
-	X(CANE_TYPE_STRING, "string") \
-\
-	X(CANE_TYPE_MELODY, "melody") \
-	X(CANE_TYPE_RHYTHM, "rhythm") \
-	X(CANE_TYPE_SEQUENCE, "sequence") \
-	X(CANE_TYPE_PATTERN, "pattern") \
-	X(CANE_TYPE_FUNCTION, "function")
-
-#define X(x, y) x,
-
-typedef enum {
-	TYPES CANE_TYPE_TOTAL
-} cane_type_t;
-
-#undef X
-
-// Maps the enum const direct to a string
-#define X(x, y) [x] = #x,
-const char* CANE_TYPE_TO_STR[] = {TYPES};
-#undef X
-
-// Map the enum const to a human readable string
-#define X(x, y) [x] = y,
-const char* CANE_TYPE_TO_STR_HUMAN[] = {TYPES};
-#undef X
-
-#undef TYPES
-
-// Operator prefix/infix/postfix
-#define OPFIX \
-	X(CANE_OPFIX_PREFIX, "prefix") \
-	X(CANE_OPFIX_INFIX, "infix") \
-	X(CANE_OPFIX_POSTFIX, "postfix")
-
-#define X(x, y) x,
-
-typedef enum {
-	OPFIX CANE_OPFIX_TOTAL
-} cane_opfix_t;
-
-#undef X
-
-// Maps the enum const direct to a string
-#define X(x, y) [x] = #x,
-const char* CANE_OPFIX_TO_STR[] = {OPFIX};
-#undef X
-
-// Map the enum const to a human readable string
-#define X(x, y) [x] = y,
-const char* CANE_OPFIX_TO_STR_HUMAN[] = {OPFIX};
-#undef X
-
-#undef OPFIX
 
 /////////
 // AST //
@@ -83,7 +25,7 @@ struct cane_ast_node {
 	cane_symbol_kind_t kind;
 	cane_string_view_t sv;
 
-	cane_type_t type;
+	cane_type_kind_t type;
 
 	cane_ast_node_t* lhs;
 	cane_ast_node_t* rhs;
@@ -130,6 +72,9 @@ static cane_ast_node_t* cane_parse_postfix(
 static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t bp);
 
 // Fix symbols in different contexts.
+// TODO:
+// 1. Turn this into an X macro like for sigil parsing to clean things up
+// 2. Split into 3 distinct functions for prefix/infix/postfix
 static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
 	// Convert symbols in prefix location.
 	// Makes it easier to reason about operator kinds during parsing and when
@@ -200,6 +145,8 @@ struct cane_binding_power {
 	size_t rbp;
 };
 
+// TODO: This is ugly as fuck. Fix it.
+// X macro?
 static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t s) {
 	switch (s) {
 		// Prefix
@@ -345,7 +292,7 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 	}
 
 	if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ENDFILE)) {
-		CANE_DIE(log, "expected end of file");
+		cane_report_and_die(CANE_REPORT_SYNTAX, "expected end of file");
 	}
 
 	return root;
@@ -400,7 +347,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
 
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RPAREN)) {
-				CANE_DIE(log, "expected `)`");
+				cane_report_and_die(CANE_REPORT_SYNTAX, "expected `)`");
 			}
 
 			return expr;
@@ -418,7 +365,9 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			if (!cane_lexer_take_if_kind(
 					lx, CANE_SYMBOL_IDENTIFIER, &ident, cane_fix_unary_symbol
 				)) {
-				CANE_DIE(log, "expected an identifier");
+				cane_report_and_die(
+					CANE_REPORT_SYNTAX, "expected an identifier"
+				);
 			}
 
 			cane_ast_node_t* param =
@@ -439,12 +388,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		default: break;
 	}
 
-	// TODO: Report an error here.
-	CANE_DIE(
-		log,
-		"expected a primary expression `%s`",
-		CANE_SYMBOL_TO_STR[symbol.kind]
-	);
+	cane_report_and_die(CANE_REPORT_SYNTAX, "expected a primary expression");
 
 	return NULL;
 }
@@ -458,7 +402,7 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 	// `cane_lexer_discard_if` because we have fixed up the symbol earlier and
 	// peeking again would return the incorrect/lexical token kind instead.
 	if (!cane_parser_is_prefix(symbol.kind)) {
-		CANE_DIE(log, "expected a prefix operator");
+		cane_report_and_die(CANE_REPORT_SYNTAX, "expected a prefix operator");
 	}
 
 	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
@@ -480,7 +424,7 @@ static cane_ast_node_t* cane_parse_infix(
 	CANE_FUNCTION_ENTER(log);
 
 	if (!cane_parser_is_infix(symbol.kind)) {
-		CANE_DIE(log, "expected an infix operator");
+		cane_report_and_die(CANE_REPORT_SYNTAX, "expected an infix operator");
 	}
 
 	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
@@ -501,7 +445,7 @@ static cane_ast_node_t* cane_parse_postfix(
 	CANE_FUNCTION_ENTER(log);
 
 	if (!cane_parser_is_postfix(symbol.kind)) {
-		CANE_DIE(log, "expected a postfix operator");
+		cane_report_and_die(CANE_REPORT_SYNTAX, "expected a postfix operator");
 	}
 
 	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
@@ -520,7 +464,7 @@ static cane_ast_node_t* cane_parse_postfix(
 		if (!cane_lexer_take_if_kind(
 				lx, CANE_SYMBOL_IDENTIFIER, &ident, cane_fix_unary_symbol
 			)) {
-			CANE_DIE(log, "expected an identifier");
+			cane_report_and_die(CANE_REPORT_SYNTAX, "expected an identifier");
 		}
 
 		node->lhs = cane_ast_node_create(CANE_SYMBOL_IDENTIFIER, ident.sv);
@@ -549,10 +493,9 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 
 	else {
 		// TODO: report an error
-		CANE_DIE(
-			log,
-			"expected a primary expression or a prefix operator `%s`",
-			CANE_SYMBOL_TO_STR[symbol.kind]
+		cane_report_and_die(
+			CANE_REPORT_SYNTAX,
+			"expected a primary expression or a prefix operator"
 		);
 	}
 
@@ -586,11 +529,9 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 		else {
 			cane_lexer_peek(lx, &symbol, cane_fix_binary_symbol);
 
-			// TODO: report an error
-			CANE_DIE(
-				log,
-				"expected an infix or postfix operator `%s`",
-				CANE_SYMBOL_TO_STR[symbol.kind]
+			cane_report_and_die(
+				CANE_REPORT_SYNTAX, "expected an infix or postfix operator"
+
 			);
 		}
 

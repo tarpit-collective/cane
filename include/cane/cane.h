@@ -4,8 +4,10 @@
 #include <stdbool.h>
 
 #include <cane/def.h>
+#include <cane/enum.h>
 #include <cane/log.h>
 #include <cane/util.h>
+#include <cane/str.h>
 #include <cane/lex.h>
 #include <cane/parse.h>
 
