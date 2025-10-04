@@ -13,8 +13,11 @@ expression = expression '=>' ident
 expression = '(' expression ')'
 
 // Functions
-expression = '\' ident expr
+type = ':' ( 'number' | 'string' | 'rhythm' | 'melody' | 'sequence' | 'pattern' )
+expression = '\' ident type expr type
 expression = expression expression  // Function call
+
+\ x: int foo: int
 
 // Scalars
 expression =
@@ -41,8 +44,7 @@ expression =
 
 // Sequence
 expression =
-	( '/' | '*' ) expression |
-	expression '.' expression |
+	expression ( '.' | '*' | '/' ) expression |
 	expression '=>' ident |
 	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
