@@ -330,10 +330,10 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 				cane_ast_node_create(symbol.kind, symbol.sv);
 
 			while (cane_lexer_peek_is_kind(
-					   lx, CANE_SYMBOL_BEAT, NULL, cane_fix_unary_symbol
+					   lx, CANE_SYMBOL_BEAT, &symbol, cane_fix_unary_symbol
 				   ) ||
 				   cane_lexer_peek_is_kind(
-					   lx, CANE_SYMBOL_REST, NULL, cane_fix_unary_symbol
+					   lx, CANE_SYMBOL_REST, &symbol, cane_fix_unary_symbol
 				   )) {
 				cane_lexer_take(lx, &symbol, cane_fix_unary_symbol);
 				cane_ast_node_t* node =
@@ -364,12 +364,10 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		} break;
 
 		case CANE_SYMBOL_CHOICE: {
-			// '{' expression [( ',' expression )* [ ',' ]] '}'  // Random
-			// choice
-
 			cane_lexer_discard(lx);  // Skip `{`
 			cane_ast_node_t* root = NULL;
 
+			// Need at least one expression.
 			do {
 				cane_ast_node_t* node = cane_parse_expression(lx, 0);
 
@@ -381,24 +379,10 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 				root = choice;
 
-				cane_lexer_discard_if_kind(lx, CANE_SYMBOL_COLON);
-			} while (cane_lexer_peek_is(
-				lx, cane_parser_is_expression, &symbol, cane_fix_unary_symbol
-			));
-
-			cane_symbol_t peek;
-			CANE_LOG_FAIL(cane_logger_create_default(), "%p", &peek);
-			cane_lexer_peek(lx, &symbol, NULL);
-
-			CANE_WHEREAMI(log);
-
-			CANE_LOG_WARN(
-				cane_logger_create_default(),
-				"%s",
-				CANE_SYMBOL_TO_STR[peek.kind]
+				cane_lexer_discard_if_kind(lx, CANE_SYMBOL_COMMA);
+			} while (
+				!cane_lexer_peek_is_kind(lx, CANE_SYMBOL_RBRACE, &symbol, NULL)
 			);
-
-			CANE_WHEREAMI(log);
 
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RBRACE)) {
 				cane_report_and_die(CANE_REPORT_SYNTAX, "expected `}`");

@@ -47,9 +47,6 @@ static bool cane_lexer_take(
 );
 
 static cane_lexer_t cane_lexer_create(cane_string_view_t sv) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	// Initialise peek to NONE
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
@@ -73,9 +70,6 @@ static cane_lexer_t cane_lexer_create(cane_string_view_t sv) {
 
 // Basic stream interaction
 static bool cane_str_peek(cane_lexer_t* lx, char* c) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	// Return false for EOF.
 	if (lx->ptr > lx->end) {
 		return false;
@@ -85,15 +79,10 @@ static bool cane_str_peek(cane_lexer_t* lx, char* c) {
 		*c = *lx->ptr;
 	}
 
-	CANE_WHEREAMI(log);
-
 	return true;
 }
 
 static bool cane_str_take(cane_lexer_t* lx, char* c) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	if (!cane_str_peek(lx, c)) {
 		return false;
 	}
@@ -104,9 +93,6 @@ static bool cane_str_take(cane_lexer_t* lx, char* c) {
 
 // Conditional consumers
 static bool cane_str_take_if(cane_lexer_t* lx, cane_char_pred_t pred, char* c) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	char peek;
 
 	if (!cane_str_peek(lx, &peek) || !pred(peek)) {
@@ -120,9 +106,6 @@ static bool cane_str_take_if(cane_lexer_t* lx, cane_char_pred_t pred, char* c) {
 // Same as take_if but just takes a character directly
 // for common usecases.
 static bool cane_str_take_if_char(cane_lexer_t* lx, char c) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	char peek;
 
 	if (!cane_str_peek(lx, &peek)) {
@@ -139,9 +122,6 @@ static bool cane_str_take_if_char(cane_lexer_t* lx, char c) {
 
 // Consumes a given string from the lexer stream or nothing at all.
 static bool cane_str_take_str(cane_lexer_t* lx, cane_string_view_t sv) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	size_t length = cane_string_view_length(sv);
 
 	if (lx->ptr + length > lx->end) {
@@ -163,9 +143,6 @@ static bool cane_str_take_str(cane_lexer_t* lx, cane_string_view_t sv) {
 
 // Continue to consume characters while the predicate holds.
 static bool cane_str_take_while(cane_lexer_t* lx, cane_char_pred_t pred) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	bool taken = false;
 
 	while (cane_str_take_if(lx, pred, NULL)) {
@@ -184,9 +161,6 @@ static bool cane_lexer_produce_if(
 	cane_symbol_kind_t kind,
 	cane_char_pred_t pred
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = kind,
 		.sv = {lx->ptr, lx->ptr},
@@ -211,9 +185,6 @@ static bool cane_lexer_produce_while(
 	cane_symbol_kind_t kind,
 	cane_char_pred_t pred
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = kind,
 		.sv = {lx->ptr, lx->ptr},
@@ -238,9 +209,6 @@ static bool cane_lexer_produce_str(
 	cane_symbol_kind_t kind,
 	cane_string_view_t sv
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = kind,
 		.sv = {lx->ptr, lx->ptr},
@@ -262,9 +230,6 @@ static bool cane_lexer_produce_str(
 // Cane specific lexer functions
 static bool
 cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
 		.sv = {lx->ptr, lx->ptr},
@@ -319,16 +284,10 @@ cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
 }
 
 static bool cane_lexer_produce_number(cane_lexer_t* lx, cane_symbol_t* out) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	return cane_lexer_produce_while(lx, out, CANE_SYMBOL_NUMBER, cane_is_digit);
 }
 
 static bool cane_lexer_produce_sigil(cane_lexer_t* lx, cane_symbol_t* out) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	// clang-format off
 	#define CANE_PRODUCE_SIGIL(kind, sv) \
 		cane_lexer_produce_str(lx, out, kind, sv)
@@ -370,18 +329,12 @@ static bool cane_lexer_produce_sigil(cane_lexer_t* lx, cane_symbol_t* out) {
 
 static bool
 cane_lexer_produce_whitespace(cane_lexer_t* lx, cane_symbol_t* out) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	return cane_lexer_produce_while(
 		lx, out, CANE_SYMBOL_WHITESPACE, cane_is_whitespace
 	);
 }
 
 static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_COMMENT,
 		.sv = {lx->ptr, lx->ptr},
@@ -408,25 +361,23 @@ static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
 static bool cane_lexer_peek(
 	cane_lexer_t* lx, cane_symbol_t* out, cane_lexer_fixup_t fixup
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	bool is_eof = false;
+	cane_symbol_t peek = lx->peek;
 
-	CANE_LOG_FAIL(cane_logger_create_default(), "%p", out);
-
-	if (out != NULL) {
-		*out = lx->peek;
-
-		if (fixup != NULL) {
-			out->kind = fixup(out->kind);
-		}
+	if (fixup != NULL) {
+		peek.kind = fixup(peek.kind);
 	}
 
 	if (!cane_str_peek(lx, NULL)) {  // Check for EOF
-		return false;
+		is_eof = true;
+		peek.kind = CANE_SYMBOL_ENDFILE;
 	}
 
-	CANE_WHEREAMI(log);
-	return true;
+	if (out != NULL) {
+		*out = peek;
+	}
+
+	return !is_eof;
 }
 
 static bool cane_lexer_peek_is(
@@ -435,15 +386,17 @@ static bool cane_lexer_peek_is(
 	cane_symbol_t* out,
 	cane_lexer_fixup_t fixup
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
-	if (!cane_lexer_peek(lx, out, fixup)) {
+	cane_symbol_t peek;
+	if (!cane_lexer_peek(lx, &peek, fixup)) {
 		return false;
 	}
 
-	if (out != NULL && !cond(out->kind)) {
+	if (!cond(peek.kind)) {
 		return false;
+	}
+
+	if (out != NULL) {
+		*out = peek;
 	}
 
 	return true;
@@ -455,15 +408,18 @@ static bool cane_lexer_peek_is_kind(
 	cane_symbol_t* out,
 	cane_lexer_fixup_t fixup
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
-	if (!cane_lexer_peek(lx, out, fixup)) {
+	cane_symbol_t peek;
+	if (!cane_lexer_peek(lx, &peek, fixup)) {
+		CANE_WHEREAMI(cane_logger_create_default());
 		return false;
 	}
 
-	if (out != NULL && out->kind != kind) {
+	if (peek.kind != kind) {
 		return false;
+	}
+
+	if (out != NULL) {
+		*out = peek;
 	}
 
 	return true;
@@ -472,16 +428,14 @@ static bool cane_lexer_peek_is_kind(
 static bool cane_lexer_take_any(
 	cane_lexer_t* lx, cane_symbol_t* out, cane_lexer_fixup_t fixup
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
 		.sv = {lx->ptr, lx->ptr},
 	};
 
 	// Handle EOF
-	if (lx->ptr >= lx->end) {
+	if (lx->ptr >=
+		lx->end) {  // Must be >= which means we can't use `cane_str_peek`
 		symbol.kind = CANE_SYMBOL_ENDFILE;
 	}
 
@@ -507,6 +461,13 @@ static bool cane_lexer_take_any(
 	}
 
 	lx->peek = symbol;
+
+	CANE_LOG_OKAY(
+		cane_logger_create_default(),
+		"kind = %s",
+		CANE_SYMBOL_TO_STR[lx->peek.kind]
+	);
+
 	return true;
 }
 
@@ -514,9 +475,6 @@ static bool cane_lexer_take_any(
 static bool cane_lexer_take(
 	cane_lexer_t* lx, cane_symbol_t* out, cane_lexer_fixup_t fixup
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
 	while (cane_lexer_produce_whitespace(lx, out) ||
 		   cane_lexer_produce_comment(lx, out))
 		;
@@ -530,13 +488,15 @@ static bool cane_lexer_take_if(
 	cane_symbol_t* out,
 	cane_lexer_fixup_t fixup
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	cane_symbol_t peek;
+	cane_lexer_peek(lx, &peek, fixup);
 
-	cane_lexer_peek(lx, out, fixup);
-
-	if (out != NULL && !pred(out->kind)) {
+	if (!pred(peek.kind)) {
 		return false;
+	}
+
+	if (out != NULL) {
+		*out = peek;
 	}
 
 	return cane_lexer_take(lx, out, fixup);
@@ -548,38 +508,34 @@ static bool cane_lexer_take_if_kind(
 	cane_symbol_t* out,
 	cane_lexer_fixup_t fixup
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	cane_symbol_t peek;
+	cane_lexer_peek(lx, &peek, fixup);
 
-	cane_lexer_peek(lx, out, fixup);
-
-	if (out != NULL && out->kind != kind) {
+	if (peek.kind != kind) {
 		return false;
+	}
+
+	if (out != NULL) {
+		*out = peek;
 	}
 
 	return cane_lexer_take(lx, out, fixup);
 }
 
 static bool cane_lexer_discard(cane_lexer_t* lx) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
-	return cane_lexer_take(lx, NULL, NULL);
+	cane_symbol_t symbol;
+	return cane_lexer_take(lx, &symbol, NULL);
 }
 
 static bool cane_lexer_discard_if(cane_lexer_t* lx, cane_symbol_pred_t pred) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
-	return cane_lexer_take_if(lx, pred, NULL, NULL);
+	cane_symbol_t symbol;
+	return cane_lexer_take_if(lx, pred, &symbol, NULL);
 }
 
 static bool
 cane_lexer_discard_if_kind(cane_lexer_t* lx, cane_symbol_kind_t kind) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
-
-	return cane_lexer_take_if_kind(lx, kind, NULL, NULL);
+	cane_symbol_t symbol;
+	return cane_lexer_take_if_kind(lx, kind, &symbol, NULL);
 }
 
 #endif
