@@ -1,7 +1,7 @@
 # cane (v2)
 > The beatings will continue until a banger is made
 
-Cane is a live-coding language designed to sequence your MIDI capable devices.
+Cane is a programming language designed for making music.
 
 ![C](https://badgen.net/static/C/17/orange)
 [![license](https://badgen.net/github/license/tarpit-collective/cane)](./LICENSE)
@@ -19,7 +19,13 @@ The EBNF grammar is [here](doc/syntax.ebnf).
 > TODO
 
 ### Build & Run
-> TODO
+```sh
+$ git clone https://github.com/tarpit-collective/cane.git --recursive && cd cane/
+$ pre-commit install  # Checks/linting
+$ meson setup build/
+$ meson compile -C build/
+$ meson test -C build/
+```
 
 ### Rationale
 > TODO
