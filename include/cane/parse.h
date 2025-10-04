@@ -279,6 +279,7 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 	cane_logger_t log = cane_logger_create_default();
 	CANE_FUNCTION_ENTER(log);
 
+	cane_symbol_t symbol;
 	cane_ast_node_t* root = NULL;
 
 	// TODO: To keep things simple, we can use a binary tree for everything
@@ -286,8 +287,17 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 	// We can just evaluate both sides in isolation.
 	// Basically a "cons" list like in lisp.
 
-	while (!cane_lexer_peek_is_kind(lx, CANE_SYMBOL_ENDFILE, NULL, NULL)) {
-		root = cane_parse_expression(lx, 0);
+	while (!cane_lexer_peek_is_kind(lx, CANE_SYMBOL_ENDFILE, &symbol, NULL)) {
+		cane_ast_node_t* node = cane_parse_expression(lx, 0);
+
+		cane_ast_node_t* concat =
+			cane_ast_node_create(CANE_SYMBOL_STATEMENT, symbol.sv);
+
+		concat->lhs = node;
+		concat->rhs = root;
+
+		root = concat;
+
 		cane_lexer_discard_if_kind(lx, CANE_SYMBOL_SEMICOLON);
 	}
 
@@ -353,7 +363,50 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			return expr;
 		} break;
 
-		case CANE_SYMBOL_CHOICE:
+		case CANE_SYMBOL_CHOICE: {
+			// '{' expression [( ',' expression )* [ ',' ]] '}'  // Random
+			// choice
+
+			cane_lexer_discard(lx);  // Skip `{`
+			cane_ast_node_t* root = NULL;
+
+			do {
+				cane_ast_node_t* node = cane_parse_expression(lx, 0);
+
+				cane_ast_node_t* choice =
+					cane_ast_node_create(CANE_SYMBOL_CHOICE, symbol.sv);
+
+				choice->lhs = node;
+				choice->rhs = root;
+
+				root = choice;
+
+				cane_lexer_discard_if_kind(lx, CANE_SYMBOL_COLON);
+			} while (cane_lexer_peek_is(
+				lx, cane_parser_is_expression, &symbol, cane_fix_unary_symbol
+			));
+
+			cane_symbol_t peek;
+			CANE_LOG_FAIL(cane_logger_create_default(), "%p", &peek);
+			cane_lexer_peek(lx, &symbol, NULL);
+
+			CANE_WHEREAMI(log);
+
+			CANE_LOG_WARN(
+				cane_logger_create_default(),
+				"%s",
+				CANE_SYMBOL_TO_STR[peek.kind]
+			);
+
+			CANE_WHEREAMI(log);
+
+			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RBRACE)) {
+				cane_report_and_die(CANE_REPORT_SYNTAX, "expected `}`");
+			}
+
+			return root;
+		} break;
+
 		case CANE_SYMBOL_LAYER: {
 			CANE_UNIMPLEMENTED(log);
 		} break;

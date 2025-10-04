@@ -56,7 +56,8 @@
 	X(CANE_PRIORITY_FAIL, "[!]", "fail", CANE_RED) \
 	X(CANE_PRIORITY_OKAY, "[^]", "okay", CANE_GREEN) \
 \
-	X(CANE_PRIORITY_DIED, "[!]", "died", CANE_RED_BRIGHT)
+	X(CANE_PRIORITY_DIED, "[!]", "died", CANE_RED_BRIGHT) \
+	X(CANE_PRIORITY_ENTR, "[>]", "entr", CANE_YELLOW_BRIGHT)
 
 #define X(x, y, z, w) x,
 
@@ -290,7 +291,7 @@ static void cane_assert(
 
 #define CANE_FUNCTION_ENTER(log) \
 	cane_log_lineinfo( \
-		log, CANE_PRIORITY_INFO, __FILE__, CANE_STR(__LINE__), __func__, NULL \
+		log, CANE_PRIORITY_ENTR, __FILE__, CANE_STR(__LINE__), __func__, NULL \
 	)
 
 #define CANE_DIE(log, ...) \
