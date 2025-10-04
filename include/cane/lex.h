@@ -569,39 +569,64 @@ static cane_lexer_location_t cane_lexer_location_create(cane_lexer_t* lx) {
 // TODO: Create a function that gives us the line and column numbers for a given
 // `cane_lexer_location_t`.
 
-// TODO:
-// 1. Location information
-// 2. Preview of token/line of code where error occured
+typedef struct cane_lexer_lineinfo cane_lexer_lineinfo_t;
+
+struct cane_lexer_lineinfo {
+	size_t line;
+	size_t column;
+};
+
+// Calculate line and column.
+static cane_lexer_lineinfo_t
+cane_location_coordinates(cane_lexer_location_t location) {
+	cane_lexer_lineinfo_t info = (cane_lexer_lineinfo_t){
+		.line = 1,
+		.column = 1,
+	};
+
+	cane_string_view_t source = location.source;
+	cane_string_view_t symbol = location.symbol;
+
+	if (!(symbol.begin >= source.begin && symbol.end <= source.end)) {
+		CANE_DIE(cane_logger_create_default(), "symbol not in range of source");
+	}
+
+	for (const char* ptr = source.begin; ptr != symbol.end; ptr++) {
+		if (*ptr == '\n') {
+			info.line++;
+			info.column = 0;
+		}
+
+		info.column++;
+	}
+
+	return info;
+}
+
+// TODO: Preview of token/line of code where error occured
 static void cane_report_and_die(
 	cane_lexer_location_t loc, cane_report_kind_t kind, const char* fmt, ...
 ) {
+	cane_lexer_lineinfo_t info = cane_location_coordinates(loc);
+
 	va_list args;
 	va_start(args, fmt);
 
-	// TODO: Handle variadic arguments and handle printing
 	fprintf(
 		stderr,
-		"%s%s %s error" CANE_RESET ": ",
+		"%s%s %s error" CANE_RESET " @ %zu:%zu => ",
 		CANE_LOGLEVEL_COLOUR[CANE_PRIORITY_FAIL],
 		CANE_LOGLEVEL_TO_STR[CANE_PRIORITY_FAIL],
-		CANE_REPORT_KIND_TO_STR_HUMAN[kind]
+		CANE_REPORT_KIND_TO_STR_HUMAN[kind],
+		info.line,
+		info.column
 	);
 
 	vfprintf(stderr, fmt, args);
 	fputc('\n', stderr);
 
 	va_end(args);
-	exit(EXIT_FAILURE
-	);  // TODO: Remove when `cane_report_and_die` is implemented correctly.
+	exit(EXIT_FAILURE);
 }
-
-// TODO: Fix varargs here.
-// static void cane_report_and_die(cane_report_kind_t kind, const char* fmt,
-// ...) {
-// 	// TODO: Implement `die` function that doesn't print and call it here after
-// 	// report.
-// 	// cane_report(kind, fmt);
-// 	// exit(EXIT_FAILURE);
-// }
 
 #endif
