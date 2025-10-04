@@ -307,23 +307,4 @@ static void cane_assert(
 
 // TODO: Debug macro (might not be reasonable)
 
-///////////////
-// Reporting //
-///////////////
-
-// TODO:
-// 1. Location information
-// 2. Preview of token/line of code where error occured
-static void cane_report(cane_report_kind_t kind, const char* fmt, ...) {
-	// TODO: Handle variadic arguments and handle printing
-	CANE_LOG_OKAY(cane_logger_create_default(), fmt);
-}
-
-static void cane_report_and_die(cane_report_kind_t kind, const char* fmt, ...) {
-	// TODO: Implement `die` function that doesn't print and call it here after
-	// report.
-	cane_report(kind, fmt);
-	CANE_DIE(cane_logger_create_default(), fmt);
-}
-
 #endif

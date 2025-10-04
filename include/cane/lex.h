@@ -10,6 +10,21 @@
 #include <cane/util.h>
 #include <cane/str.h>
 
+// Allow us to provide line info and line preview.
+typedef struct cane_lexer_location cane_lexer_location_t;
+
+struct cane_lexer_location {
+	cane_string_view_t source;  // Original source file
+	cane_string_view_t symbol;  // Specific token
+};
+
+typedef struct cane_lexer cane_lexer_t;
+
+static cane_lexer_location_t cane_lexer_location_create(cane_lexer_t* lx);
+static void cane_report_and_die(
+	cane_lexer_location_t loc, cane_report_kind_t kind, const char* fmt, ...
+);
+
 /////////////
 // Symbols //
 /////////////
@@ -30,8 +45,6 @@ typedef cane_symbol_kind_t (*cane_lexer_fixup_t)(cane_symbol_kind_t);
 ///////////
 // LEXER //
 ///////////
-
-typedef struct cane_lexer cane_lexer_t;
 
 struct cane_lexer {
 	cane_string_view_t source;
@@ -444,7 +457,11 @@ static bool cane_lexer_take_any(
 			   cane_lexer_produce_number(lx, &symbol) ||
 			   cane_lexer_produce_sigil(lx, &symbol))) {
 		cane_report_and_die(
-			CANE_REPORT_LEXICAL, "unknown character `%c`!", *lx->ptr
+
+			cane_lexer_location_create(lx),
+			CANE_REPORT_LEXICAL,
+			"unknown character `%c`!",
+			*lx->ptr
 		);
 
 		return false;
@@ -537,5 +554,54 @@ cane_lexer_discard_if_kind(cane_lexer_t* lx, cane_symbol_kind_t kind) {
 	cane_symbol_t symbol;
 	return cane_lexer_take_if_kind(lx, kind, &symbol, NULL);
 }
+
+///////////////
+// Reporting //
+///////////////
+
+static cane_lexer_location_t cane_lexer_location_create(cane_lexer_t* lx) {
+	return (cane_lexer_location_t){
+		.source = lx->source,
+		.symbol = lx->peek.sv,
+	};
+}
+
+// TODO: Create a function that gives us the line and column numbers for a given
+// `cane_lexer_location_t`.
+
+// TODO:
+// 1. Location information
+// 2. Preview of token/line of code where error occured
+static void cane_report_and_die(
+	cane_lexer_location_t loc, cane_report_kind_t kind, const char* fmt, ...
+) {
+	va_list args;
+	va_start(args, fmt);
+
+	// TODO: Handle variadic arguments and handle printing
+	fprintf(
+		stderr,
+		"%s%s %s error" CANE_RESET ": ",
+		CANE_LOGLEVEL_COLOUR[CANE_PRIORITY_FAIL],
+		CANE_LOGLEVEL_TO_STR[CANE_PRIORITY_FAIL],
+		CANE_REPORT_KIND_TO_STR_HUMAN[kind]
+	);
+
+	vfprintf(stderr, fmt, args);
+	fputc('\n', stderr);
+
+	va_end(args);
+	exit(EXIT_FAILURE
+	);  // TODO: Remove when `cane_report_and_die` is implemented correctly.
+}
+
+// TODO: Fix varargs here.
+// static void cane_report_and_die(cane_report_kind_t kind, const char* fmt,
+// ...) {
+// 	// TODO: Implement `die` function that doesn't print and call it here after
+// 	// report.
+// 	// cane_report(kind, fmt);
+// 	// exit(EXIT_FAILURE);
+// }
 
 #endif

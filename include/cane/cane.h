@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#include <cane/def.h>
 #include <cane/enum.h>
+#include <cane/def.h>
 #include <cane/log.h>
 #include <cane/util.h>
 #include <cane/str.h>

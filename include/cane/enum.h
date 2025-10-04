@@ -8,7 +8,7 @@
 #define REPORT_KINDS \
 	X(CANE_REPORT_GENERIC, "error") \
 	X(CANE_REPORT_LEXICAL, "lexical") \
-	X(CANE_REPORT_SYNTAX, "grammatical") \
+	X(CANE_REPORT_SYNTAX, "syntax") \
 	X(CANE_REPORT_SEMANTIC, "semantic") \
 	X(CANE_REPORT_TYPE, "type")
 

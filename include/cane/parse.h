@@ -302,7 +302,11 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 	}
 
 	if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ENDFILE)) {
-		cane_report_and_die(CANE_REPORT_SYNTAX, "expected end of file");
+		cane_report_and_die(
+			cane_lexer_location_create(lx),
+			CANE_REPORT_SYNTAX,
+			"expected end of file"
+		);
 	}
 
 	return root;
@@ -357,7 +361,11 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
 
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RPAREN)) {
-				cane_report_and_die(CANE_REPORT_SYNTAX, "expected `)`");
+				cane_report_and_die(
+					cane_lexer_location_create(lx),
+					CANE_REPORT_SYNTAX,
+					"expected `)`"
+				);
 			}
 
 			return expr;
@@ -385,7 +393,11 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			);
 
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RBRACE)) {
-				cane_report_and_die(CANE_REPORT_SYNTAX, "expected `}`");
+				cane_report_and_die(
+					cane_lexer_location_create(lx),
+					CANE_REPORT_SYNTAX,
+					"expected `}`"
+				);
 			}
 
 			return root;
@@ -403,7 +415,9 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 					lx, CANE_SYMBOL_IDENTIFIER, &ident, cane_fix_unary_symbol
 				)) {
 				cane_report_and_die(
-					CANE_REPORT_SYNTAX, "expected an identifier"
+					cane_lexer_location_create(lx),
+					CANE_REPORT_SYNTAX,
+					"expected an identifier"
 				);
 			}
 
@@ -425,7 +439,11 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		default: break;
 	}
 
-	cane_report_and_die(CANE_REPORT_SYNTAX, "expected a primary expression");
+	cane_report_and_die(
+		cane_lexer_location_create(lx),
+		CANE_REPORT_SYNTAX,
+		"expected a primary expression"
+	);
 
 	return NULL;
 }
@@ -439,7 +457,11 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 	// `cane_lexer_discard_if` because we have fixed up the symbol earlier and
 	// peeking again would return the incorrect/lexical token kind instead.
 	if (!cane_parser_is_prefix(symbol.kind)) {
-		cane_report_and_die(CANE_REPORT_SYNTAX, "expected a prefix operator");
+		cane_report_and_die(
+			cane_lexer_location_create(lx),
+			CANE_REPORT_SYNTAX,
+			"expected a prefix operator"
+		);
 	}
 
 	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
@@ -461,7 +483,11 @@ static cane_ast_node_t* cane_parse_infix(
 	CANE_FUNCTION_ENTER(log);
 
 	if (!cane_parser_is_infix(symbol.kind)) {
-		cane_report_and_die(CANE_REPORT_SYNTAX, "expected an infix operator");
+		cane_report_and_die(
+			cane_lexer_location_create(lx),
+			CANE_REPORT_SYNTAX,
+			"expected an infix operator"
+		);
 	}
 
 	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
@@ -482,7 +508,11 @@ static cane_ast_node_t* cane_parse_postfix(
 	CANE_FUNCTION_ENTER(log);
 
 	if (!cane_parser_is_postfix(symbol.kind)) {
-		cane_report_and_die(CANE_REPORT_SYNTAX, "expected a postfix operator");
+		cane_report_and_die(
+			cane_lexer_location_create(lx),
+			CANE_REPORT_SYNTAX,
+			"expected a postfix operator"
+		);
 	}
 
 	cane_ast_node_t* node = cane_ast_node_create(symbol.kind, symbol.sv);
@@ -501,7 +531,11 @@ static cane_ast_node_t* cane_parse_postfix(
 		if (!cane_lexer_take_if_kind(
 				lx, CANE_SYMBOL_IDENTIFIER, &ident, cane_fix_unary_symbol
 			)) {
-			cane_report_and_die(CANE_REPORT_SYNTAX, "expected an identifier");
+			cane_report_and_die(
+				cane_lexer_location_create(lx),
+				CANE_REPORT_SYNTAX,
+				"expected an identifier"
+			);
 		}
 
 		node->lhs = cane_ast_node_create(CANE_SYMBOL_IDENTIFIER, ident.sv);
@@ -531,6 +565,7 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 	else {
 		// TODO: report an error
 		cane_report_and_die(
+			cane_lexer_location_create(lx),
 			CANE_REPORT_SYNTAX,
 			"expected a primary expression or a prefix operator"
 		);
@@ -567,7 +602,9 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 			cane_lexer_peek(lx, &symbol, cane_fix_binary_symbol);
 
 			cane_report_and_die(
-				CANE_REPORT_SYNTAX, "expected an infix or postfix operator"
+				cane_lexer_location_create(lx),
+				CANE_REPORT_SYNTAX,
+				"expected an infix or postfix operator"
 
 			);
 		}
