@@ -379,6 +379,13 @@ static bool cane_lexer_peek(
 
 	if (fixup != NULL) {
 		peek.kind = fixup(peek.kind);
+
+		// CANE_LOG_WARN(
+		// 	cane_logger_create_default(),
+		// 	"fixup binary %s => %s",
+		// 	CANE_SYMBOL_TO_STR[peek.kind],
+		// 	CANE_SYMBOL_TO_STR[peek.kind]
+		// );
 	}
 
 	if (!cane_str_peek(lx, NULL)) {  // Check for EOF
@@ -565,9 +572,6 @@ static cane_lexer_location_t cane_lexer_location_create(cane_lexer_t* lx) {
 		.symbol = lx->peek.sv,
 	};
 }
-
-// TODO: Create a function that gives us the line and column numbers for a given
-// `cane_lexer_location_t`.
 
 typedef struct cane_lexer_lineinfo cane_lexer_lineinfo_t;
 

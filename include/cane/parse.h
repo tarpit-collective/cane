@@ -71,70 +71,71 @@ static cane_ast_node_t* cane_parse_postfix(
 
 static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t bp);
 
-// Fix symbols in different contexts.
-// TODO:
-// 1. Turn this into an X macro like for sigil parsing to clean things up
-// 2. Split into 3 distinct functions for prefix/infix/postfix
-static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
-	// Convert symbols in prefix location.
-	// Makes it easier to reason about operator kinds during parsing and when
-	// constructing the AST.
+//////////////////////
+// Symbol Remapping //
+//////////////////////
 
-	cane_symbol_kind_t new_kind = kind;
+// Remap symbols based on their position.
+// Makes it easier to reason about operator kinds during parsing and when
+// constructing the AST.
 
-	switch (kind) {
-		case CANE_SYMBOL_DOT: new_kind = CANE_SYMBOL_REST; break;
-		case CANE_SYMBOL_EXCLAIM: new_kind = CANE_SYMBOL_BEAT; break;
+#define SYMBOL_REMAPPING \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_REST) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_EXCLAIM, CANE_SYMBOL_BEAT) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_TILDA, CANE_SYMBOL_INVERT) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_QUOTE, CANE_SYMBOL_REVERSE) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_ADD, CANE_SYMBOL_ABS) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_SUB, CANE_SYMBOL_NEG) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_LBRACE, CANE_SYMBOL_CHOICE) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_LBRACKET, CANE_SYMBOL_LAYER) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_BACKSLASH, CANE_SYMBOL_FUNCTION) \
+\
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COLON, CANE_SYMBOL_RHYTHM) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_STARS, CANE_SYMBOL_REPEAT) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_AT, CANE_SYMBOL_MAP) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_CONCATENATE) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_LCHEVRON, CANE_SYMBOL_LSHIFT) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_RCHEVRON, CANE_SYMBOL_RSHIFT) \
+\
+	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_ARROW, CANE_SYMBOL_ASSIGN)
 
-		case CANE_SYMBOL_TILDA: new_kind = CANE_SYMBOL_INVERT; break;
-		case CANE_SYMBOL_QUOTE: new_kind = CANE_SYMBOL_REVERSE; break;
-
-		case CANE_SYMBOL_ADD: new_kind = CANE_SYMBOL_ABS; break;
-		case CANE_SYMBOL_SUB: new_kind = CANE_SYMBOL_NEG; break;
-
-		case CANE_SYMBOL_LBRACE: new_kind = CANE_SYMBOL_CHOICE; break;
-		case CANE_SYMBOL_LBRACKET: new_kind = CANE_SYMBOL_LAYER; break;
-
-		case CANE_SYMBOL_BACKSLASH: new_kind = CANE_SYMBOL_FUNCTION; break;
-
-		default: return kind;
+static cane_symbol_kind_t
+cane_fix_symbol(cane_opfix_kind_t opfix, cane_symbol_kind_t kind) {
+#define X(o, f, t) \
+	if (o == opfix && f == kind) { \
+		return t; \
 	}
 
-	CANE_LOG_WARN(
-		cane_logger_create_default(),
-		"fixup unary %s => %s",
-		CANE_SYMBOL_TO_STR[kind],
-		CANE_SYMBOL_TO_STR[new_kind]
-	);
+	SYMBOL_REMAPPING;
 
-	return new_kind;
+	return kind;
+}
+
+#undef SYMBOL_REMAPPING
+
+// Wrappers so we can pass them directly to various lexer utility functions.
+static cane_symbol_kind_t cane_fix_prefix_symbol(cane_symbol_kind_t kind) {
+	return cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
+}
+
+static cane_symbol_kind_t cane_fix_infix_symbol(cane_symbol_kind_t kind) {
+	return cane_fix_symbol(CANE_OPFIX_INFIX, kind);
+}
+
+static cane_symbol_kind_t cane_fix_postfix_symbol(cane_symbol_kind_t kind) {
+	return cane_fix_symbol(CANE_OPFIX_POSTFIX, kind);
+}
+
+static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
+	kind = cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
+	return kind;
 }
 
 static cane_symbol_kind_t cane_fix_binary_symbol(cane_symbol_kind_t kind) {
-	cane_symbol_kind_t new_kind = kind;
+	kind = cane_fix_symbol(CANE_OPFIX_INFIX, kind);
+	kind = cane_fix_symbol(CANE_OPFIX_POSTFIX, kind);
 
-	switch (kind) {
-		case CANE_SYMBOL_COLON: new_kind = CANE_SYMBOL_RHYTHM; break;
-		case CANE_SYMBOL_STARS: new_kind = CANE_SYMBOL_REPEAT; break;
-		case CANE_SYMBOL_AT: new_kind = CANE_SYMBOL_MAP; break;
-		case CANE_SYMBOL_DOT: new_kind = CANE_SYMBOL_CONCATENATE; break;
-
-		case CANE_SYMBOL_LCHEVRON: new_kind = CANE_SYMBOL_LSHIFT; break;
-		case CANE_SYMBOL_RCHEVRON: new_kind = CANE_SYMBOL_RSHIFT; break;
-
-		case CANE_SYMBOL_ARROW: new_kind = CANE_SYMBOL_ASSIGN; break;
-
-		default: return kind;
-	}
-
-	CANE_LOG_WARN(
-		cane_logger_create_default(),
-		"fixup binary %s => %s",
-		CANE_SYMBOL_TO_STR[kind],
-		CANE_SYMBOL_TO_STR[new_kind]
-	);
-
-	return new_kind;
+	return kind;
 }
 
 // Binding power
@@ -276,16 +277,10 @@ static cane_ast_node_t* cane_parse(cane_string_view_t sv) {
 
 // Core parsing functions
 static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	CANE_FUNCTION_ENTER(cane_logger_create_default());
 
 	cane_symbol_t symbol;
 	cane_ast_node_t* root = NULL;
-
-	// TODO: To keep things simple, we can use a binary tree for everything
-	// and join statements together with a CANE_SYMBOL_STATEMENT node.
-	// We can just evaluate both sides in isolation.
-	// Basically a "cons" list like in lisp.
 
 	while (!cane_lexer_peek_is_kind(lx, CANE_SYMBOL_ENDFILE, &symbol, NULL)) {
 		cane_ast_node_t* node = cane_parse_expression(lx, 0);
@@ -315,8 +310,7 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 // Expression parsing
 static cane_ast_node_t*
 cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	CANE_FUNCTION_ENTER(cane_logger_create_default());
 
 	switch (symbol.kind) {
 		// Literals
@@ -404,7 +398,35 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		} break;
 
 		case CANE_SYMBOL_LAYER: {
-			CANE_UNIMPLEMENTED(log);
+			cane_lexer_discard(lx);  // Skip `[`
+			cane_ast_node_t* root = NULL;
+
+			// Need at least one expression.
+			do {
+				cane_ast_node_t* node = cane_parse_expression(lx, 0);
+
+				cane_ast_node_t* choice =
+					cane_ast_node_create(CANE_SYMBOL_LAYER, symbol.sv);
+
+				choice->lhs = node;
+				choice->rhs = root;
+
+				root = choice;
+
+				cane_lexer_discard_if_kind(lx, CANE_SYMBOL_COMMA);
+			} while (!cane_lexer_peek_is_kind(
+				lx, CANE_SYMBOL_RBRACKET, &symbol, NULL
+			));
+
+			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RBRACKET)) {
+				cane_report_and_die(
+					cane_lexer_location_create(lx),
+					CANE_REPORT_SYNTAX,
+					"expected `]`"
+				);
+			}
+
+			return root;
 		} break;
 
 		case CANE_SYMBOL_FUNCTION: {
@@ -412,7 +434,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 			cane_symbol_t ident;
 			if (!cane_lexer_take_if_kind(
-					lx, CANE_SYMBOL_IDENTIFIER, &ident, cane_fix_unary_symbol
+					lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
 				)) {
 				cane_report_and_die(
 					cane_lexer_location_create(lx),
@@ -450,8 +472,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 static cane_ast_node_t*
 cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	CANE_FUNCTION_ENTER(cane_logger_create_default());
 
 	// We need to call this function directly instead of using something like
 	// `cane_lexer_discard_if` because we have fixed up the symbol earlier and
@@ -479,8 +500,7 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 static cane_ast_node_t* cane_parse_infix(
 	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs, size_t bp
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	CANE_FUNCTION_ENTER(cane_logger_create_default());
 
 	if (!cane_parser_is_infix(symbol.kind)) {
 		cane_report_and_die(
@@ -504,8 +524,7 @@ static cane_ast_node_t* cane_parse_infix(
 static cane_ast_node_t* cane_parse_postfix(
 	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs
 ) {
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	CANE_FUNCTION_ENTER(cane_logger_create_default());
 
 	if (!cane_parser_is_postfix(symbol.kind)) {
 		cane_report_and_die(
@@ -529,7 +548,7 @@ static cane_ast_node_t* cane_parse_postfix(
 		cane_symbol_t ident;
 
 		if (!cane_lexer_take_if_kind(
-				lx, CANE_SYMBOL_IDENTIFIER, &ident, cane_fix_unary_symbol
+				lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
 			)) {
 			cane_report_and_die(
 				cane_lexer_location_create(lx),
@@ -547,8 +566,7 @@ static cane_ast_node_t* cane_parse_postfix(
 static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 	cane_ast_node_t* node = NULL;
 
-	cane_logger_t log = cane_logger_create_default();
-	CANE_FUNCTION_ENTER(log);
+	CANE_FUNCTION_ENTER(cane_logger_create_default());
 
 	cane_symbol_t symbol;
 	cane_lexer_peek(lx, &symbol, cane_fix_unary_symbol);
@@ -563,7 +581,6 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 	}
 
 	else {
-		// TODO: report an error
 		cane_report_and_die(
 			cane_lexer_location_create(lx),
 			CANE_REPORT_SYNTAX,
@@ -599,8 +616,6 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 		}
 
 		else {
-			cane_lexer_peek(lx, &symbol, cane_fix_binary_symbol);
-
 			cane_report_and_die(
 				cane_lexer_location_create(lx),
 				CANE_REPORT_SYNTAX,
