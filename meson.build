@@ -46,15 +46,15 @@ if meson.get_compiler('c').get_id() == 'clang'
 	add_project_arguments('-ferror-limit=2', language: 'c')
 
 	add_project_arguments('-Wno-unused-function', language: 'c')
-	add_project_arguments('-Wno-unused-variable', language: 'c')
-	add_project_arguments('-Wno-unused-parameter', language: 'c')
+	# add_project_arguments('-Wno-unused-variable', language: 'c')
+	# add_project_arguments('-Wno-unused-parameter', language: 'c')
 
 elif meson.get_compiler('c').get_id() == 'gcc'
 	add_project_arguments('-fmax-errors=2', language: 'c')
 
 	add_project_arguments('-Wno-unused-function', language: 'c')
-	add_project_arguments('-Wno-unused-variable', language: 'c')
-	add_project_arguments('-Wno-unused-parameter', language: 'c')
+	# add_project_arguments('-Wno-unused-variable', language: 'c')
+	# add_project_arguments('-Wno-unused-parameter', language: 'c')
 endif
 
 # Sanitizers.
