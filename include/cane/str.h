@@ -34,6 +34,21 @@ cane_string_view_eq(cane_string_view_t lhs, cane_string_view_t rhs) {
 	return strncmp(lhs.begin, rhs.begin, lhs_length) == 0;
 }
 
+typedef struct cane_string_view_info cane_string_view_info_t;
+
+struct cane_string_view_info {
+	const char* ptr;
+	size_t length;
+};
+
+static cane_string_view_info_t cane_string_view_ptr_length(cane_string_view_t sv
+) {
+	return (cane_string_view_info_t){
+		.ptr = sv.begin,
+		.length = cane_string_view_length(sv),
+	};
+}
+
 #define CANE_SV(str) \
 	((cane_string_view_t){str, ((const char*)str) + (sizeof(str) - 1)})
 

@@ -411,12 +411,12 @@ static bool cane_lexer_peek_is(
 		return false;
 	}
 
-	if (!cond(peek.kind)) {
-		return false;
-	}
-
 	if (out != NULL) {
 		*out = peek;
+	}
+
+	if (!cond(peek.kind)) {
+		return false;
 	}
 
 	return true;
@@ -434,12 +434,12 @@ static bool cane_lexer_peek_is_kind(
 		return false;
 	}
 
-	if (peek.kind != kind) {
-		return false;
-	}
-
 	if (out != NULL) {
 		*out = peek;
+	}
+
+	if (peek.kind != kind) {
+		return false;
 	}
 
 	return true;

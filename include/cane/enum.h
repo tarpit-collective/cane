@@ -30,8 +30,6 @@ const char* CANE_REPORT_KIND_TO_STR[] = {CANE_REPORT_KINDS};
 const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 #undef X
 
-#undef CANE_REPORT_KINDS
-
 /////////////
 // Symbols //
 /////////////
@@ -131,8 +129,6 @@ const char* CANE_SYMBOL_TO_STR[] = {CANE_SYMBOL_KINDS};
 const char* CANE_SYMBOL_TO_STR_HUMAN[] = {CANE_SYMBOL_KINDS};
 #undef X
 
-#undef CANE_SYMBOL_KINDS
-
 ///////////
 // Types //
 ///////////
@@ -167,8 +163,6 @@ const char* CANE_TYPE_KIND_TO_STR[] = {CANE_TYPE_KINDS};
 const char* CANE_TYPE_KIND_TO_STR_HUMAN[] = {CANE_TYPE_KINDS};
 #undef X
 
-#undef CANE_TYPE_KINDS
-
 ///////////
 // Opfix //
 ///////////
@@ -195,7 +189,5 @@ const char* CANE_OPFIX_KIND_TO_STR[] = {CANE_OPFIX_KINDS};
 #define X(x, y) [x] = y,
 const char* CANE_OPFIX_KIND_TO_STR_HUMAN[] = {CANE_OPFIX_KINDS};
 #undef X
-
-#undef CANE_OPFIX_KINDS
 
 #endif

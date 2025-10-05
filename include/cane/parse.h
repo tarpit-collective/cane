@@ -15,6 +15,67 @@
 #include <cane/util.h>
 #include <cane/lex.h>
 
+/////////////////
+// Classifiers //
+/////////////////
+
+// Note: these functions use the symbol kind _after_ remapping.
+
+static bool cane_parser_is_literal(cane_symbol_kind_t kind) {
+	return kind == CANE_SYMBOL_NUMBER || kind == CANE_SYMBOL_STRING ||
+		kind == CANE_SYMBOL_REST || kind == CANE_SYMBOL_BEAT;
+}
+
+static bool cane_parser_is_primary(cane_symbol_kind_t kind) {
+	return cane_parser_is_literal(kind) || kind == CANE_SYMBOL_FUNCTION ||
+		kind == CANE_SYMBOL_IDENTIFIER || kind == CANE_SYMBOL_LPAREN ||
+		kind == CANE_SYMBOL_CHOICE || kind == CANE_SYMBOL_LAYER;
+}
+
+static bool cane_parser_is_prefix(cane_symbol_kind_t kind) {
+	return kind == CANE_SYMBOL_ABS || kind == CANE_SYMBOL_NEG ||
+		kind == CANE_SYMBOL_INVERT || kind == CANE_SYMBOL_REVERSE;
+}
+
+static bool cane_parser_is_infix(cane_symbol_kind_t kind) {
+	return
+		// Arithmetic
+		kind == CANE_SYMBOL_ADD || kind == CANE_SYMBOL_SUB ||
+		kind == CANE_SYMBOL_MUL || kind == CANE_SYMBOL_DIV ||
+
+		kind == CANE_SYMBOL_LCM || kind == CANE_SYMBOL_GCD ||
+
+		// Misc.
+		kind == CANE_SYMBOL_RHYTHM ||       // Euclide
+		kind == CANE_SYMBOL_REPEAT ||       // Repeat
+		kind == CANE_SYMBOL_MAP ||          // Map
+		kind == CANE_SYMBOL_CONCATENATE ||  // Concatenate
+		kind == CANE_SYMBOL_CALL ||
+
+		// Logic
+		kind == CANE_SYMBOL_OR || kind == CANE_SYMBOL_XOR ||
+		kind == CANE_SYMBOL_AND ||
+
+		// Left/Right Shift
+		kind == CANE_SYMBOL_LSHIFT || kind == CANE_SYMBOL_RSHIFT;
+}
+
+static bool cane_parser_is_postfix(cane_symbol_kind_t kind) {
+	return kind == CANE_SYMBOL_ASSIGN;  // Assignment
+}
+
+static bool cane_parser_is_unary(cane_symbol_kind_t kind) {
+	return cane_parser_is_prefix(kind);
+}
+
+static bool cane_parser_is_binary(cane_symbol_kind_t kind) {
+	return cane_parser_is_infix(kind) || cane_parser_is_postfix(kind);
+}
+
+static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
+	return cane_parser_is_primary(kind) || cane_parser_is_prefix(kind);
+}
+
 //////////////////////
 // Symbol Remapping //
 //////////////////////
@@ -23,7 +84,7 @@
 // Makes it easier to reason about operator kinds during parsing and when
 // constructing the AST.
 
-#define CANE_SYMBOL_REMAPPING \
+#define CANE_SYMBOL_OPFIX \
 	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_REST) \
 	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_EXCLAIM, CANE_SYMBOL_BEAT) \
 	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_TILDA, CANE_SYMBOL_INVERT) \
@@ -50,13 +111,11 @@ cane_fix_symbol(cane_opfix_kind_t opfix, cane_symbol_kind_t kind) {
 		return t; \
 	}
 
-	CANE_SYMBOL_REMAPPING;
+	CANE_SYMBOL_OPFIX;
 	return kind;
 
 #undef X
 }
-
-#undef CANE_SYMBOL_REMAPPING
 
 // Wrappers so we can pass them directly to various lexer utility functions.
 static cane_symbol_kind_t cane_fix_prefix_symbol(cane_symbol_kind_t kind) {
@@ -72,8 +131,7 @@ static cane_symbol_kind_t cane_fix_postfix_symbol(cane_symbol_kind_t kind) {
 }
 
 static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
-	kind = cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
-	return kind;
+	return cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
 }
 
 static cane_symbol_kind_t cane_fix_binary_symbol(cane_symbol_kind_t kind) {
@@ -106,6 +164,7 @@ static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
 	// macros
 
 	// clang-format off
+
 #define CANE_BINDING_POWERS \
 	X(CANE_SYMBOL_CALL,        1, 2) \
 	X(CANE_SYMBOL_ASSIGN,      2, 3) \
@@ -137,6 +196,7 @@ static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
 \
 	X(CANE_SYMBOL_ABS,         11, 11) \
 	X(CANE_SYMBOL_NEG,         11, 11)
+
 	// clang-format on
 
 #define X(symbol, lbp, rbp) \
@@ -216,78 +276,6 @@ static cane_ast_node_t* cane_parse_postfix(
 );
 
 static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t bp);
-
-// Convenience functions
-static bool cane_parser_is_literal(cane_symbol_kind_t kind) {
-	return kind == CANE_SYMBOL_NUMBER || kind == CANE_SYMBOL_STRING ||
-		kind == CANE_SYMBOL_REST || kind == CANE_SYMBOL_BEAT;
-}
-
-static bool cane_parser_is_primary(cane_symbol_kind_t kind) {
-	return cane_parser_is_literal(kind) || kind == CANE_SYMBOL_FUNCTION ||
-		kind == CANE_SYMBOL_IDENTIFIER || kind == CANE_SYMBOL_LPAREN ||
-		kind == CANE_SYMBOL_CHOICE || kind == CANE_SYMBOL_LAYER;
-}
-
-static bool cane_parser_is_prefix(cane_symbol_kind_t kind) {
-	return kind == CANE_SYMBOL_ABS || kind == CANE_SYMBOL_NEG ||
-		kind == CANE_SYMBOL_INVERT || kind == CANE_SYMBOL_REVERSE;
-}
-
-static bool cane_parser_is_infix(cane_symbol_kind_t kind) {
-	return
-		// Arithmetic
-		kind == CANE_SYMBOL_ADD || kind == CANE_SYMBOL_SUB ||
-		kind == CANE_SYMBOL_MUL || kind == CANE_SYMBOL_DIV ||
-
-		kind == CANE_SYMBOL_LCM || kind == CANE_SYMBOL_GCD ||
-
-		// Misc.
-		kind == CANE_SYMBOL_RHYTHM ||       // Euclide
-		kind == CANE_SYMBOL_REPEAT ||       // Repeat
-		kind == CANE_SYMBOL_MAP ||          // Map
-		kind == CANE_SYMBOL_CONCATENATE ||  // Concatenate
-		kind == CANE_SYMBOL_CALL ||
-
-		// Logic
-		kind == CANE_SYMBOL_OR || kind == CANE_SYMBOL_XOR ||
-		kind == CANE_SYMBOL_AND ||
-
-		// Left/Right Shift
-		kind == CANE_SYMBOL_LSHIFT || kind == CANE_SYMBOL_RSHIFT;
-}
-
-static bool cane_parser_is_postfix(cane_symbol_kind_t kind) {
-	return kind == CANE_SYMBOL_ASSIGN;  // Assignment
-}
-
-static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
-	return cane_parser_is_primary(kind) || cane_parser_is_prefix(kind);
-}
-
-static bool cane_peek_is_literal(cane_lexer_t* lx) {
-	return cane_lexer_peek_is(lx, cane_parser_is_literal, NULL, NULL);
-}
-
-static bool cane_peek_is_primary(cane_lexer_t* lx) {
-	return cane_lexer_peek_is(lx, cane_parser_is_primary, NULL, NULL);
-}
-
-static bool cane_peek_is_prefix(cane_lexer_t* lx) {
-	return cane_lexer_peek_is(lx, cane_parser_is_prefix, NULL, NULL);
-}
-
-static bool cane_peek_is_infix(cane_lexer_t* lx) {
-	return cane_lexer_peek_is(lx, cane_parser_is_infix, NULL, NULL);
-}
-
-static bool cane_peek_is_postfix(cane_lexer_t* lx) {
-	return cane_lexer_peek_is(lx, cane_parser_is_postfix, NULL, NULL);
-}
-
-static bool cane_peek_is_expression(cane_lexer_t* lx) {
-	return cane_lexer_peek_is(lx, cane_parser_is_expression, NULL, NULL);
-}
 
 //////////////////////
 // PARSER FUNCTIONS //
