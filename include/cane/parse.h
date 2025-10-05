@@ -104,46 +104,53 @@ static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
 
 	// TODO: Combine this with symbol definition X macros aswell as remapping
 	// macros
+
+	// clang-format off
 #define CANE_BINDING_POWERS \
-	/* Prefix */ \
-	X(CANE_SYMBOL_ABS, 0, 0) \
-	X(CANE_SYMBOL_NEG, 0, 0) \
+	X(CANE_SYMBOL_CALL,        1, 2) \
+	X(CANE_SYMBOL_ASSIGN,      2, 3) \
 \
-	X(CANE_SYMBOL_INVERT, 0, 0) \
-	X(CANE_SYMBOL_REVERSE, 0, 0) \
+	X(CANE_SYMBOL_OR,          3, 4) \
+	X(CANE_SYMBOL_AND,         3, 4) \
+	X(CANE_SYMBOL_XOR,         3, 4) \
+	X(CANE_SYMBOL_REPEAT,      3, 4) \
+	X(CANE_SYMBOL_LSHIFT,      3, 4) \
+	X(CANE_SYMBOL_RSHIFT,      3, 4) \
 \
-	/* Infix */ \
-	X(CANE_SYMBOL_ADD, 0, 0) \
-	X(CANE_SYMBOL_SUB, 0, 0) \
-	X(CANE_SYMBOL_MUL, 0, 0) \
-	X(CANE_SYMBOL_DIV, 0, 0) \
+	X(CANE_SYMBOL_MAP,         4, 5) \
 \
-	X(CANE_SYMBOL_LCM, 0, 0) \
-	X(CANE_SYMBOL_GCD, 0, 0) \
+	X(CANE_SYMBOL_CONCATENATE, 5, 6) \
 \
-	X(CANE_SYMBOL_RHYTHM, 0, 0) \
-	X(CANE_SYMBOL_MAP, 0, 0) \
-	X(CANE_SYMBOL_REPEAT, 0, 0) \
+	X(CANE_SYMBOL_INVERT,      6, 6) \
+	X(CANE_SYMBOL_REVERSE,     6, 6) \
 \
-	X(CANE_SYMBOL_LSHIFT, 0, 0) \
-	X(CANE_SYMBOL_RSHIFT, 0, 0) \
+	X(CANE_SYMBOL_ADD,         7, 8) \
+	X(CANE_SYMBOL_SUB,         7, 8) \
 \
-	X(CANE_SYMBOL_OR, 0, 0) \
-	X(CANE_SYMBOL_XOR, 0, 0) \
-	X(CANE_SYMBOL_AND, 0, 0) \
+	X(CANE_SYMBOL_MUL,         8, 9) \
+	X(CANE_SYMBOL_DIV,         8, 9) \
 \
-	X(CANE_SYMBOL_CALL, 0, 0) \
-	X(CANE_SYMBOL_CONCATENATE, 0, 0) \
+	X(CANE_SYMBOL_RHYTHM,      9, 10) \
 \
-	/* Postfix */ \
-	X(CANE_SYMBOL_ASSIGN, 0, 0)
+	X(CANE_SYMBOL_LCM,         10, 11) \
+	X(CANE_SYMBOL_GCD,         10, 11) \
+\
+	X(CANE_SYMBOL_ABS,         11, 11) \
+	X(CANE_SYMBOL_NEG,         11, 11)
+	// clang-format on
 
 #define X(symbol, lbp, rbp) \
 	case symbol: bp = (cane_binding_power_t){lbp, rbp}; break;
 
 	switch (kind) {
 		CANE_BINDING_POWERS;
-		default: break;
+		default: {
+			CANE_DIE(
+				cane_logger_create_default(),
+				"no binding power for `%s`",
+				CANE_SYMBOL_TO_STR[kind]
+			);
+		} break;
 	}
 
 	return bp;
