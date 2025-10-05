@@ -15,6 +15,143 @@
 #include <cane/util.h>
 #include <cane/lex.h>
 
+//////////////////////
+// Symbol Remapping //
+//////////////////////
+
+// Remap symbols based on their position.
+// Makes it easier to reason about operator kinds during parsing and when
+// constructing the AST.
+
+#define CANE_SYMBOL_REMAPPING \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_REST) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_EXCLAIM, CANE_SYMBOL_BEAT) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_TILDA, CANE_SYMBOL_INVERT) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_QUOTE, CANE_SYMBOL_REVERSE) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_ADD, CANE_SYMBOL_ABS) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_SUB, CANE_SYMBOL_NEG) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_LBRACE, CANE_SYMBOL_CHOICE) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_LBRACKET, CANE_SYMBOL_LAYER) \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_BACKSLASH, CANE_SYMBOL_FUNCTION) \
+\
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COLON, CANE_SYMBOL_RHYTHM) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_STARS, CANE_SYMBOL_REPEAT) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_AT, CANE_SYMBOL_MAP) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_CONCATENATE) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_LCHEVRON, CANE_SYMBOL_LSHIFT) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_RCHEVRON, CANE_SYMBOL_RSHIFT) \
+\
+	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_ARROW, CANE_SYMBOL_ASSIGN)
+
+static cane_symbol_kind_t
+cane_fix_symbol(cane_opfix_kind_t opfix, cane_symbol_kind_t kind) {
+#define X(o, f, t) \
+	if (o == opfix && f == kind) { \
+		return t; \
+	}
+
+	CANE_SYMBOL_REMAPPING;
+	return kind;
+
+#undef X
+}
+
+#undef CANE_SYMBOL_REMAPPING
+
+// Wrappers so we can pass them directly to various lexer utility functions.
+static cane_symbol_kind_t cane_fix_prefix_symbol(cane_symbol_kind_t kind) {
+	return cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
+}
+
+static cane_symbol_kind_t cane_fix_infix_symbol(cane_symbol_kind_t kind) {
+	return cane_fix_symbol(CANE_OPFIX_INFIX, kind);
+}
+
+static cane_symbol_kind_t cane_fix_postfix_symbol(cane_symbol_kind_t kind) {
+	return cane_fix_symbol(CANE_OPFIX_POSTFIX, kind);
+}
+
+static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
+	kind = cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
+	return kind;
+}
+
+static cane_symbol_kind_t cane_fix_binary_symbol(cane_symbol_kind_t kind) {
+	kind = cane_fix_symbol(CANE_OPFIX_INFIX, kind);
+	kind = cane_fix_symbol(CANE_OPFIX_POSTFIX, kind);
+
+	return kind;
+}
+
+/////////////////////////////////////////
+// Binding Power / Operator Precedence //
+/////////////////////////////////////////
+
+typedef struct cane_binding_power cane_binding_power_t;
+
+struct cane_binding_power {
+	size_t lbp;
+	size_t rbp;
+};
+
+// TODO: This is ugly as fuck. Fix it.
+// X macro?
+static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
+	cane_binding_power_t bp = (cane_binding_power_t){
+		.lbp = 0,
+		.rbp = 0,
+	};
+
+	// TODO: Combine this with symbol definition X macros aswell as remapping
+	// macros
+#define CANE_BINDING_POWERS \
+	/* Prefix */ \
+	X(CANE_SYMBOL_ABS, 0, 0) \
+	X(CANE_SYMBOL_NEG, 0, 0) \
+\
+	X(CANE_SYMBOL_INVERT, 0, 0) \
+	X(CANE_SYMBOL_REVERSE, 0, 0) \
+\
+	/* Infix */ \
+	X(CANE_SYMBOL_ADD, 0, 0) \
+	X(CANE_SYMBOL_SUB, 0, 0) \
+	X(CANE_SYMBOL_MUL, 0, 0) \
+	X(CANE_SYMBOL_DIV, 0, 0) \
+\
+	X(CANE_SYMBOL_LCM, 0, 0) \
+	X(CANE_SYMBOL_GCD, 0, 0) \
+\
+	X(CANE_SYMBOL_RHYTHM, 0, 0) \
+	X(CANE_SYMBOL_MAP, 0, 0) \
+	X(CANE_SYMBOL_REPEAT, 0, 0) \
+\
+	X(CANE_SYMBOL_LSHIFT, 0, 0) \
+	X(CANE_SYMBOL_RSHIFT, 0, 0) \
+\
+	X(CANE_SYMBOL_OR, 0, 0) \
+	X(CANE_SYMBOL_XOR, 0, 0) \
+	X(CANE_SYMBOL_AND, 0, 0) \
+\
+	X(CANE_SYMBOL_CALL, 0, 0) \
+	X(CANE_SYMBOL_CONCATENATE, 0, 0) \
+\
+	/* Postfix */ \
+	X(CANE_SYMBOL_ASSIGN, 0, 0)
+
+#define X(symbol, lbp, rbp) \
+	case symbol: bp = (cane_binding_power_t){lbp, rbp}; break;
+
+	switch (kind) {
+		CANE_BINDING_POWERS;
+		default: break;
+	}
+
+	return bp;
+
+#undef X
+#undef CANE_BINDING_POWERS
+}
+
 /////////
 // AST //
 /////////
@@ -37,6 +174,8 @@ cane_ast_node_create(cane_symbol_kind_t kind, cane_string_view_t sv) {
 
 	node->kind = kind;
 	node->sv = sv;
+
+	node->type = CANE_TYPE_NONE;
 
 	node->lhs = NULL;
 	node->rhs = NULL;
@@ -70,127 +209,6 @@ static cane_ast_node_t* cane_parse_postfix(
 );
 
 static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t bp);
-
-//////////////////////
-// Symbol Remapping //
-//////////////////////
-
-// Remap symbols based on their position.
-// Makes it easier to reason about operator kinds during parsing and when
-// constructing the AST.
-
-#define SYMBOL_REMAPPING \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_REST) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_EXCLAIM, CANE_SYMBOL_BEAT) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_TILDA, CANE_SYMBOL_INVERT) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_QUOTE, CANE_SYMBOL_REVERSE) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_ADD, CANE_SYMBOL_ABS) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_SUB, CANE_SYMBOL_NEG) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_LBRACE, CANE_SYMBOL_CHOICE) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_LBRACKET, CANE_SYMBOL_LAYER) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_BACKSLASH, CANE_SYMBOL_FUNCTION) \
-\
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COLON, CANE_SYMBOL_RHYTHM) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_STARS, CANE_SYMBOL_REPEAT) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_AT, CANE_SYMBOL_MAP) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_CONCATENATE) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_LCHEVRON, CANE_SYMBOL_LSHIFT) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_RCHEVRON, CANE_SYMBOL_RSHIFT) \
-\
-	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_ARROW, CANE_SYMBOL_ASSIGN)
-
-static cane_symbol_kind_t
-cane_fix_symbol(cane_opfix_kind_t opfix, cane_symbol_kind_t kind) {
-#define X(o, f, t) \
-	if (o == opfix && f == kind) { \
-		return t; \
-	}
-
-	SYMBOL_REMAPPING;
-
-	return kind;
-}
-
-#undef SYMBOL_REMAPPING
-
-// Wrappers so we can pass them directly to various lexer utility functions.
-static cane_symbol_kind_t cane_fix_prefix_symbol(cane_symbol_kind_t kind) {
-	return cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
-}
-
-static cane_symbol_kind_t cane_fix_infix_symbol(cane_symbol_kind_t kind) {
-	return cane_fix_symbol(CANE_OPFIX_INFIX, kind);
-}
-
-static cane_symbol_kind_t cane_fix_postfix_symbol(cane_symbol_kind_t kind) {
-	return cane_fix_symbol(CANE_OPFIX_POSTFIX, kind);
-}
-
-static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
-	kind = cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
-	return kind;
-}
-
-static cane_symbol_kind_t cane_fix_binary_symbol(cane_symbol_kind_t kind) {
-	kind = cane_fix_symbol(CANE_OPFIX_INFIX, kind);
-	kind = cane_fix_symbol(CANE_OPFIX_POSTFIX, kind);
-
-	return kind;
-}
-
-// Binding power
-typedef struct cane_binding_power cane_binding_power_t;
-
-struct cane_binding_power {
-	size_t lbp;
-	size_t rbp;
-};
-
-// TODO: This is ugly as fuck. Fix it.
-// X macro?
-static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t s) {
-	switch (s) {
-		// Prefix
-		case CANE_SYMBOL_ABS: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_NEG: return (cane_binding_power_t){0, 0};
-
-		case CANE_SYMBOL_INVERT: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_REVERSE: return (cane_binding_power_t){0, 0};
-
-		// Infix
-		case CANE_SYMBOL_ADD: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_SUB: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_MUL: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_DIV: return (cane_binding_power_t){0, 0};
-
-		case CANE_SYMBOL_LCM: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_GCD: return (cane_binding_power_t){0, 0};
-
-		case CANE_SYMBOL_RHYTHM: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_MAP: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_REPEAT: return (cane_binding_power_t){0, 0};
-
-		case CANE_SYMBOL_LSHIFT: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_RSHIFT: return (cane_binding_power_t){0, 0};
-
-		case CANE_SYMBOL_OR: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_XOR: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_AND: return (cane_binding_power_t){0, 0};
-
-		case CANE_SYMBOL_CALL: return (cane_binding_power_t){0, 0};
-		case CANE_SYMBOL_CONCATENATE: return (cane_binding_power_t){0, 0};
-
-		// Postfix
-		case CANE_SYMBOL_ASSIGN: return (cane_binding_power_t){0, 0};
-
-		default: break;
-	}
-
-	return (cane_binding_power_t){
-		.lbp = 0,
-		.rbp = 0,
-	};
-}
 
 // Convenience functions
 static bool cane_parser_is_literal(cane_symbol_kind_t kind) {

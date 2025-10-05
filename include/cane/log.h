@@ -50,7 +50,7 @@
 #define CANE_BG_WHITE_BRIGHT   "\x1b[107m"
 
 // Logging
-#define LOGLEVELS \
+#define CANE_LOG_KINDS \
 	X(CANE_PRIORITY_INFO, "[.]", "info", CANE_WHITE) \
 	X(CANE_PRIORITY_WARN, "[*]", "warn", CANE_BLUE) \
 	X(CANE_PRIORITY_FAIL, "[!]", "fail", CANE_RED) \
@@ -62,25 +62,25 @@
 #define X(x, y, z, w) x,
 
 typedef enum {
-	LOGLEVELS
+	CANE_LOG_KINDS
 } cane_loglevel_t;
 
 #undef X
 
 // Convert from/to strings & enums
 #define X(x, y, z, w) [x] = y,
-const char* CANE_LOGLEVEL_TO_STR[] = {LOGLEVELS};
+const char* CANE_LOGLEVEL_TO_STR[] = {CANE_LOG_KINDS};
 #undef X
 
 #define X(x, y, z, w) [x] = z,
-const char* CANE_LOGLEVEL_HUMAN_TO_STR[] = {LOGLEVELS};
+const char* CANE_LOGLEVEL_HUMAN_TO_STR[] = {CANE_LOG_KINDS};
 #undef X
 
 #define X(x, y, z, w) [x] = w,
-const char* CANE_LOGLEVEL_COLOUR[] = {LOGLEVELS};
+const char* CANE_LOGLEVEL_COLOUR[] = {CANE_LOG_KINDS};
 #undef X
 
-#undef LOGLEVELS
+#undef CANE_LOG_KINDS
 
 ////////////
 // Logger //

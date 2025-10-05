@@ -5,7 +5,7 @@
 // Reports //
 /////////////
 
-#define REPORT_KINDS \
+#define CANE_REPORT_KINDS \
 	X(CANE_REPORT_GENERIC, "error") \
 	X(CANE_REPORT_LEXICAL, "lexical") \
 	X(CANE_REPORT_SYNTAX, "syntax") \
@@ -15,28 +15,28 @@
 #define X(x, y) x,
 
 typedef enum {
-	REPORT_KINDS CANE_REPORT_TOTAL
+	CANE_REPORT_KINDS CANE_REPORT_TOTAL
 } cane_report_kind_t;
 
 #undef X
 
 // Maps the enum const direct to a string
 #define X(x, y) [x] = #x,
-const char* CANE_REPORT_KIND_TO_STR[] = {REPORT_KINDS};
+const char* CANE_REPORT_KIND_TO_STR[] = {CANE_REPORT_KINDS};
 #undef X
 
 // Map the enum const to a human readable string
 #define X(x, y) [x] = y,
-const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {REPORT_KINDS};
+const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 #undef X
 
-#undef REPORT_KINDS
+#undef CANE_REPORT_KINDS
 
 /////////////
 // Symbols //
 /////////////
 
-#define SYMBOL_KINDS \
+#define CANE_SYMBOL_KINDS \
 	X(CANE_SYMBOL_NONE, "none") \
 \
 	X(CANE_SYMBOL_ENDFILE, "end of file") \
@@ -116,28 +116,28 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {REPORT_KINDS};
 #define X(x, y) x,
 
 typedef enum {
-	SYMBOL_KINDS CANE_SYMBOL_TOTAL
+	CANE_SYMBOL_KINDS CANE_SYMBOL_TOTAL
 } cane_symbol_kind_t;
 
 #undef X
 
 // Maps the enum const direct to a string
 #define X(x, y) [x] = #x,
-const char* CANE_SYMBOL_TO_STR[] = {SYMBOL_KINDS};
+const char* CANE_SYMBOL_TO_STR[] = {CANE_SYMBOL_KINDS};
 #undef X
 
 // Map the enum const to a human readable string
 #define X(x, y) [x] = y,
-const char* CANE_SYMBOL_TO_STR_HUMAN[] = {SYMBOL_KINDS};
+const char* CANE_SYMBOL_TO_STR_HUMAN[] = {CANE_SYMBOL_KINDS};
 #undef X
 
-#undef SYMBOL_KINDS
+#undef CANE_SYMBOL_KINDS
 
 ///////////
 // Types //
 ///////////
 
-#define TYPE_KINDS \
+#define CANE_TYPE_KINDS \
 	X(CANE_TYPE_NONE, "none") \
 \
 	X(CANE_TYPE_NUMBER, "number") \
@@ -152,28 +152,28 @@ const char* CANE_SYMBOL_TO_STR_HUMAN[] = {SYMBOL_KINDS};
 #define X(x, y) x,
 
 typedef enum {
-	TYPE_KINDS CANE_TYPE_TOTAL
+	CANE_TYPE_KINDS CANE_TYPE_TOTAL
 } cane_type_kind_t;
 
 #undef X
 
 // Maps the enum const direct to a string
 #define X(x, y) [x] = #x,
-const char* CANE_TYPE_KIND_TO_STR[] = {TYPE_KINDS};
+const char* CANE_TYPE_KIND_TO_STR[] = {CANE_TYPE_KINDS};
 #undef X
 
 // Map the enum const to a human readable string
 #define X(x, y) [x] = y,
-const char* CANE_TYPE_KIND_TO_STR_HUMAN[] = {TYPE_KINDS};
+const char* CANE_TYPE_KIND_TO_STR_HUMAN[] = {CANE_TYPE_KINDS};
 #undef X
 
-#undef TYPE_KINDS
+#undef CANE_TYPE_KINDS
 
 ///////////
 // Opfix //
 ///////////
 
-#define OPFIX_KINDS \
+#define CANE_OPFIX_KINDS \
 	X(CANE_OPFIX_PREFIX, "prefix") \
 	X(CANE_OPFIX_INFIX, "infix") \
 	X(CANE_OPFIX_POSTFIX, "postfix")
@@ -181,21 +181,21 @@ const char* CANE_TYPE_KIND_TO_STR_HUMAN[] = {TYPE_KINDS};
 #define X(x, y) x,
 
 typedef enum {
-	OPFIX_KINDS CANE_OPFIX_TOTAL
+	CANE_OPFIX_KINDS CANE_OPFIX_TOTAL
 } cane_opfix_kind_t;
 
 #undef X
 
 // Maps the enum const direct to a string
 #define X(x, y) [x] = #x,
-const char* CANE_OPFIX_KIND_TO_STR[] = {OPFIX_KINDS};
+const char* CANE_OPFIX_KIND_TO_STR[] = {CANE_OPFIX_KINDS};
 #undef X
 
 // Map the enum const to a human readable string
 #define X(x, y) [x] = y,
-const char* CANE_OPFIX_KIND_TO_STR_HUMAN[] = {OPFIX_KINDS};
+const char* CANE_OPFIX_KIND_TO_STR_HUMAN[] = {CANE_OPFIX_KINDS};
 #undef X
 
-#undef OPFIX_KINDS
+#undef CANE_OPFIX_KINDS
 
 #endif
