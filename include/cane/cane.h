@@ -128,20 +128,25 @@ static void cane_pass_graphviz_edge(
 	cane_symbol_kind_t kind = CANE_SYMBOL_NONE;
 	cane_string_view_t sv = CANE_SV("NULL");
 
+	cane_type_kind_t type = CANE_TYPE_NONE;
+
 	if (node != NULL) {
 		kind = node->kind;
 		sv = node->sv;
+
+		type = node->type;
 	}
 
 	cane_string_view_info_t info = cane_string_view_ptr_length(sv);
 
 	fprintf(
 		fp,
-		"  n%zu [label=\"kind = %s|sv = `%.*s`\"];\n",
+		"  n%zu [label=\"kind = %s|sv = `%.*s`|type = %s\"];\n",
 		self,
 		CANE_SYMBOL_TO_STR_HUMAN[kind],
 		(int)info.length,
-		info.ptr
+		info.ptr,
+		CANE_TYPE_KIND_TO_STR_HUMAN[type]
 	);
 
 	if (parent != self) {

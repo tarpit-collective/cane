@@ -1,6 +1,8 @@
 #include <cane/cane.h>
 
 int main(int argc, const char* argv[]) {
+	CANE_UNUSED(argc, argv);
+
 	// cane_string_view_t sv = CANE_SV("!... !...");
 	// cane_string_view_t sv = CANE_SV("(\\x 16 + 24) . 123");
 	// cane_string_view_t sv = CANE_SV("{1 + 2, {3 * 4}, 5 - {{6}}}");

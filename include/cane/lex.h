@@ -374,30 +374,17 @@ static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
 static bool cane_lexer_peek(
 	cane_lexer_t* lx, cane_symbol_t* out, cane_lexer_fixup_t fixup
 ) {
-	bool is_eof = false;
 	cane_symbol_t peek = lx->peek;
 
-	if (fixup != NULL) {
-		peek.kind = fixup(peek.kind);
-
-		// CANE_LOG_WARN(
-		// 	cane_logger_create_default(),
-		// 	"fixup binary %s => %s",
-		// 	CANE_SYMBOL_TO_STR[peek.kind],
-		// 	CANE_SYMBOL_TO_STR[peek.kind]
-		// );
-	}
-
-	if (!cane_str_peek(lx, NULL)) {  // Check for EOF
-		is_eof = true;
-		peek.kind = CANE_SYMBOL_ENDFILE;
-	}
-
 	if (out != NULL) {
+		if (fixup != NULL) {
+			peek.kind = fixup(peek.kind);
+		}
+
 		*out = peek;
 	}
 
-	return !is_eof;
+	return cane_str_peek(lx, NULL);
 }
 
 static bool cane_lexer_peek_is(
@@ -407,6 +394,7 @@ static bool cane_lexer_peek_is(
 	cane_lexer_fixup_t fixup
 ) {
 	cane_symbol_t peek;
+
 	if (!cane_lexer_peek(lx, &peek, fixup)) {
 		return false;
 	}
@@ -430,7 +418,6 @@ static bool cane_lexer_peek_is_kind(
 ) {
 	cane_symbol_t peek;
 	if (!cane_lexer_peek(lx, &peek, fixup)) {
-		CANE_WHEREAMI(cane_logger_create_default());
 		return false;
 	}
 
