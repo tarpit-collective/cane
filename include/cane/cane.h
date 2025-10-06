@@ -165,6 +165,7 @@ cane_pass_graphviz(cane_ast_node_t* node, cane_string_view_t filename) {
 	size_t length = cane_string_view_length(filename);
 
 	// TODO: Make this not ugly.
+	// Try taking file pointer directly as an argument and wrapping fopen
 	if (length > 256) {
 		CANE_DIE(cane_logger_create_default(), "filename too long");
 	}
@@ -264,6 +265,114 @@ static void cane_pass_graphviz_walker(
 			);
 		} break;
 	}
+}
+
+//////////////////
+// Type Checker //
+//////////////////
+
+static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
+);
+
+static void cane_pass_semantic_analysis(cane_ast_node_t* node) {
+	CANE_FUNCTION_ENTER(cane_logger_create_default());
+
+	cane_pass_semantic_analysis_walker(node);
+}
+
+// TODO:
+// 1. We need to store assigned types
+// 2. Function types
+static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
+) {
+	if (node == NULL) {
+		return CANE_TYPE_NONE;
+	}
+
+	cane_symbol_kind_t kind = node->kind;
+
+	cane_ast_node_t* lhs = node->lhs;
+	cane_ast_node_t* rhs = node->rhs;
+
+	switch (kind) {
+		// Literals
+		case CANE_SYMBOL_IDENTIFIER:
+		case CANE_SYMBOL_NUMBER: return CANE_TYPE_NUMBER;
+
+		// Unary
+		case CANE_SYMBOL_ABS:
+		case CANE_SYMBOL_NEG:
+
+		case CANE_SYMBOL_INVERT:
+		case CANE_SYMBOL_REVERSE: {
+			return cane_pass_semantic_analysis_walker(rhs);
+		} break;
+
+		// Binary
+		case CANE_SYMBOL_ADD:
+		case CANE_SYMBOL_SUB:
+		case CANE_SYMBOL_MUL:
+		case CANE_SYMBOL_DIV:
+
+		case CANE_SYMBOL_LCM:
+		case CANE_SYMBOL_GCD:
+
+		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_MAP:
+		case CANE_SYMBOL_REPEAT:
+
+		case CANE_SYMBOL_LSHIFT:
+		case CANE_SYMBOL_RSHIFT:
+
+		case CANE_SYMBOL_OR:
+		case CANE_SYMBOL_XOR:
+		case CANE_SYMBOL_AND:
+
+		case CANE_SYMBOL_CALL:
+		case CANE_SYMBOL_CONCATENATE: {
+			cane_type_kind_t lhs_type = cane_pass_semantic_analysis_walker(lhs);
+			cane_type_kind_t rhs_type = cane_pass_semantic_analysis_walker(rhs);
+
+			if (lhs_type != rhs_type) {
+				// TODO: Replace with cane_report
+				CANE_DIE(cane_logger_create_default(), "mismatched types");
+			}
+
+			node->type = lhs_type;
+
+			return lhs_type;
+		} break;
+
+		case CANE_SYMBOL_ASSIGN:
+		case CANE_SYMBOL_FUNCTION: {
+			// TODO: Handle these special cases.
+			// 1. Assign needs to store state in some global context
+			// 2. Functions can only decompose to a single type after they've
+			// been called
+		} break;
+
+		// Lists
+		case CANE_SYMBOL_BEAT:
+		case CANE_SYMBOL_REST:
+
+		case CANE_SYMBOL_CHOICE:
+		case CANE_SYMBOL_LAYER:
+		case CANE_SYMBOL_STATEMENT: {
+			// TODO: Statements should return the type of their last expression
+			cane_pass_semantic_analysis_walker(lhs);
+			cane_pass_semantic_analysis_walker(rhs);
+		} break;
+
+		default: {
+			CANE_DIE(
+				cane_logger_create_default(),
+				"unimplemented %s",
+				CANE_SYMBOL_TO_STR[kind]
+			);
+		} break;
+	}
+
+	return CANE_TYPE_NONE;
 }
 
 #endif

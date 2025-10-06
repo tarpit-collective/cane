@@ -473,11 +473,11 @@ static bool cane_lexer_take_any(
 
 	lx->peek = symbol;
 
-	CANE_LOG_OKAY(
-		cane_logger_create_default(),
-		"kind = %s",
-		CANE_SYMBOL_TO_STR[lx->peek.kind]
-	);
+	// CANE_LOG_OKAY(
+	// 	cane_logger_create_default(),
+	// 	"kind = %s",
+	// 	CANE_SYMBOL_TO_STR[lx->peek.kind]
+	// );
 
 	return true;
 }
