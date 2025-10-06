@@ -14,10 +14,8 @@ expression = '(' expression ')'
 
 // Functions
 type = ':' ( 'number' | 'string' | 'rhythm' | 'melody' | 'sequence' | 'pattern' )
-expression = '\' ident type expr type
+expression = '\' ident ':' type expr ':' type
 expression = expression expression  // Function call
-
-\ x: int foo: int
 
 // Scalars
 expression =
@@ -36,7 +34,8 @@ expression =
 
 // Melody
 expression =
-	'rev' expression |
+	'&' expression |  // Coerce scalar to a melody
+	'\'' expression |
 	expression '@' expression |   // Mapping
 	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' | '.' ) expression |
 	expression '=>' ident |
