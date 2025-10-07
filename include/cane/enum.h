@@ -170,7 +170,12 @@ const char* CANE_TYPE_KIND_TO_STR_HUMAN[] = {CANE_TYPE_KINDS};
 #define CANE_OPFIX_KINDS \
 	X(CANE_OPFIX_PREFIX, "prefix") \
 	X(CANE_OPFIX_INFIX, "infix") \
-	X(CANE_OPFIX_POSTFIX, "postfix")
+	X(CANE_OPFIX_POSTFIX, "postfix") \
+\
+	/* For use with AST passes since prefix/postfix have the same \
+	 * representation. */ \
+	X(CANE_OPFIX_UNARY, "unary") \
+	X(CANE_OPFIX_BINARY, "binary")
 
 #define X(x, y) x,
 
