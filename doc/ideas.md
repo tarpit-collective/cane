@@ -71,11 +71,11 @@ sequences and patterns is different though they might look the same for the user
 - rhythm `or` / `and` / `xor` rhythm => rhythm : bitwise operators that combine rhythms
 - rhythm `=>` ident => rhythm : assign rhythm to identifier and evaluate to the expr
 - `{` rhythm+ `}` => rhythm : pick a random rhythm to evaluate to
-- rhythm `/` / `*` scalar => rhythm : divide an expressions time relative to the parent expressions time
 
 ##### Sequence
 - sequence sequence => sequence : implicitly concatenate sequences to the end of eachother
 - sequence `=>` ident => sequence : assign sequence to identifier and evaluate to the expr
+- sequence `/` / `*` scalar => sequence : divide an expressions time relative to the parent expressions time
 - `{` sequence+ `}` => sequence : pick a random sequence to evaluate to
 
 ##### Pattern
@@ -83,10 +83,6 @@ sequences and patterns is different though they might look the same for the user
 - pattern pattern => pattern : implicitly concatenates sequences pair-wise so that each pattern is sequenced one after the other 
 - pattern `=>` ident => pattern : assign pattern to identifier and evaluate to the expr
 - `{` pattern+ `}` => pattern : pick a random pattern to evaluate to
-
-
-### Tree
-Cane will use a flat array approach for its abstract syntax tree. 
 
 
 ### Instructions
