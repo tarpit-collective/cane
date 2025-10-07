@@ -337,7 +337,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		case CANE_SYMBOL_NUMBER: {
 			cane_lexer_discard(lx);
 			return cane_ast_node_create(
-				symbol.kind, symbol.sv, CANE_TYPE_NUMBER
+				symbol.kind, symbol.sv, CANE_TYPE_SCALAR
 			);
 		}
 

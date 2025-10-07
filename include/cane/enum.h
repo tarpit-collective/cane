@@ -136,7 +136,7 @@ const char* CANE_SYMBOL_TO_STR_HUMAN[] = {CANE_SYMBOL_KINDS};
 #define CANE_TYPE_KINDS \
 	X(CANE_TYPE_NONE, "none") \
 \
-	X(CANE_TYPE_NUMBER, "number") \
+	X(CANE_TYPE_SCALAR, "scalar") \
 	X(CANE_TYPE_STRING, "string") \
 \
 	X(CANE_TYPE_MELODY, "melody") \
