@@ -41,6 +41,9 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 
 	switch (kind) {
 		// Literals
+		case CANE_SYMBOL_BEAT:
+		case CANE_SYMBOL_REST:
+
 		case CANE_SYMBOL_IDENTIFIER:
 		case CANE_SYMBOL_NUMBER: {
 			printf(
@@ -73,7 +76,7 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 		case CANE_SYMBOL_LCM:
 		case CANE_SYMBOL_GCD:
 
-		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_EUCLIDEAN:
 		case CANE_SYMBOL_MAP:
 		case CANE_SYMBOL_REPEAT:
 
@@ -96,11 +99,12 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 		} break;
 
 		// Lists
-		case CANE_SYMBOL_BEAT:
-		case CANE_SYMBOL_REST:
+		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_MELODY:
 
 		case CANE_SYMBOL_CHOICE:
 		case CANE_SYMBOL_LAYER:
+
 		case CANE_SYMBOL_STATEMENT: {
 			printf("%*s%s\n", depth * 4, "", CANE_SYMBOL_TO_STR[kind]);
 
@@ -202,6 +206,9 @@ static void cane_pass_graphviz_walker(
 
 	switch (kind) {
 		// Literals
+		case CANE_SYMBOL_BEAT:
+		case CANE_SYMBOL_REST:
+
 		case CANE_SYMBOL_IDENTIFIER:
 		case CANE_SYMBOL_NUMBER: {
 			cane_pass_graphviz_edge(fp, node, parent, self);
@@ -226,7 +233,7 @@ static void cane_pass_graphviz_walker(
 		case CANE_SYMBOL_LCM:
 		case CANE_SYMBOL_GCD:
 
-		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_EUCLIDEAN:
 		case CANE_SYMBOL_MAP:
 		case CANE_SYMBOL_REPEAT:
 
@@ -248,11 +255,12 @@ static void cane_pass_graphviz_walker(
 		} break;
 
 		// Lists
-		case CANE_SYMBOL_BEAT:
-		case CANE_SYMBOL_REST:
+		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_MELODY:
 
 		case CANE_SYMBOL_CHOICE:
 		case CANE_SYMBOL_LAYER:
+
 		case CANE_SYMBOL_STATEMENT: {
 			cane_pass_graphviz_edge(fp, node, parent, self);
 			cane_pass_graphviz_walker(fp, lhs, id, self);
@@ -290,7 +298,8 @@ static bool cane_type_remapper(
 	cane_symbol_kind_t kind,
 	cane_type_kind_t expected_lhs,
 	cane_type_kind_t expected_rhs,
-	cane_type_kind_t out
+	cane_type_kind_t out,
+	cane_symbol_kind_t new_kind
 ) {
 	if (node == NULL) {
 		return false;
@@ -304,14 +313,14 @@ static bool cane_type_remapper(
 		return false;
 	}
 
-	CANE_LOG_INFO(
-		cane_logger_create_default(),
-		"attempt: kind = `%s` lhs = `%s` rhs = `%s` -> %s",
-		CANE_SYMBOL_TO_STR[kind],
-		CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[expected_rhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[out]
-	);
+	// CANE_LOG_INFO(
+	// 	cane_logger_create_default(),
+	// 	"attempt: kind = `%s` lhs = `%s` rhs = `%s` -> %s",
+	// 	CANE_SYMBOL_TO_STR[kind],
+	// 	CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
+	// 	CANE_TYPE_KIND_TO_STR_HUMAN[expected_rhs],
+	// 	CANE_TYPE_KIND_TO_STR_HUMAN[out]
+	// );
 
 	cane_type_kind_t lhs = CANE_TYPE_NONE;
 	cane_type_kind_t rhs = CANE_TYPE_NONE;
@@ -330,30 +339,32 @@ static bool cane_type_remapper(
 	if (lhs != expected_lhs || rhs != expected_rhs) {
 		// If the types don't match, it just means this overload of the operator
 		// isn't the correct one but we might have one handled later.
-		CANE_LOG_WARN(
-			cane_logger_create_default(),
-			"unexpected: `%s` (%s, %s) -> %s",
-			CANE_SYMBOL_TO_STR[kind],
-			CANE_TYPE_KIND_TO_STR_HUMAN[lhs],
-			CANE_TYPE_KIND_TO_STR_HUMAN[rhs],
-			CANE_TYPE_KIND_TO_STR_HUMAN[out]
-		);
+		// CANE_LOG_WARN(
+		// 	cane_logger_create_default(),
+		// 	"skipping: `%s` (%s, %s) -> %s",
+		// 	CANE_SYMBOL_TO_STR[kind],
+		// 	CANE_TYPE_KIND_TO_STR_HUMAN[lhs],
+		// 	CANE_TYPE_KIND_TO_STR_HUMAN[rhs],
+		// 	CANE_TYPE_KIND_TO_STR_HUMAN[out]
+		// );
 
 		return false;
 	}
 
-	CANE_LOG_OKAY(
-		cane_logger_create_default(),
-		"success: `%s` expected = (%s, %s), got = (%s, %s) -> %s",
-		CANE_SYMBOL_TO_STR[kind],
-		CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[expected_rhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[lhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[rhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[out]
-	);
+	// CANE_LOG_OKAY(
+	// 	cane_logger_create_default(),
+	// 	"success: `%s` expected = (%s, %s), got = (%s, %s) -> %s",
+	// 	CANE_SYMBOL_TO_STR[kind],
+	// 	CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
+	// 	CANE_TYPE_KIND_TO_STR_HUMAN[expected_rhs],
+	// 	CANE_TYPE_KIND_TO_STR_HUMAN[lhs],
+	// 	CANE_TYPE_KIND_TO_STR_HUMAN[rhs],
+	// 	CANE_TYPE_KIND_TO_STR_HUMAN[out]
+	// );
 
 	node->type = out;
+	node->kind = new_kind;
+
 	return true;
 }
 
@@ -361,70 +372,77 @@ static bool cane_type_remapper(
 // We need to figure out how to handle rhythms with beats/rests and how
 // to type check them. They really need to be a unified type.
 static bool cane_type_remap_trivial(cane_ast_node_t* node) {
-#define CANE_TYPE_REMAP(opfix, kind, lhs_kind, rhs_kind, out_kind) \
+#define CANE_TYPE_REMAP( \
+	opfix, symbol, lhs_type, rhs_type, out_type, out_symbol \
+) \
 	cane_type_remapper( \
 		node, \
 		CANE_OPFIX_##opfix, \
-		CANE_SYMBOL_##kind, \
-		CANE_TYPE_##lhs_kind, \
-		CANE_TYPE_##rhs_kind, \
-		CANE_TYPE_##out_kind \
+		CANE_SYMBOL_##symbol, \
+		CANE_TYPE_##lhs_type, \
+		CANE_TYPE_##rhs_type, \
+		CANE_TYPE_##out_type, \
+		CANE_SYMBOL_##out_symbol \
 	)
 
-	return CANE_TYPE_REMAP(UNARY, ABS, SCALAR, NONE, SCALAR) ||
-		CANE_TYPE_REMAP(UNARY, NEG, SCALAR, NONE, SCALAR) ||
+	// clang-format off
 
-		CANE_TYPE_REMAP(UNARY, INVERT, RHYTHM, NONE, RHYTHM) ||
-		CANE_TYPE_REMAP(UNARY, REVERSE, RHYTHM, NONE, RHYTHM) ||
+	return CANE_TYPE_REMAP(UNARY, ABS, SCALAR, NONE, SCALAR, ABS) ||
+		CANE_TYPE_REMAP(UNARY, NEG, SCALAR, NONE, SCALAR, NEG) ||
 
-		CANE_TYPE_REMAP(UNARY, REVERSE, MELODY, NONE, MELODY) ||
+		CANE_TYPE_REMAP(UNARY, INVERT, RHYTHM, NONE, RHYTHM, INVERT) ||
+		CANE_TYPE_REMAP(UNARY, REVERSE, RHYTHM, NONE, RHYTHM, REVERSE) ||
+
+		CANE_TYPE_REMAP(UNARY, REVERSE, MELODY, NONE, MELODY, REVERSE) ||
 
 		/* Scalar */
-		CANE_TYPE_REMAP(BINARY, ADD, SCALAR, SCALAR, SCALAR) ||
-		CANE_TYPE_REMAP(BINARY, SUB, SCALAR, SCALAR, SCALAR) ||
-		CANE_TYPE_REMAP(BINARY, MUL, SCALAR, SCALAR, SCALAR) ||
-		CANE_TYPE_REMAP(BINARY, DIV, SCALAR, SCALAR, SCALAR) ||
+		CANE_TYPE_REMAP(BINARY, ADD, SCALAR, SCALAR, SCALAR, ADD) ||
+		CANE_TYPE_REMAP(BINARY, SUB, SCALAR, SCALAR, SCALAR, SUB) ||
+		CANE_TYPE_REMAP(BINARY, MUL, SCALAR, SCALAR, SCALAR, MUL) ||
+		CANE_TYPE_REMAP(BINARY, DIV, SCALAR, SCALAR, SCALAR, DIV) ||
 
-		CANE_TYPE_REMAP(BINARY, LSHIFT, SCALAR, SCALAR, SCALAR) ||
-		CANE_TYPE_REMAP(BINARY, RSHIFT, SCALAR, SCALAR, SCALAR) ||
+		CANE_TYPE_REMAP(BINARY, LSHIFT, SCALAR, SCALAR, SCALAR, LSHIFT) ||
+		CANE_TYPE_REMAP(BINARY, RSHIFT, SCALAR, SCALAR, SCALAR, RSHIFT) ||
 
-		CANE_TYPE_REMAP(BINARY, LCM, SCALAR, SCALAR, SCALAR) ||
-		CANE_TYPE_REMAP(BINARY, GCD, SCALAR, SCALAR, SCALAR) ||
+		CANE_TYPE_REMAP(BINARY, LCM, SCALAR, SCALAR, SCALAR, LCM) ||
+		CANE_TYPE_REMAP(BINARY, GCD, SCALAR, SCALAR, SCALAR, GCD) ||
 
-		CANE_TYPE_REMAP(BINARY, RHYTHM, SCALAR, SCALAR, SCALAR) ||
-		CANE_TYPE_REMAP(BINARY, CONCATENATE, SCALAR, SCALAR, MELODY) ||
+		CANE_TYPE_REMAP(BINARY, EUCLIDEAN, SCALAR, SCALAR, SCALAR, EUCLIDEAN) ||
+		CANE_TYPE_REMAP(BINARY, CONCATENATE, SCALAR, SCALAR, MELODY, CONCATENATE) ||
 
 		/* Melody */
-		CANE_TYPE_REMAP(BINARY, MAP, MELODY, RHYTHM, SEQUENCE) ||
+		CANE_TYPE_REMAP(BINARY, MAP, MELODY, RHYTHM, SEQUENCE, MAP) ||
 
-		CANE_TYPE_REMAP(BINARY, LSHIFT, MELODY, SCALAR, MELODY) ||
-		CANE_TYPE_REMAP(BINARY, RSHIFT, MELODY, SCALAR, MELODY) ||
+		CANE_TYPE_REMAP(BINARY, LSHIFT, MELODY, SCALAR, MELODY, LSHIFT) ||
+		CANE_TYPE_REMAP(BINARY, RSHIFT, MELODY, SCALAR, MELODY, RSHIFT) ||
 
-		CANE_TYPE_REMAP(BINARY, ADD, MELODY, SCALAR, MELODY) ||
-		CANE_TYPE_REMAP(BINARY, SUB, MELODY, SCALAR, MELODY) ||
-		CANE_TYPE_REMAP(BINARY, MUL, MELODY, SCALAR, MELODY) ||
-		CANE_TYPE_REMAP(BINARY, DIV, MELODY, SCALAR, MELODY) ||
+		CANE_TYPE_REMAP(BINARY, ADD, MELODY, SCALAR, MELODY, ADD) ||
+		CANE_TYPE_REMAP(BINARY, SUB, MELODY, SCALAR, MELODY, SUB) ||
+		CANE_TYPE_REMAP(BINARY, MUL, MELODY, SCALAR, MELODY, MUL) ||
+		CANE_TYPE_REMAP(BINARY, DIV, MELODY, SCALAR, MELODY, DIV) ||
 
-		CANE_TYPE_REMAP(BINARY, REPEAT, MELODY, SCALAR, MELODY) ||
-		CANE_TYPE_REMAP(BINARY, CONCATENATE, MELODY, MELODY, MELODY) ||
+		CANE_TYPE_REMAP(BINARY, REPEAT, MELODY, SCALAR, MELODY, REPEAT) ||
+		CANE_TYPE_REMAP(BINARY, CONCATENATE, MELODY, MELODY, MELODY, CONCATENATE) ||
 
 		/* Rhythm */
-		CANE_TYPE_REMAP(BINARY, MAP, RHYTHM, MELODY, SEQUENCE) ||
+		CANE_TYPE_REMAP(BINARY, MAP, RHYTHM, MELODY, SEQUENCE, MAP) ||
 
-		CANE_TYPE_REMAP(BINARY, LSHIFT, RHYTHM, SCALAR, RHYTHM) ||
-		CANE_TYPE_REMAP(BINARY, RSHIFT, RHYTHM, SCALAR, RHYTHM) ||
+		CANE_TYPE_REMAP(BINARY, LSHIFT, RHYTHM, SCALAR, RHYTHM, LSHIFT) ||
+		CANE_TYPE_REMAP(BINARY, RSHIFT, RHYTHM, SCALAR, RHYTHM, RSHIFT) ||
 
-		CANE_TYPE_REMAP(BINARY, REPEAT, RHYTHM, SCALAR, RHYTHM) ||
-		CANE_TYPE_REMAP(BINARY, CONCATENATE, RHYTHM, RHYTHM, RHYTHM) ||
+		CANE_TYPE_REMAP(BINARY, REPEAT, RHYTHM, SCALAR, RHYTHM, REPEAT) ||
+		CANE_TYPE_REMAP(BINARY, CONCATENATE, RHYTHM, RHYTHM, RHYTHM, CONCATENATE) ||
 
-		CANE_TYPE_REMAP(BINARY, OR, RHYTHM, RHYTHM, RHYTHM) ||
-		CANE_TYPE_REMAP(BINARY, XOR, RHYTHM, RHYTHM, RHYTHM) ||
-		CANE_TYPE_REMAP(BINARY, AND, RHYTHM, RHYTHM, RHYTHM) ||
+		CANE_TYPE_REMAP(BINARY, OR, RHYTHM, RHYTHM, RHYTHM, OR) ||
+		CANE_TYPE_REMAP(BINARY, XOR, RHYTHM, RHYTHM, RHYTHM, XOR) ||
+		CANE_TYPE_REMAP(BINARY, AND, RHYTHM, RHYTHM, RHYTHM, AND) ||
 
 		/* Sequence */
-		CANE_TYPE_REMAP(BINARY, CONCATENATE, SEQUENCE, SEQUENCE, SEQUENCE) ||
-		CANE_TYPE_REMAP(BINARY, MUL, SEQUENCE, SCALAR, SEQUENCE) ||
-		CANE_TYPE_REMAP(BINARY, DIV, SEQUENCE, SCALAR, SEQUENCE);
+		CANE_TYPE_REMAP(BINARY, CONCATENATE, SEQUENCE, SEQUENCE, SEQUENCE, CONCATENATE) ||
+		CANE_TYPE_REMAP(BINARY, MUL, SEQUENCE, SCALAR, SEQUENCE, MUL) ||
+		CANE_TYPE_REMAP(BINARY, DIV, SEQUENCE, SCALAR, SEQUENCE, DIV);
+
+	// clang-format on
 
 #undef CANE_TYPE_REMAP
 }
@@ -448,7 +466,30 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 				return CANE_TYPE_RHYTHM;
 			} break;
 
-			// Statements always return the type of their last expression.
+				// Statements always return the type of their last expression.
+			case CANE_SYMBOL_RHYTHM:
+			case CANE_SYMBOL_MELODY: {
+				cane_type_kind_t lhs =
+					cane_pass_semantic_analysis_walker(node->lhs);
+				cane_type_kind_t rhs =
+					cane_pass_semantic_analysis_walker(node->rhs);
+
+				CANE_UNUSED(rhs);  // Always discard right hand type since
+								   // we return the last expression's type.
+
+				// node->type = lhs;
+				return lhs;
+			}
+
+			// TODO: Fix this, not sure if this is actually correct in all
+			// cases.
+			case CANE_SYMBOL_FUNCTION: {
+				return node->rhs->type;
+			} break;
+
+			case CANE_SYMBOL_CHOICE:
+			case CANE_SYMBOL_LAYER:
+
 			case CANE_SYMBOL_STATEMENT: {
 				cane_type_kind_t lhs =
 					cane_pass_semantic_analysis_walker(node->lhs);
@@ -465,10 +506,8 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 			default: {
 				CANE_DIE(
 					cane_logger_create_default(),
-					"unimplemented %s: `%s` and `%s`!",
-					CANE_SYMBOL_TO_STR[node->kind],
-					CANE_TYPE_KIND_TO_STR_HUMAN[node->lhs->type],
-					CANE_TYPE_KIND_TO_STR_HUMAN[node->rhs->type]
+					"unknown type mapping for `%s`!",
+					CANE_SYMBOL_TO_STR_HUMAN[node->kind]
 				);
 			} break;
 		}

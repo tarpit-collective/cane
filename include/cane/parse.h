@@ -27,9 +27,10 @@ static bool cane_parser_is_literal(cane_symbol_kind_t kind) {
 }
 
 static bool cane_parser_is_primary(cane_symbol_kind_t kind) {
-	return cane_parser_is_literal(kind) || kind == CANE_SYMBOL_FUNCTION ||
-		kind == CANE_SYMBOL_IDENTIFIER || kind == CANE_SYMBOL_LPAREN ||
-		kind == CANE_SYMBOL_CHOICE || kind == CANE_SYMBOL_LAYER;
+	return cane_parser_is_literal(kind) || kind == CANE_SYMBOL_COERCE ||
+		kind == CANE_SYMBOL_FUNCTION || kind == CANE_SYMBOL_IDENTIFIER ||
+		kind == CANE_SYMBOL_LPAREN || kind == CANE_SYMBOL_CHOICE ||
+		kind == CANE_SYMBOL_LAYER;
 }
 
 static bool cane_parser_is_prefix(cane_symbol_kind_t kind) {
@@ -46,7 +47,7 @@ static bool cane_parser_is_infix(cane_symbol_kind_t kind) {
 		kind == CANE_SYMBOL_LCM || kind == CANE_SYMBOL_GCD ||
 
 		// Misc.
-		kind == CANE_SYMBOL_RHYTHM ||       // Euclide
+		kind == CANE_SYMBOL_EUCLIDEAN ||    // Euclide
 		kind == CANE_SYMBOL_REPEAT ||       // Repeat
 		kind == CANE_SYMBOL_MAP ||          // Map
 		kind == CANE_SYMBOL_CONCATENATE ||  // Concatenate
@@ -85,6 +86,7 @@ static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
 // constructing the AST.
 
 #define CANE_SYMBOL_OPFIX \
+	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_AMPERSAND, CANE_SYMBOL_COERCE) \
 	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_REST) \
 	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_EXCLAIM, CANE_SYMBOL_BEAT) \
 	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_TILDA, CANE_SYMBOL_INVERT) \
@@ -95,7 +97,7 @@ static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
 	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_LBRACKET, CANE_SYMBOL_LAYER) \
 	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_BACKSLASH, CANE_SYMBOL_FUNCTION) \
 \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COLON, CANE_SYMBOL_RHYTHM) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COLON, CANE_SYMBOL_EUCLIDEAN) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_STARS, CANE_SYMBOL_REPEAT) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_AT, CANE_SYMBOL_MAP) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_CONCATENATE) \
@@ -189,7 +191,7 @@ static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
 	X(CANE_SYMBOL_MUL,         8, 9) \
 	X(CANE_SYMBOL_DIV,         8, 9) \
 \
-	X(CANE_SYMBOL_RHYTHM,      9, 10) \
+	X(CANE_SYMBOL_EUCLIDEAN,   9, 10) \
 \
 	X(CANE_SYMBOL_LCM,         10, 11) \
 	X(CANE_SYMBOL_GCD,         10, 11) \
@@ -345,8 +347,9 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		case CANE_SYMBOL_BEAT:
 		case CANE_SYMBOL_REST: {
 			cane_lexer_discard(lx);
+
 			cane_ast_node_t* root =
-				cane_ast_node_create(symbol.kind, symbol.sv, CANE_TYPE_NONE);
+				cane_ast_node_create(symbol.kind, symbol.sv, CANE_TYPE_RHYTHM);
 
 			while (cane_lexer_peek_is_kind(
 					   lx, CANE_SYMBOL_BEAT, &symbol, cane_fix_unary_symbol
@@ -359,22 +362,36 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 					symbol.kind, symbol.sv, CANE_TYPE_RHYTHM
 				);
 
-				cane_ast_node_t* concat = cane_ast_node_create(
-					CANE_SYMBOL_CONCATENATE, symbol.sv, CANE_TYPE_NONE
+				cane_ast_node_t* rhythm = cane_ast_node_create(
+					CANE_SYMBOL_RHYTHM, symbol.sv, CANE_TYPE_RHYTHM
 				);
 
-				concat->lhs = node;
-				concat->rhs = root;
+				rhythm->lhs = node;
+				rhythm->rhs = root;
 
-				root = concat;
+				root = rhythm;
 			}
 
 			return root;
 		} break;
 
+		// Melody Coercion
+		case CANE_SYMBOL_COERCE: {
+			cane_lexer_discard(lx);  // Skip `&`
+			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
+
+			cane_ast_node_t* melody = cane_ast_node_create(
+				CANE_SYMBOL_CONCATENATE, symbol.sv, CANE_TYPE_MELODY
+			);
+
+			melody->lhs = expr;
+			melody->rhs = NULL;
+
+			return melody;
+		} break;
+
 		case CANE_SYMBOL_LPAREN: {
 			cane_lexer_discard(lx);  // Skip `(`
-
 			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
 
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RPAREN)) {
@@ -457,6 +474,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		case CANE_SYMBOL_FUNCTION: {
 			cane_lexer_discard(lx);  // Skip `\`
 
+			// Parameter
 			cane_symbol_t ident;
 			if (!cane_lexer_take_if_kind(
 					lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
@@ -472,11 +490,105 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 				CANE_SYMBOL_IDENTIFIER, ident.sv, CANE_TYPE_NONE
 			);
 
-			// Reset binding power
+			// Parameter type
+			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_BACKTICK)) {
+				cane_report_and_die(
+					cane_lexer_location_create(lx),
+					CANE_REPORT_SYNTAX,
+					"expected a type annotation"
+				);
+			}
+
+			// TODO: Extract this parsing logic for type annotations to a
+			// function.
+			cane_symbol_t param_type;
+			if (cane_lexer_take_if_kind(
+					lx, CANE_SYMBOL_ANNOTATION_NUMBER, &param_type, NULL
+				)) {
+				param->type = CANE_TYPE_SCALAR;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_STRING, &param_type, NULL
+					 )) {
+				param->type = CANE_TYPE_STRING;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_RHYTHM, &param_type, NULL
+					 )) {
+				param->type = CANE_TYPE_RHYTHM;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_MELODY, &param_type, NULL
+					 )) {
+				param->type = CANE_TYPE_MELODY;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_SEQUENCE, &param_type, NULL
+					 )) {
+				param->type = CANE_TYPE_SEQUENCE;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_PATTERN, &param_type, NULL
+					 )) {
+				param->type = CANE_TYPE_PATTERN;
+			}
+
+			// Reset binding power and parse body
 			cane_ast_node_t* body = cane_parse_expression(lx, 0);
 
+			// Body type
+			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_BACKTICK)) {
+				cane_report_and_die(
+					cane_lexer_location_create(lx),
+					CANE_REPORT_SYNTAX,
+					"expected a type annotation"
+				);
+			}
+
+			cane_symbol_t body_type;
+			if (cane_lexer_take_if_kind(
+					lx, CANE_SYMBOL_ANNOTATION_NUMBER, &body_type, NULL
+				)) {
+				body->type = CANE_TYPE_SCALAR;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_STRING, &body_type, NULL
+					 )) {
+				body->type = CANE_TYPE_STRING;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_RHYTHM, &body_type, NULL
+					 )) {
+				body->type = CANE_TYPE_RHYTHM;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_MELODY, &body_type, NULL
+					 )) {
+				body->type = CANE_TYPE_MELODY;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_SEQUENCE, &body_type, NULL
+					 )) {
+				body->type = CANE_TYPE_SEQUENCE;
+			}
+
+			else if (cane_lexer_take_if_kind(
+						 lx, CANE_SYMBOL_ANNOTATION_PATTERN, &body_type, NULL
+					 )) {
+				body->type = CANE_TYPE_PATTERN;
+			}
+
 			cane_ast_node_t* fn = cane_ast_node_create(
-				CANE_SYMBOL_FUNCTION, ident.sv, CANE_TYPE_FUNCTION
+				CANE_SYMBOL_FUNCTION, ident.sv, body->type
 			);
 
 			fn->lhs = param;

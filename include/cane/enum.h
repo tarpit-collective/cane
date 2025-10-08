@@ -41,8 +41,17 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_WHITESPACE, "whitespace") \
 	X(CANE_SYMBOL_COMMENT, "comment") \
 \
+	X(CANE_SYMBOL_ANNOTATION_NUMBER, "number (type)") \
+	X(CANE_SYMBOL_ANNOTATION_STRING, "string (type)") \
+	X(CANE_SYMBOL_ANNOTATION_RHYTHM, "rhythm (type)") \
+	X(CANE_SYMBOL_ANNOTATION_MELODY, "melody (type)") \
+	X(CANE_SYMBOL_ANNOTATION_SEQUENCE, "sequence (type)") \
+	X(CANE_SYMBOL_ANNOTATION_PATTERN, "pattern (type)") \
+\
 	/* Misc. */ \
+	X(CANE_SYMBOL_AMPERSAND, "ampersand `&`") \
 	X(CANE_SYMBOL_BACKSLASH, "backslash `\\`") \
+	X(CANE_SYMBOL_BACKTICK, "backtick ```") \
 	X(CANE_SYMBOL_COMMA, "comma `,`") \
 	X(CANE_SYMBOL_DOT, "dot `.`") \
 	X(CANE_SYMBOL_EXCLAIM, "exclaim `!`") \
@@ -58,8 +67,11 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_STATEMENT, "statement") \
 	X(CANE_SYMBOL_CHOICE, "choice") \
 	X(CANE_SYMBOL_LAYER, "layer") \
+	X(CANE_SYMBOL_RHYTHM, "rhythm") \
+	X(CANE_SYMBOL_MELODY, "melody") \
 \
 	/* AST */ \
+	X(CANE_SYMBOL_COERCE, "coerce") \
 	X(CANE_SYMBOL_CONCATENATE, "concatenate") \
 	X(CANE_SYMBOL_CALL, "call") \
 	X(CANE_SYMBOL_ASSIGN, "assign") \
@@ -68,7 +80,7 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_MAP, "map") \
 	X(CANE_SYMBOL_INVERT, "invert") \
 	X(CANE_SYMBOL_REVERSE, "reverse") \
-	X(CANE_SYMBOL_RHYTHM, "rhythm") \
+	X(CANE_SYMBOL_EUCLIDEAN, "euclidean") \
 \
 	X(CANE_SYMBOL_ABS, "abs") \
 	X(CANE_SYMBOL_NEG, "neg") \

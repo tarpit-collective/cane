@@ -284,6 +284,31 @@ cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
 		symbol.kind = CANE_SYMBOL_AND;
 	}
 
+	// Type annotations
+	else if (cane_string_view_eq(symbol.sv, CANE_SV("number"))) {
+		symbol.kind = CANE_SYMBOL_ANNOTATION_NUMBER;
+	}
+
+	else if (cane_string_view_eq(symbol.sv, CANE_SV("string"))) {
+		symbol.kind = CANE_SYMBOL_ANNOTATION_STRING;
+	}
+
+	else if (cane_string_view_eq(symbol.sv, CANE_SV("rhythm"))) {
+		symbol.kind = CANE_SYMBOL_ANNOTATION_RHYTHM;
+	}
+
+	else if (cane_string_view_eq(symbol.sv, CANE_SV("melody"))) {
+		symbol.kind = CANE_SYMBOL_ANNOTATION_MELODY;
+	}
+
+	else if (cane_string_view_eq(symbol.sv, CANE_SV("sequence"))) {
+		symbol.kind = CANE_SYMBOL_ANNOTATION_SEQUENCE;
+	}
+
+	else if (cane_string_view_eq(symbol.sv, CANE_SV("pattern"))) {
+		symbol.kind = CANE_SYMBOL_ANNOTATION_PATTERN;
+	}
+
 	// User identifier
 	else {
 		symbol.kind = CANE_SYMBOL_IDENTIFIER;
@@ -306,8 +331,10 @@ static bool cane_lexer_produce_sigil(cane_lexer_t* lx, cane_symbol_t* out) {
 		cane_lexer_produce_str(lx, out, kind, sv)
 
 	return
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_COERCE,    CANE_SV("&")) ||
 		CANE_PRODUCE_SIGIL(CANE_SYMBOL_BACKSLASH, CANE_SV("\\")) ||
 		CANE_PRODUCE_SIGIL(CANE_SYMBOL_COMMA,     CANE_SV(","))  ||
+		CANE_PRODUCE_SIGIL(CANE_SYMBOL_BACKTICK,  CANE_SV("`"))  ||
 		CANE_PRODUCE_SIGIL(CANE_SYMBOL_DOT,       CANE_SV("."))  ||
 		CANE_PRODUCE_SIGIL(CANE_SYMBOL_EXCLAIM,   CANE_SV("!"))  ||
 		CANE_PRODUCE_SIGIL(CANE_SYMBOL_ARROW,     CANE_SV("=>")) ||
