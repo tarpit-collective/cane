@@ -86,26 +86,7 @@ const char* CANE_LOGLEVEL_COLOUR[] = {CANE_LOG_KINDS};
 // Logger //
 ////////////
 
-typedef struct cane_logger cane_logger_t;
-
-struct cane_logger {
-	const char* name;  // Name of logger for filtering by pass or stage
-	FILE* dest;        // Destination to log to (usually stderr)
-	cane_loglevel_t level;
-	size_t indent;
-};
-
-static cane_logger_t cane_logger_create_default() {
-	return (cane_logger_t){
-		.name = "global",
-		.dest = stderr,
-		.level = CANE_PRIORITY_INFO,
-		.indent = 0,
-	};
-}
-
 static void cane_log_lineinfo_v(
-	cane_logger_t log,
 	cane_loglevel_t lvl,
 	const char* filename,
 	const char* line,
@@ -113,26 +94,15 @@ static void cane_log_lineinfo_v(
 	const char* fmt,
 	va_list args
 ) {
-	if (lvl < log.level) {
-		return;
-	}
-
-	// If destination is NULL, just don't log anything.
-	if (log.dest == NULL) {
-		return;
-	}
-
 	const char* lvl_str = CANE_LOGLEVEL_TO_STR[lvl];
 	const char* lvl_human = CANE_LOGLEVEL_HUMAN_TO_STR[lvl];
 	const char* lvl_colour = CANE_LOGLEVEL_COLOUR[lvl];
 
 	fprintf(
-		log.dest,
-		CANE_BOLD "%*s%s%s" CANE_RESET
+		stderr,
+		CANE_BOLD "%s%s" CANE_RESET
 				  " "
 				  "%s%s" CANE_RESET,
-		(int)log.indent * 4,
-		"",
 		lvl_colour,
 		lvl_str,
 		lvl_colour,
@@ -141,33 +111,32 @@ static void cane_log_lineinfo_v(
 
 	// Check if any combination of filename or line is NULL.
 	if (filename != NULL && line != NULL) {
-		fprintf(log.dest, " [%s:%s]", filename, line);
+		fprintf(stderr, " [%s:%s]", filename, line);
 	}
 
 	else if (filename != NULL && line == NULL) {
-		fprintf(log.dest, " [%s]", filename);
+		fprintf(stderr, " [%s]", filename);
 	}
 
 	else if (filename == NULL && line != NULL) {
-		fprintf(log.dest, " [%s]", line);
+		fprintf(stderr, " [%s]", line);
 	}
 
 	// Check if function name is empty.
 	if (func != NULL) {
-		fprintf(log.dest, " `%s`", func);
+		fprintf(stderr, " `%s`", func);
 	}
 
 	// Check if there is any format string (and thus any varargs).
 	if (fmt != NULL) {
-		fprintf(log.dest, ": ");
-		vfprintf(log.dest, fmt, args);
+		fprintf(stderr, ": ");
+		vfprintf(stderr, fmt, args);
 	}
 
-	fputc('\n', log.dest);
+	fputc('\n', stderr);
 }
 
 static void cane_log_lineinfo(
-	cane_logger_t log,
 	cane_loglevel_t lvl,
 	const char* filename,
 	const char* line,
@@ -178,23 +147,21 @@ static void cane_log_lineinfo(
 	va_list args;
 	va_start(args, fmt);
 
-	cane_log_lineinfo_v(log, lvl, filename, line, func, fmt, args);
+	cane_log_lineinfo_v(lvl, filename, line, func, fmt, args);
 
 	va_end(args);
 }
 
-static void
-cane_log(cane_logger_t log, cane_loglevel_t lvl, const char* fmt, ...) {
+static void cane_log(cane_loglevel_t lvl, const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 
-	cane_log_lineinfo_v(log, lvl, NULL, NULL, NULL, fmt, args);
+	cane_log_lineinfo_v(lvl, NULL, NULL, NULL, fmt, args);
 
 	va_end(args);
 }
 
 static void cane_die(
-	cane_logger_t log,
 	const char* filename,
 	const char* line,
 	const char* func,
@@ -204,9 +171,7 @@ static void cane_die(
 	va_list args;
 	va_start(args, fmt);
 
-	cane_log_lineinfo_v(
-		log, CANE_PRIORITY_DIED, filename, line, func, fmt, args
-	);
+	cane_log_lineinfo_v(CANE_PRIORITY_DIED, filename, line, func, fmt, args);
 
 	va_end(args);
 	fflush(stderr);
@@ -215,7 +180,6 @@ static void cane_die(
 }
 
 static void cane_assert(
-	cane_logger_t log,
 	bool cond,
 	const char* filename,
 	const char* line,
@@ -228,7 +192,7 @@ static void cane_assert(
 		va_start(args, fmt);
 
 		cane_log_lineinfo_v(
-			log, CANE_PRIORITY_DIED, filename, line, func, fmt, args
+			CANE_PRIORITY_DIED, filename, line, func, fmt, args
 		);
 
 		va_end(args);
@@ -238,36 +202,32 @@ static void cane_assert(
 	}
 }
 
-#define CANE_LOG_INFO(log, ...) \
+#define CANE_LOG_INFO(...) \
 	cane_log_lineinfo( \
-		log, \
 		CANE_PRIORITY_INFO, \
 		__FILE__, \
 		CANE_STR(__LINE__), \
 		__func__, \
 		__VA_ARGS__ \
 	)
-#define CANE_LOG_WARN(log, ...) \
+#define CANE_LOG_WARN(...) \
 	cane_log_lineinfo( \
-		log, \
 		CANE_PRIORITY_WARN, \
 		__FILE__, \
 		CANE_STR(__LINE__), \
 		__func__, \
 		__VA_ARGS__ \
 	)
-#define CANE_LOG_FAIL(log, ...) \
+#define CANE_LOG_FAIL(...) \
 	cane_log_lineinfo( \
-		log, \
 		CANE_PRIORITY_FAIL, \
 		__FILE__, \
 		CANE_STR(__LINE__), \
 		__func__, \
 		__VA_ARGS__ \
 	)
-#define CANE_LOG_OKAY(log, ...) \
+#define CANE_LOG_OKAY(...) \
 	cane_log_lineinfo( \
-		log, \
 		CANE_PRIORITY_OKAY, \
 		__FILE__, \
 		CANE_STR(__LINE__), \
@@ -276,9 +236,8 @@ static void cane_assert(
 	)
 
 // Find out where you are with a rainbow.
-#define CANE_WHEREAMI(log) \
+#define CANE_WHEREAMI() \
 	cane_log_lineinfo( \
-		log, \
 		CANE_PRIORITY_INFO, \
 		__FILE__, \
 		CANE_STR(__LINE__), \
@@ -289,21 +248,21 @@ static void cane_assert(
 				 "R" CANE_YELLOW "E" CANE_RESET \
 	)
 
-#define CANE_FUNCTION_ENTER(log) \
+#define CANE_FUNCTION_ENTER() \
 	cane_log_lineinfo( \
-		log, CANE_PRIORITY_ENTR, __FILE__, CANE_STR(__LINE__), __func__, NULL \
+		CANE_PRIORITY_ENTR, __FILE__, CANE_STR(__LINE__), __func__, NULL \
 	)
 
-#define CANE_DIE(log, ...) \
-	cane_die(log, __FILE__, CANE_STR(__LINE__), __func__, __VA_ARGS__)
+#define CANE_DIE(...) \
+	cane_die(__FILE__, CANE_STR(__LINE__), __func__, __VA_ARGS__)
 
-#define CANE_UNIMPLEMENTED(log) \
-	cane_die(log, __FILE__, CANE_STR(__LINE__), __func__, "unimplemented!")
-#define CANE_UNREACHABLE(log) \
-	cane_die(log, __FILE__, CANE_STR(__LINE__), __func__, "unreachable!")
+#define CANE_UNIMPLEMENTED() \
+	cane_die(__FILE__, CANE_STR(__LINE__), __func__, "unimplemented!")
+#define CANE_UNREACHABLE() \
+	cane_die(__FILE__, CANE_STR(__LINE__), __func__, "unreachable!")
 
-#define CANE_ASSERT(log, cond, ...) \
-	cane_assert(log, cond, __FILE__, CANE_STR(__LINE__), __func__, __VA_ARGS__)
+#define CANE_ASSERT(cond, ...) \
+	cane_assert(cond, __FILE__, CANE_STR(__LINE__), __func__, __VA_ARGS__)
 
 // TODO: Debug macro (might not be reasonable)
 

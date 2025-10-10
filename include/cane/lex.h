@@ -33,7 +33,7 @@ typedef struct cane_symbol cane_symbol_t;
 
 struct cane_symbol {
 	cane_symbol_kind_t kind;
-	cane_string_view_t sv;
+	cane_lexer_location_t location;
 };
 
 // Parser and lexer predicates & other function pointers
@@ -47,11 +47,12 @@ typedef cane_symbol_kind_t (*cane_lexer_fixup_t)(cane_symbol_kind_t);
 ///////////
 
 struct cane_lexer {
-	cane_string_view_t source;
+	// cane_string_view_t source;
 
-	const char* ptr;
-	const char* end;
+	// const char* ptr;
+	// const char* end;
 
+	cane_lexer_location_t location;
 	cane_symbol_t peek;
 };
 
@@ -63,15 +64,12 @@ static cane_lexer_t cane_lexer_create(cane_string_view_t sv) {
 	// Initialise peek to NONE
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
-		.sv = {sv.begin, sv.end},
+		.location = {{sv.begin, sv.end}, {sv.begin, sv.end}},
 	};
 
 	cane_lexer_t lx = (cane_lexer_t){
-		.source = sv,  // Original source for error reporting
-
-		.ptr = sv.begin,  // Initialise lexer pointers
-		.end = sv.end,
-
+		.location.source = sv,  // Original source for error reporting
+		.location.symbol = sv,  // Initialise lexer pointers
 		.peek = symbol,
 	};
 
@@ -84,12 +82,12 @@ static cane_lexer_t cane_lexer_create(cane_string_view_t sv) {
 // Basic stream interaction
 static bool cane_str_peek(cane_lexer_t* lx, char* c) {
 	// Return false for EOF.
-	if (lx->ptr > lx->end) {
+	if (lx->location.symbol.begin > lx->location.symbol.end) {
 		return false;
 	}
 
 	if (c != NULL) {
-		*c = *lx->ptr;
+		*c = *lx->location.symbol.begin;
 	}
 
 	return true;
@@ -100,7 +98,7 @@ static bool cane_str_take(cane_lexer_t* lx, char* c) {
 		return false;
 	}
 
-	lx->ptr++;
+	lx->location.symbol.begin++;
 	return true;
 }
 
@@ -137,20 +135,20 @@ static bool cane_str_take_if_char(cane_lexer_t* lx, char c) {
 static bool cane_str_take_str(cane_lexer_t* lx, cane_string_view_t sv) {
 	size_t length = cane_string_view_length(sv);
 
-	if (lx->ptr + length > lx->end) {
+	if (lx->location.symbol.begin + length > lx->location.symbol.end) {
 		return false;
 	}
 
 	cane_string_view_t current_symbol = (cane_string_view_t){
-		.begin = lx->ptr,
-		.end = lx->ptr + length,
+		.begin = lx->location.symbol.begin,
+		.end = lx->location.symbol.begin + length,
 	};
 
 	if (!cane_string_view_eq(sv, current_symbol)) {
 		return false;
 	}
 
-	lx->ptr += length;
+	lx->location.symbol.begin += length;
 	return true;
 }
 
@@ -176,14 +174,14 @@ static bool cane_lexer_produce_if(
 ) {
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = kind,
-		.sv = {lx->ptr, lx->ptr},
+		.location = lx->location,
 	};
 
 	if (!cane_str_take_if(lx, pred, NULL)) {
 		return false;
 	}
 
-	symbol.sv.end = lx->ptr;
+	symbol.location.symbol.end = lx->location.symbol.begin;
 
 	if (out != NULL) {
 		*out = symbol;
@@ -200,14 +198,14 @@ static bool cane_lexer_produce_while(
 ) {
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = kind,
-		.sv = {lx->ptr, lx->ptr},
+		.location = lx->location,
 	};
 
 	if (!cane_str_take_while(lx, pred)) {
 		return false;
 	}
 
-	symbol.sv.end = lx->ptr;
+	symbol.location.symbol.end = lx->location.symbol.begin;
 
 	if (out != NULL) {
 		*out = symbol;
@@ -224,14 +222,14 @@ static bool cane_lexer_produce_str(
 ) {
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = kind,
-		.sv = {lx->ptr, lx->ptr},
+		.location = lx->location,
 	};
 
 	if (!cane_str_take_str(lx, sv)) {
 		return false;
 	}
 
-	symbol.sv.end = lx->ptr;
+	symbol.location.symbol.end = lx->location.symbol.begin;
 
 	if (out != NULL) {
 		*out = symbol;
@@ -244,8 +242,8 @@ static bool cane_lexer_produce_str(
 static bool
 cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
 	cane_symbol_t symbol = (cane_symbol_t){
-		.kind = CANE_SYMBOL_NONE,
-		.sv = {lx->ptr, lx->ptr},
+		.kind = CANE_SYMBOL_IDENTIFIER,
+		.location = lx->location,
 	};
 
 	if (!cane_str_take_if(lx, cane_is_identifier_start, NULL)) {
@@ -254,7 +252,7 @@ cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
 
 	cane_str_take_while(lx, cane_is_identifier);
 
-	symbol.sv.end = lx->ptr;
+	symbol.location.symbol.end = lx->location.symbol.begin;
 
 	// We could have used `cane_produce_str` here to handle these cases
 	// but we want "maximal munch" meaning that we lex the entire
@@ -263,55 +261,50 @@ cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
 	// as 2 seperate tokens because it sees `let` and stops there.
 
 	// Keywords
-	if (cane_string_view_eq(symbol.sv, CANE_SV("lcm"))) {
+	if (cane_string_view_eq(symbol.location.symbol, CANE_SV("lcm"))) {
 		symbol.kind = CANE_SYMBOL_LCM;
 	}
 
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("gcd"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("gcd"))) {
 		symbol.kind = CANE_SYMBOL_GCD;
 	}
 
 	// Operators
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("or"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("or"))) {
 		symbol.kind = CANE_SYMBOL_OR;
 	}
 
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("xor"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("xor"))) {
 		symbol.kind = CANE_SYMBOL_XOR;
 	}
 
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("and"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("and"))) {
 		symbol.kind = CANE_SYMBOL_AND;
 	}
 
 	// Type annotations
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("number"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("number"))) {
 		symbol.kind = CANE_SYMBOL_ANNOTATION_NUMBER;
 	}
 
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("string"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("string"))) {
 		symbol.kind = CANE_SYMBOL_ANNOTATION_STRING;
 	}
 
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("rhythm"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("rhythm"))) {
 		symbol.kind = CANE_SYMBOL_ANNOTATION_RHYTHM;
 	}
 
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("melody"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("melody"))) {
 		symbol.kind = CANE_SYMBOL_ANNOTATION_MELODY;
 	}
 
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("sequence"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("sequence"))) {
 		symbol.kind = CANE_SYMBOL_ANNOTATION_SEQUENCE;
 	}
 
-	else if (cane_string_view_eq(symbol.sv, CANE_SV("pattern"))) {
+	else if (cane_string_view_eq(symbol.location.symbol, CANE_SV("pattern"))) {
 		symbol.kind = CANE_SYMBOL_ANNOTATION_PATTERN;
-	}
-
-	// User identifier
-	else {
-		symbol.kind = CANE_SYMBOL_IDENTIFIER;
 	}
 
 	if (out != NULL) {
@@ -377,7 +370,7 @@ cane_lexer_produce_whitespace(cane_lexer_t* lx, cane_symbol_t* out) {
 static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_COMMENT,
-		.sv = {lx->ptr, lx->ptr},
+		.location = lx->location,
 	};
 
 	if (!cane_str_take_str(lx, CANE_SV("#!")) ||
@@ -385,7 +378,7 @@ static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
 		return false;
 	}
 
-	symbol.sv.end = lx->ptr;
+	symbol.location.symbol.end = lx->location.symbol.begin;
 
 	if (out != NULL) {
 		*out = symbol;
@@ -464,12 +457,13 @@ static bool cane_lexer_take_any(
 ) {
 	cane_symbol_t symbol = (cane_symbol_t){
 		.kind = CANE_SYMBOL_NONE,
-		.sv = {lx->ptr, lx->ptr},
+		.location = lx->location,
 	};
 
 	// Handle EOF
-	if (lx->ptr >=
-		lx->end) {  // Must be >= which means we can't use `cane_str_peek`
+	if (lx->location.symbol.begin >=
+		lx->location.symbol
+			.end) {  // Must be >= which means we can't use `cane_str_peek`
 		symbol.kind = CANE_SYMBOL_ENDFILE;
 	}
 
@@ -482,7 +476,7 @@ static bool cane_lexer_take_any(
 			cane_lexer_location_create(lx),
 			CANE_REPORT_LEXICAL,
 			"unknown character `%c`!",
-			*lx->ptr
+			*lx->location.symbol.begin
 		);
 
 		return false;
@@ -582,8 +576,8 @@ cane_lexer_discard_if_kind(cane_lexer_t* lx, cane_symbol_kind_t kind) {
 
 static cane_lexer_location_t cane_lexer_location_create(cane_lexer_t* lx) {
 	return (cane_lexer_location_t){
-		.source = lx->source,
-		.symbol = lx->peek.sv,
+		.source = lx->location.source,
+		.symbol = lx->peek.location.symbol,
 	};
 }
 
@@ -606,7 +600,7 @@ cane_location_coordinates(cane_lexer_location_t location) {
 	cane_string_view_t symbol = location.symbol;
 
 	if (!(symbol.begin >= source.begin && symbol.end <= source.end)) {
-		CANE_DIE(cane_logger_create_default(), "symbol not in range of source");
+		CANE_DIE("symbol not in range of source");
 	}
 
 	for (const char* ptr = source.begin; ptr != symbol.end; ptr++) {
