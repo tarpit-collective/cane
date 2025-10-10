@@ -243,8 +243,63 @@ struct cane_ast_node {
 	};
 };
 
-static cane_ast_node_t* cane_ast_node_create(
-	cane_symbol_kind_t kind, cane_type_kind_t type, cane_lexer_location_t loc
+static cane_ast_node_t* cane_ast_node_create_number(
+	cane_symbol_kind_t kind,
+	cane_type_kind_t type,
+	int number,
+	cane_lexer_location_t loc
+) {
+	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
+
+	node->kind = kind;
+	node->type = type;
+
+	node->location = loc;
+	node->number = number;
+
+	return node;
+}
+
+static cane_ast_node_t* cane_ast_node_create_string(
+	cane_symbol_kind_t kind,
+	cane_type_kind_t type,
+	cane_string_view_t string,
+	cane_lexer_location_t loc
+) {
+	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
+
+	node->kind = kind;
+	node->type = type;
+
+	node->location = loc;
+	node->string = string;
+
+	return node;
+}
+
+static cane_ast_node_t* cane_ast_node_create_list(
+	cane_symbol_kind_t kind,
+	cane_type_kind_t type,
+	cane_list_t* list,
+	cane_lexer_location_t loc
+) {
+	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
+
+	node->kind = kind;
+	node->type = type;
+
+	node->location = loc;
+	node->list = list;
+
+	return node;
+}
+
+static cane_ast_node_t* cane_ast_node_create_binary(
+	cane_symbol_kind_t kind,
+	cane_type_kind_t type,
+	cane_ast_node_t* lhs,
+	cane_ast_node_t* rhs,
+	cane_lexer_location_t loc
 ) {
 	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
 
@@ -253,10 +308,25 @@ static cane_ast_node_t* cane_ast_node_create(
 
 	node->location = loc;
 
-	node->lhs = NULL;
-	node->rhs = NULL;
+	node->lhs = lhs;
+	node->rhs = rhs;
 
 	return node;
+}
+
+static cane_ast_node_t* cane_ast_node_create_unary(
+	cane_symbol_kind_t kind,
+	cane_type_kind_t type,
+	cane_ast_node_t* node,
+	cane_lexer_location_t loc
+) {
+	return cane_ast_node_create_binary(kind, type, NULL, node, loc);
+}
+
+static cane_ast_node_t* cane_ast_node_create(
+	cane_symbol_kind_t kind, cane_type_kind_t type, cane_lexer_location_t loc
+) {
+	return cane_ast_node_create_binary(kind, type, NULL, NULL, loc);
 }
 
 ////////////
@@ -307,12 +377,9 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 	while (!cane_lexer_peek_is_kind(lx, CANE_SYMBOL_ENDFILE, &symbol, NULL)) {
 		cane_ast_node_t* node = cane_parse_expression(lx, 0);
 
-		cane_ast_node_t* concat = cane_ast_node_create(
-			CANE_SYMBOL_STATEMENT, CANE_TYPE_NONE, symbol.location
+		cane_ast_node_t* concat = cane_ast_node_create_binary(
+			CANE_SYMBOL_STATEMENT, CANE_TYPE_NONE, node, root, symbol.location
 		);
-
-		concat->lhs = node;
-		concat->rhs = root;
 
 		root = concat;
 
@@ -345,9 +412,13 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		}
 
 		case CANE_SYMBOL_NUMBER: {
-			cane_lexer_discard(lx);
-			return cane_ast_node_create(
-				symbol.kind, CANE_TYPE_SCALAR, symbol.location
+			cane_symbol_t number;
+			cane_lexer_take(lx, &number, NULL);
+
+			// TODO: Parse literal to int and pass it to the constructor below.
+
+			return cane_ast_node_create_number(
+				symbol.kind, CANE_TYPE_SCALAR, 0, symbol.location
 			);
 		}
 
@@ -371,12 +442,13 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 					symbol.kind, CANE_TYPE_RHYTHM, symbol.location
 				);
 
-				cane_ast_node_t* rhythm = cane_ast_node_create(
-					CANE_SYMBOL_RHYTHM, CANE_TYPE_RHYTHM, symbol.location
+				cane_ast_node_t* rhythm = cane_ast_node_create_binary(
+					CANE_SYMBOL_RHYTHM,
+					CANE_TYPE_RHYTHM,
+					node,
+					root,
+					symbol.location
 				);
-
-				rhythm->lhs = node;
-				rhythm->rhs = root;
 
 				root = rhythm;
 			}
@@ -386,17 +458,18 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 		// Melody Coercion
 		case CANE_SYMBOL_COERCE: {
+			// TODO: Fix this
 			cane_lexer_discard(lx);  // Skip `&`
-			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
+			// cane_ast_node_t* expr = cane_parse_expression(lx, 0);
 
-			cane_ast_node_t* melody = cane_ast_node_create(
-				CANE_SYMBOL_CONCATENATE, CANE_TYPE_MELODY, symbol.location
-			);
+			// cane_ast_node_t* melody = cane_ast_node_create_unary(
+			// 	CANE_SYMBOL_CONCATENATE, CANE_TYPE_MELODY, symbol.location
+			// );
 
-			melody->lhs = expr;
-			melody->rhs = NULL;
+			// melody->lhs = expr;
+			// melody->rhs = NULL;
 
-			return melody;
+			// return melody;
 		} break;
 
 		case CANE_SYMBOL_LPAREN: {
@@ -422,12 +495,13 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			do {
 				cane_ast_node_t* node = cane_parse_expression(lx, 0);
 
-				cane_ast_node_t* choice = cane_ast_node_create(
-					CANE_SYMBOL_CHOICE, CANE_TYPE_NONE, symbol.location
+				cane_ast_node_t* choice = cane_ast_node_create_binary(
+					CANE_SYMBOL_CHOICE,
+					CANE_TYPE_NONE,
+					node,
+					root,
+					symbol.location
 				);
-
-				choice->lhs = node;
-				choice->rhs = root;
 
 				root = choice;
 
@@ -455,14 +529,15 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			do {
 				cane_ast_node_t* node = cane_parse_expression(lx, 0);
 
-				cane_ast_node_t* choice = cane_ast_node_create(
-					CANE_SYMBOL_LAYER, CANE_TYPE_NONE, symbol.location
+				cane_ast_node_t* layer = cane_ast_node_create_binary(
+					CANE_SYMBOL_LAYER,
+					CANE_TYPE_NONE,
+					node,
+					root,
+					symbol.location
 				);
 
-				choice->lhs = node;
-				choice->rhs = root;
-
-				root = choice;
+				root = layer;
 
 				cane_lexer_discard_if_kind(lx, CANE_SYMBOL_COMMA);
 			} while (!cane_lexer_peek_is_kind(
@@ -633,17 +708,12 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 		);
 	}
 
-	cane_ast_node_t* node =
-		cane_ast_node_create(symbol.kind, CANE_TYPE_NONE, symbol.location);
 	cane_lexer_discard(lx);
-
 	cane_ast_node_t* expr = cane_parse_expression(lx, bp);
 
-	// Prefix nodes don't have a left-hand side.
-	node->lhs = NULL;
-	node->rhs = expr;
-
-	return node;
+	return cane_ast_node_create_unary(
+		symbol.kind, CANE_TYPE_NONE, expr, symbol.location
+	);
 }
 
 static cane_ast_node_t* cane_parse_infix(
@@ -659,16 +729,13 @@ static cane_ast_node_t* cane_parse_infix(
 		);
 	}
 
-	cane_ast_node_t* node =
-		cane_ast_node_create(symbol.kind, CANE_TYPE_NONE, symbol.location);
 	cane_lexer_discard(lx);
 
 	cane_ast_node_t* rhs = cane_parse_expression(lx, bp);
 
-	node->lhs = lhs;
-	node->rhs = rhs;
-
-	return node;
+	return cane_ast_node_create_binary(
+		symbol.kind, CANE_TYPE_NONE, lhs, rhs, symbol.location
+	);
 }
 
 static cane_ast_node_t* cane_parse_postfix(
@@ -684,14 +751,11 @@ static cane_ast_node_t* cane_parse_postfix(
 		);
 	}
 
-	cane_ast_node_t* node =
-		cane_ast_node_create(symbol.kind, CANE_TYPE_NONE, symbol.location);
-	cane_lexer_discard(lx);
+	cane_ast_node_t* node = cane_ast_node_create_unary(
+		symbol.kind, CANE_TYPE_NONE, lhs, symbol.location
+	);
 
-	// We put the child node on the `rhs` to be consistent with prefix
-	// expressions so we don't have to have seperate handling for them.
-	node->lhs = NULL;
-	node->rhs = lhs;
+	cane_lexer_discard(lx);
 
 	// Assignment is a bit special in that it has a parameter in the form of an
 	// identifier to bind the expression's value to.

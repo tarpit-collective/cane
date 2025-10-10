@@ -205,6 +205,8 @@ static void cane_pass_graphviz_walker(
 
 	cane_symbol_kind_t kind = node->kind;
 
+	cane_lexer_location_t loc = node->location;
+
 	cane_ast_node_t* lhs = node->lhs;
 	cane_ast_node_t* rhs = node->rhs;
 
@@ -272,7 +274,12 @@ static void cane_pass_graphviz_walker(
 		} break;
 
 		default: {
-			CANE_DIE("unimplemented %s", CANE_SYMBOL_TO_STR[kind]);
+			cane_report_and_die(
+				loc,
+				CANE_REPORT_GENERIC,
+				"unhandled case `%s`!",
+				CANE_SYMBOL_TO_STR[kind]
+			);
 		} break;
 	}
 }
@@ -309,7 +316,6 @@ static bool cane_type_remapper(
 	}
 
 	CANE_LOG_INFO(
-
 		"attempt: kind = `%s` lhs = `%s` rhs = `%s` -> %s",
 		CANE_SYMBOL_TO_STR[kind],
 		CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
@@ -338,7 +344,6 @@ static bool cane_type_remapper(
 	}
 
 	CANE_LOG_OKAY(
-
 		"success: `%s` expected = (%s, %s), got = (%s, %s) -> %s",
 		CANE_SYMBOL_TO_STR[kind],
 		CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
@@ -436,6 +441,8 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 		return CANE_TYPE_NONE;
 	}
 
+	cane_lexer_location_t loc = node->location;
+
 	// Handle trivial cases for remapping first but otherwise fallback to this
 	// switch where we handle them manually.
 	if (!cane_type_remap_trivial(node)) {
@@ -487,10 +494,11 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 			} break;
 
 			default: {
-				CANE_DIE(
-
+				cane_report_and_die(
+					loc,
+					CANE_REPORT_TYPE,
 					"unknown type mapping for `%s`!",
-					CANE_SYMBOL_TO_STR_HUMAN[node->kind]
+					CANE_SYMBOL_TO_STR[node->kind]
 				);
 			} break;
 		}
