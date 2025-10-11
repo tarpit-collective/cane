@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 // TODO:
@@ -22,7 +23,7 @@
 typedef struct cane_list cane_list_t;
 
 struct cane_list {
-	int value;
+	int64_t value;
 	cane_list_t* next;
 };
 

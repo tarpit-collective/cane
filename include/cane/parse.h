@@ -416,10 +416,31 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			cane_lexer_take(lx, &number, NULL);
 
 			// TODO: Parse literal to int and pass it to the constructor below.
-
-			return cane_ast_node_create_number(
+			cane_ast_node_t* root = cane_ast_node_create_number(
 				symbol.kind, CANE_TYPE_SCALAR, 0, symbol.location
 			);
+
+			// TODO: Parse adjacent numbers as a melody.
+
+			// while (
+			// 	cane_lexer_peek_is_kind(lx, CANE_SYMBOL_NUMBER, &symbol, NULL)
+			// ) {
+			// 	cane_lexer_take(lx, &number, NULL);
+
+			// 	// Add to list
+			// 	cane_list_t* current = NULL;
+
+			// 	switch (symbol.kind) {
+			// 		case CANE_SYMBOL_BEAT: current = cane_list_create(1); break;
+			// 		case CANE_SYMBOL_REST: current = cane_list_create(0); break;
+
+			// 		default: CANE_UNREACHABLE();
+			// 	}
+
+			// 	list = cane_list_concat(list, current);
+			// }
+
+			return root;
 		}
 
 		// Literals (Implicit Concat)
@@ -427,8 +448,17 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		case CANE_SYMBOL_REST: {
 			cane_lexer_discard(lx);
 
-			cane_ast_node_t* root = cane_ast_node_create(
-				symbol.kind, CANE_TYPE_RHYTHM, symbol.location
+			cane_list_t* list = NULL;
+
+			switch (symbol.kind) {
+				case CANE_SYMBOL_BEAT: list = cane_list_create(1); break;
+				case CANE_SYMBOL_REST: list = cane_list_create(0); break;
+
+				default: CANE_UNREACHABLE();
+			}
+
+			cane_ast_node_t* rhythm = cane_ast_node_create_list(
+				CANE_SYMBOL_RHYTHM, CANE_TYPE_RHYTHM, list, symbol.location
 			);
 
 			while (cane_lexer_peek_is_kind(
@@ -438,38 +468,31 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 					   lx, CANE_SYMBOL_REST, &symbol, cane_fix_unary_symbol
 				   )) {
 				cane_lexer_take(lx, &symbol, cane_fix_unary_symbol);
-				cane_ast_node_t* node = cane_ast_node_create(
-					symbol.kind, CANE_TYPE_RHYTHM, symbol.location
-				);
 
-				cane_ast_node_t* rhythm = cane_ast_node_create_binary(
-					CANE_SYMBOL_RHYTHM,
-					CANE_TYPE_RHYTHM,
-					node,
-					root,
-					symbol.location
-				);
+				// Add to list
+				cane_list_t* current = NULL;
 
-				root = rhythm;
+				switch (symbol.kind) {
+					case CANE_SYMBOL_BEAT: current = cane_list_create(1); break;
+					case CANE_SYMBOL_REST: current = cane_list_create(0); break;
+
+					default: CANE_UNREACHABLE();
+				}
+
+				list = cane_list_concat(list, current);
 			}
 
-			return root;
+			return rhythm;
 		} break;
 
 		// Melody Coercion
 		case CANE_SYMBOL_COERCE: {
-			// TODO: Fix this
 			cane_lexer_discard(lx);  // Skip `&`
-			// cane_ast_node_t* expr = cane_parse_expression(lx, 0);
+			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
 
-			// cane_ast_node_t* melody = cane_ast_node_create_unary(
-			// 	CANE_SYMBOL_CONCATENATE, CANE_TYPE_MELODY, symbol.location
-			// );
-
-			// melody->lhs = expr;
-			// melody->rhs = NULL;
-
-			// return melody;
+			return cane_ast_node_create_unary(
+				CANE_SYMBOL_COERCE, CANE_TYPE_MELODY, expr, symbol.location
+			);
 		} break;
 
 		case CANE_SYMBOL_LPAREN: {
