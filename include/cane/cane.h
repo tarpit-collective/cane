@@ -307,51 +307,41 @@ static bool cane_type_remapper(
 	cane_type_kind_t out,
 	cane_symbol_kind_t new_kind
 ) {
-	if (node == NULL) {
+	if (node == NULL || node->kind != kind) {
 		return false;
 	}
 
-	if (node->kind != kind) {
-		return false;
-	}
-
-	CANE_LOG_INFO(
-		"attempt: kind = `%s` lhs = `%s` rhs = `%s` -> %s",
-		CANE_SYMBOL_TO_STR[kind],
-		CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[expected_rhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[out]
-	);
-
-	cane_type_kind_t lhs = cane_pass_semantic_analysis_walker(node->lhs);
-	cane_type_kind_t rhs = cane_pass_semantic_analysis_walker(node->rhs);
+	cane_lexer_location_t loc = node->location;
+	cane_lexer_lineinfo_t info = cane_location_coordinates(loc);
 
 	// In the case of a UNARY remapping, rhs will match with NONE anyway so we
 	// can always just compare both types.
+	cane_type_kind_t lhs = cane_pass_semantic_analysis_walker(node->lhs);
+	cane_type_kind_t rhs = cane_pass_semantic_analysis_walker(node->rhs);
+
+	CANE_LOG_INFO(
+		"attempt " CANE_BLUE "`%s`" CANE_RESET " { `%s = " CANE_MAGENTA
+		"%s" CANE_RESET "`, `%s = " CANE_MAGENTA "%s" CANE_RESET
+		"` } -> " CANE_MAGENTA "%s" CANE_RESET " " CANE_BLUE
+		"@ loc(%d:%d)" CANE_RESET,
+		CANE_SYMBOL_TO_STR[kind],
+		CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
+		CANE_TYPE_KIND_TO_STR_HUMAN[lhs],
+		CANE_TYPE_KIND_TO_STR_HUMAN[expected_rhs],
+		CANE_TYPE_KIND_TO_STR_HUMAN[rhs],
+		CANE_TYPE_KIND_TO_STR_HUMAN[out],
+		info.line,
+		info.column
+	);
+
 	if (lhs != expected_lhs || rhs != expected_rhs) {
 		// If the types don't match, it just means this overload of the operator
 		// isn't the correct one but we might have one handled later.
-		// CANE_LOG_WARN(
-		// 	,
-		// 	"skipping: `%s` (%s, %s) -> %s",
-		// 	CANE_SYMBOL_TO_STR[kind],
-		// 	CANE_TYPE_KIND_TO_STR_HUMAN[lhs],
-		// 	CANE_TYPE_KIND_TO_STR_HUMAN[rhs],
-		// 	CANE_TYPE_KIND_TO_STR_HUMAN[out]
-		// );
-
+		CANE_LOG_FAIL("└─ " CANE_RED "failed!" CANE_RESET);
 		return false;
 	}
 
-	CANE_LOG_OKAY(
-		"success: `%s` expected = (%s, %s), got = (%s, %s) -> %s",
-		CANE_SYMBOL_TO_STR[kind],
-		CANE_TYPE_KIND_TO_STR_HUMAN[expected_lhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[expected_rhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[lhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[rhs],
-		CANE_TYPE_KIND_TO_STR_HUMAN[out]
-	);
+	CANE_LOG_OKAY("└─ " CANE_YELLOW "success!" CANE_RESET);
 
 	node->type = out;
 	node->kind = new_kind;
