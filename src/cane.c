@@ -8,16 +8,54 @@ int main(int argc, const char* argv[]) {
 	// cane_string_view_t sv = CANE_SV("{1 + 2, {3 * 4}, 5 - {{6}}}");
 	// cane_string_view_t sv = CANE_SV("{1, 2, 3, 4, 5, 6, 7, 8, 9}");
 	// cane_string_view_t sv = CANE_SV("(1 + 2\n)");
-	cane_string_view_t sv = CANE_SV("(1 . 2) < 3");
+	// cane_string_view_t sv = CANE_SV("(1 . 2) < 3");
 
-	// cane_string_view_t sv = CANE_SV("\\x `number x `number");
+	// // cane_string_view_t sv = CANE_SV("\\x `number x `number");
 
-	cane_ast_node_t* root = cane_parse(sv);
+	// cane_ast_node_t* root = cane_parse(sv);
 
-	cane_pass_semantic_analysis(root);
+	// cane_pass_semantic_analysis(root);
 
-	cane_pass_graphviz(root, CANE_SV("cane.dot"));
-	cane_pass_print(root);
+	// cane_pass_graphviz(root, CANE_SV("cane.dot"));
+	// cane_pass_print(root);
+
+	cane_vec_t vec1 = cane_vec_create();
+
+	cane_vec_push(&vec1, 1);
+	cane_vec_push(&vec1, 2);
+	cane_vec_push(&vec1, 3);
+
+	cane_vec_remove(&vec1, 3);
+
+	// uint8_t buf[] = {4, 5, 6};
+	// cane_vec_insert_buf(&vec1, 1, buf, sizeof(buf));
+
+	// cane_vec_insert(&vec1, 1, 4);
+
+	for (size_t i = 0; i < vec1.len; i++) {
+		CANE_LOG_INFO("%d", vec1.buf[i]);
+		// cane_vec_push(&vec1, i);
+	}
+
+	// cane_vec_t vec2 = cane_vec_create();
+
+	// for (int i = 0; i < 3; i++) {
+	// 	cane_vec_push(&vec2, i * 2);
+	// }
+
+	// cane_vec_cat(&vec1, &vec2);
+
+	// for (int i = 0; i < 6; i++) {
+	// 	CANE_LOG_OKAY("%u", vec1.buf[i]);
+	// }
+
+	// for (int i = 0; i < 3; i++) {
+	// 	CANE_LOG_OKAY("%u", cane_vec_pop(&vec));
+	// }
+	//
+	//
+
+	cane_vec_free(&vec1);
 
 	return 0;
 }

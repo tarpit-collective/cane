@@ -1,6 +1,7 @@
 #ifndef CANE_LIST_H
 #define CANE_LIST_H
 
+#include "cane/util.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,57 +21,110 @@
 // - rotate left/right
 // - invert
 
-typedef struct cane_list cane_list_t;
+#define CANE_VEC_CAP 0x10
 
-struct cane_list {
-	int64_t value;
-	cane_list_t* next;
+typedef struct cane_vec cane_vec_t;
+
+struct cane_vec {
+	size_t cap;
+	size_t len;
+	uint8_t* buf;
 };
 
-static cane_list_t* cane_list_create(int value) {
-	cane_list_t* list = calloc(1, sizeof(cane_list_t));
+static cane_vec_t cane_vec_create(void) {
+	cane_vec_t vec;
 
-	list->value = value;
-	list->next = NULL;
+	vec.cap = CANE_VEC_CAP;
+	vec.len = 0;
+	vec.buf = cane_xalloc(vec.cap);
 
-	return list;
+	return vec;
 }
 
-static cane_list_t* cane_list_head(cane_list_t* list) {
-	return list;
+static void cane_vec_free(cane_vec_t* vec) {
+	free(vec->buf);
 }
 
-static cane_list_t* cane_list_tail(cane_list_t* list) {
-	return list->next;
-}
+static cane_vec_t* cane_vec_fit(cane_vec_t* vec, size_t new_len) {
+	// vec->cap += vec->cap / 2;
+	// cane_xrealloc(vec->buf, vec->cap);
 
-static cane_list_t* cane_list_first(cane_list_t* list) {
-	return list;
-}
+	size_t new_cap = vec->cap;
 
-static cane_list_t* cane_list_last(cane_list_t* list) {
-	while (list->next != NULL) {
-		list = list->next;
+	if (new_len >= vec->cap) {
+		while (new_cap < new_len) {
+			new_cap += new_cap / 2;
+			// new_cap *= 2;
+		}
+		vec->buf = cane_xrealloc(vec->buf, new_cap);
+		memset(vec->buf + vec->cap, 0, new_cap - vec->cap);
+		vec->cap = new_cap;
 	}
 
-	return list;
+	return vec;
 }
 
-static cane_list_t* cane_list_concat(cane_list_t* lhs, cane_list_t* rhs) {
-	cane_list_t* last = cane_list_last(lhs);
-	last->next = rhs;
+static void cane_vec_push(cane_vec_t* vec, uint8_t val) {
+	cane_vec_fit(vec, vec->len + 1);
+	vec->buf[vec->len++] = val;
+}
+
+static uint8_t cane_vec_pop(cane_vec_t* vec) {
+	return vec->buf[--vec->len];
+}
+
+// return ptr to lhs
+static cane_vec_t* cane_vec_cat(cane_vec_t* lhs, cane_vec_t* rhs) {
+	cane_vec_fit(lhs, lhs->len + rhs->len);
+	memcpy(lhs->buf + lhs->len, rhs->buf, rhs->len);
+	lhs->len += rhs->len;
 	return lhs;
 }
 
-static cane_list_t* cane_list_append(cane_list_t* list, int value) {
-	cane_list_t* new = cane_list_create(value);
-	return cane_list_concat(list, new);
+static uint8_t* cane_vec_insert(cane_vec_t* vec, size_t pos, uint8_t val) {
+	cane_vec_fit(vec, vec->len + 1);
+
+	memmove(vec->buf + pos + 1, vec->buf + pos, vec->len - pos);
+	vec->buf[pos] = val;
+
+	vec->len += 1;
+
+	return vec->buf + pos;
 }
 
-static cane_list_t* cane_list_prepend(cane_list_t* list, int value) {
-	cane_list_t* new = cane_list_create(value);
-	new->next = list;
-	return new;
+static uint8_t*
+cane_vec_insert_buf(cane_vec_t* vec, size_t pos, uint8_t* buf, size_t len) {
+	// CANE_ASSERT((buf == NULL), "buf is NULL");
+	// CANE_ASSERT(pos <= vec->len, "pos outwith buf");
+
+	if (len == 0) {
+		return vec->buf + pos;
+	}
+
+	cane_vec_fit(vec, pos);
+	cane_vec_fit(vec, vec->len + len);
+
+	memmove(vec->buf + pos + len, vec->buf + pos, vec->len - pos);
+	memcpy(vec->buf + pos, buf, len);
+
+	vec->len += len;
+
+	return vec->buf + pos;
 }
+
+static uint8_t* cane_vec_remove(cane_vec_t* vec, size_t pos) {
+	if (pos >= vec->len) {
+		return NULL;
+	}
+
+	memmove(vec->buf + pos, vec->buf + pos + 1, vec->len - 1);
+	vec->len--;
+
+	return vec->buf + pos;
+}
+
+static uint8_t* cane_vec_remove_span(cane_vec_t* vec, size_t) {}
+
+// TODO: implement
 
 #endif
