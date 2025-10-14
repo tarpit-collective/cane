@@ -23,8 +23,9 @@ static const char* cane_exe(const char* exe) {
 	return exe + CANE_MIN(slash, i);
 }
 
-void* cane_xalloc(size_t size) {
+void* cane_allocate(size_t size) {
 	void* ptr = calloc(1, size);
+	memset(ptr, 0, size);
 
 	if (!ptr) {
 		CANE_DIE("failed to allocate %lu bytes", size);
@@ -33,17 +34,18 @@ void* cane_xalloc(size_t size) {
 	return ptr;
 }
 
-void* cane_xrealloc(void* ptr_old, size_t size) {
-	void* ptr = realloc(ptr_old, size);
+void* cane_reallocate(void* ptr, size_t size) {
+	ptr = realloc(ptr, size);
 
 	if (!ptr) {
-		CANE_DIE("failed to realloc 0x%p to size %lu", ptr_old, size);
+		CANE_DIE("failed to realloc to size %lu", size);
 	}
 
 	return ptr;
 }
 
-void cane_xclose(int fd) {
+// TODO: Properly wrap file functions.
+void cane_close(int fd) {
 	if (close(fd) == -1) {
 		CANE_DIE("failed to close fd %d", fd);
 	}

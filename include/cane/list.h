@@ -21,109 +21,116 @@
 // - rotate left/right
 // - invert
 
-#define CANE_VEC_CAP 0x10
+#define CANE_VEC_CAP 16
 
-typedef struct cane_vec cane_vec_t;
+typedef struct cane_vector cane_vector_t;
 
-struct cane_vec {
-	size_t cap;
-	size_t len;
-	uint8_t* buf;
+struct cane_vector {
+	size_t capacity;
+	size_t length;
+
+	uint8_t* data;
 };
 
-static cane_vec_t cane_vec_create(void) {
-	cane_vec_t vec;
+static cane_vector_t cane_vector_create(void) {
+	cane_vector_t vec;
 
-	vec.cap = CANE_VEC_CAP;
-	vec.len = 0;
-	vec.buf = cane_xalloc(vec.cap);
+	vec.capacity = CANE_VEC_CAP;
+	vec.length = 0;
+
+	vec.data = cane_allocate(vec.capacity);
 
 	return vec;
 }
 
-static void cane_vec_free(cane_vec_t* vec) {
-	free(vec->buf);
+static void cane_vector_free(cane_vector_t* vec) {
+	free(vec->data);
 }
 
-static cane_vec_t* cane_vec_fit(cane_vec_t* vec, size_t new_len) {
+static cane_vector_t* cane_vector_fit(cane_vector_t* vec, size_t new_len) {
 	// vec->cap += vec->cap / 2;
 	// cane_xrealloc(vec->buf, vec->cap);
 
-	size_t new_cap = vec->cap;
+	size_t new_cap = vec->capacity;
 
-	if (new_len >= vec->cap) {
+	if (new_len >= vec->capacity) {
 		while (new_cap < new_len) {
 			new_cap += new_cap / 2;
 			// new_cap *= 2;
 		}
-		vec->buf = cane_xrealloc(vec->buf, new_cap);
-		memset(vec->buf + vec->cap, 0, new_cap - vec->cap);
-		vec->cap = new_cap;
+		vec->data = cane_reallocate(vec->data, new_cap);
+		memset(vec->data + vec->capacity, 0, new_cap - vec->capacity);
+		vec->capacity = new_cap;
 	}
 
 	return vec;
 }
 
-static void cane_vec_push(cane_vec_t* vec, uint8_t val) {
-	cane_vec_fit(vec, vec->len + 1);
-	vec->buf[vec->len++] = val;
+static void cane_vector_push(cane_vector_t* vec, uint8_t val) {
+	cane_vector_fit(vec, vec->length + 1);
+	vec->data[vec->length++] = val;
 }
 
-static uint8_t cane_vec_pop(cane_vec_t* vec) {
-	return vec->buf[--vec->len];
+static uint8_t cane_vector_pop(cane_vector_t* vec) {
+	return vec->data[--vec->length];
 }
 
 // return ptr to lhs
-static cane_vec_t* cane_vec_cat(cane_vec_t* lhs, cane_vec_t* rhs) {
-	cane_vec_fit(lhs, lhs->len + rhs->len);
-	memcpy(lhs->buf + lhs->len, rhs->buf, rhs->len);
-	lhs->len += rhs->len;
+static cane_vector_t* cane_vector_cat(cane_vector_t* lhs, cane_vector_t* rhs) {
+	cane_vector_fit(lhs, lhs->length + rhs->length);
+	memcpy(lhs->data + lhs->length, rhs->data, rhs->length);
+	lhs->length += rhs->length;
 	return lhs;
 }
 
-static uint8_t* cane_vec_insert(cane_vec_t* vec, size_t pos, uint8_t val) {
-	cane_vec_fit(vec, vec->len + 1);
+static uint8_t*
+cane_vector_insert(cane_vector_t* vec, size_t pos, uint8_t val) {
+	cane_vector_fit(vec, vec->length + 1);
 
-	memmove(vec->buf + pos + 1, vec->buf + pos, vec->len - pos);
-	vec->buf[pos] = val;
+	memmove(vec->data + pos + 1, vec->data + pos, vec->length - pos);
+	vec->data[pos] = val;
 
-	vec->len += 1;
+	vec->length += 1;
 
-	return vec->buf + pos;
+	return vec->data + pos;
 }
 
-static uint8_t*
-cane_vec_insert_buf(cane_vec_t* vec, size_t pos, uint8_t* buf, size_t len) {
+static uint8_t* cane_vector_insert_buf(
+	cane_vector_t* vec, size_t pos, uint8_t* buf, size_t len
+) {
 	// CANE_ASSERT((buf == NULL), "buf is NULL");
 	// CANE_ASSERT(pos <= vec->len, "pos outwith buf");
 
 	if (len == 0) {
-		return vec->buf + pos;
+		return vec->data + pos;
 	}
 
-	cane_vec_fit(vec, pos);
-	cane_vec_fit(vec, vec->len + len);
+	cane_vector_fit(vec, pos);
+	cane_vector_fit(vec, vec->length + len);
 
-	memmove(vec->buf + pos + len, vec->buf + pos, vec->len - pos);
-	memcpy(vec->buf + pos, buf, len);
+	memmove(vec->data + pos + len, vec->data + pos, vec->length - pos);
+	memcpy(vec->data + pos, buf, len);
 
-	vec->len += len;
+	vec->length += len;
 
-	return vec->buf + pos;
+	return vec->data + pos;
 }
 
-static uint8_t* cane_vec_remove(cane_vec_t* vec, size_t pos) {
-	if (pos >= vec->len) {
+static uint8_t* cane_vector_remove(cane_vector_t* vec, size_t pos) {
+	if (pos >= vec->length) {
 		return NULL;
 	}
 
-	memmove(vec->buf + pos, vec->buf + pos + 1, vec->len - 1);
-	vec->len--;
+	memmove(vec->data + pos, vec->data + pos + 1, vec->length - 1);
+	vec->length--;
 
-	return vec->buf + pos;
+	return vec->data + pos;
 }
 
-static uint8_t* cane_vec_remove_span(cane_vec_t* vec, size_t) {}
+static uint8_t* cane_vector_remove_span(cane_vector_t* vec, size_t size) {
+	CANE_UNUSED(vec, size);
+	return NULL;
+}
 
 // TODO: implement
 

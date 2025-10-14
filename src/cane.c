@@ -19,21 +19,21 @@ int main(int argc, const char* argv[]) {
 	// cane_pass_graphviz(root, CANE_SV("cane.dot"));
 	// cane_pass_print(root);
 
-	cane_vec_t vec1 = cane_vec_create();
+	cane_vector_t vec1 = cane_vector_create();
 
-	cane_vec_push(&vec1, 1);
-	cane_vec_push(&vec1, 2);
-	cane_vec_push(&vec1, 3);
+	cane_vector_push(&vec1, 1);
+	cane_vector_push(&vec1, 2);
+	cane_vector_push(&vec1, 3);
 
-	cane_vec_remove(&vec1, 3);
+	cane_vector_remove(&vec1, 3);
 
 	// uint8_t buf[] = {4, 5, 6};
 	// cane_vec_insert_buf(&vec1, 1, buf, sizeof(buf));
 
 	// cane_vec_insert(&vec1, 1, 4);
 
-	for (size_t i = 0; i < vec1.len; i++) {
-		CANE_LOG_INFO("%d", vec1.buf[i]);
+	for (size_t i = 0; i < vec1.length; i++) {
+		CANE_LOG_INFO("%d", vec1.data[i]);
 		// cane_vec_push(&vec1, i);
 	}
 
@@ -55,7 +55,7 @@ int main(int argc, const char* argv[]) {
 	//
 	//
 
-	cane_vec_free(&vec1);
+	cane_vector_free(&vec1);
 
 	return 0;
 }

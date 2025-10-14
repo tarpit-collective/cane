@@ -236,7 +236,7 @@ struct cane_ast_node {
 			cane_ast_node_t* rhs;
 		};
 
-		cane_vec_t* list;
+		cane_vector_t* list;
 
 		cane_string_view_t string;
 		int number;
@@ -280,7 +280,7 @@ static cane_ast_node_t* cane_ast_node_create_string(
 static cane_ast_node_t* cane_ast_node_create_list(
 	cane_symbol_kind_t kind,
 	cane_type_kind_t type,
-	cane_vec_t* list,
+	cane_vector_t* list,
 	cane_location_t loc
 ) {
 	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
@@ -446,7 +446,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 		case CANE_SYMBOL_REST: {
 			cane_lexer_discard(lx);
 
-			cane_vec_t* list = NULL;
+			cane_vector_t* list = NULL;
 
 			switch (symbol.kind) {
 					// case CANE_SYMBOL_BEAT: list = cane_list_create(1); break;
