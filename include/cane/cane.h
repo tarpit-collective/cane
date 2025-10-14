@@ -32,7 +32,7 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 	cane_symbol_kind_t kind = node->kind;
 	cane_string_view_t sv = node->location.symbol;
 
-	cane_lexer_location_t loc = node->location;
+	cane_location_t loc = node->location;
 
 	const char* sv_begin = sv.begin;
 	const char* sv_end = sv.end;
@@ -205,7 +205,7 @@ static void cane_pass_graphviz_walker(
 
 	cane_symbol_kind_t kind = node->kind;
 
-	cane_lexer_location_t loc = node->location;
+	cane_location_t loc = node->location;
 
 	cane_ast_node_t* lhs = node->lhs;
 	cane_ast_node_t* rhs = node->rhs;
@@ -311,8 +311,8 @@ static bool cane_type_remapper(
 		return false;
 	}
 
-	cane_lexer_location_t loc = node->location;
-	cane_lexer_lineinfo_t info = cane_location_coordinates(loc);
+	cane_location_t loc = node->location;
+	cane_lineinfo_t info = cane_location_coordinates(loc);
 
 	// In the case of a UNARY remapping, rhs will match with NONE anyway so we
 	// can always just compare both types.
@@ -431,7 +431,7 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 		return CANE_TYPE_NONE;
 	}
 
-	cane_lexer_location_t loc = node->location;
+	cane_location_t loc = node->location;
 
 	// Handle trivial cases for remapping first but otherwise fallback to this
 	// switch where we handle them manually.

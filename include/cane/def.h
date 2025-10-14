@@ -10,11 +10,11 @@ struct cane_status {
 	bool is_okay;
 };
 
-static cane_status_t cane_okay() {
+static cane_status_t cane_okay(void) {
 	return (cane_status_t){.is_okay = true};
 }
 
-static cane_status_t cane_fail() {
+static cane_status_t cane_fail(void) {
 	return (cane_status_t){.is_okay = false};
 }
 

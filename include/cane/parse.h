@@ -228,7 +228,7 @@ struct cane_ast_node {
 	cane_symbol_kind_t kind;
 	cane_type_kind_t type;
 
-	cane_lexer_location_t location;
+	cane_location_t location;
 
 	union {
 		struct {
@@ -247,7 +247,7 @@ static cane_ast_node_t* cane_ast_node_create_number(
 	cane_symbol_kind_t kind,
 	cane_type_kind_t type,
 	int number,
-	cane_lexer_location_t loc
+	cane_location_t loc
 ) {
 	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
 
@@ -264,7 +264,7 @@ static cane_ast_node_t* cane_ast_node_create_string(
 	cane_symbol_kind_t kind,
 	cane_type_kind_t type,
 	cane_string_view_t string,
-	cane_lexer_location_t loc
+	cane_location_t loc
 ) {
 	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
 
@@ -281,7 +281,7 @@ static cane_ast_node_t* cane_ast_node_create_list(
 	cane_symbol_kind_t kind,
 	cane_type_kind_t type,
 	cane_list_t* list,
-	cane_lexer_location_t loc
+	cane_location_t loc
 ) {
 	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
 
@@ -299,7 +299,7 @@ static cane_ast_node_t* cane_ast_node_create_binary(
 	cane_type_kind_t type,
 	cane_ast_node_t* lhs,
 	cane_ast_node_t* rhs,
-	cane_lexer_location_t loc
+	cane_location_t loc
 ) {
 	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
 
@@ -318,13 +318,13 @@ static cane_ast_node_t* cane_ast_node_create_unary(
 	cane_symbol_kind_t kind,
 	cane_type_kind_t type,
 	cane_ast_node_t* node,
-	cane_lexer_location_t loc
+	cane_location_t loc
 ) {
 	return cane_ast_node_create_binary(kind, type, NULL, node, loc);
 }
 
 static cane_ast_node_t* cane_ast_node_create(
-	cane_symbol_kind_t kind, cane_type_kind_t type, cane_lexer_location_t loc
+	cane_symbol_kind_t kind, cane_type_kind_t type, cane_location_t loc
 ) {
 	return cane_ast_node_create_binary(kind, type, NULL, NULL, loc);
 }
@@ -388,9 +388,7 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 
 	if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ENDFILE)) {
 		cane_report_and_die(
-			cane_lexer_location_create(lx),
-			CANE_REPORT_SYNTAX,
-			"expected end of file"
+			cane_location_create(lx), CANE_REPORT_SYNTAX, "expected end of file"
 		);
 	}
 
@@ -501,9 +499,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RPAREN)) {
 				cane_report_and_die(
-					cane_lexer_location_create(lx),
-					CANE_REPORT_SYNTAX,
-					"expected `)`"
+					cane_location_create(lx), CANE_REPORT_SYNTAX, "expected `)`"
 				);
 			}
 
@@ -535,9 +531,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RBRACE)) {
 				cane_report_and_die(
-					cane_lexer_location_create(lx),
-					CANE_REPORT_SYNTAX,
-					"expected `}`"
+					cane_location_create(lx), CANE_REPORT_SYNTAX, "expected `}`"
 				);
 			}
 
@@ -569,9 +563,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RBRACKET)) {
 				cane_report_and_die(
-					cane_lexer_location_create(lx),
-					CANE_REPORT_SYNTAX,
-					"expected `]`"
+					cane_location_create(lx), CANE_REPORT_SYNTAX, "expected `]`"
 				);
 			}
 
@@ -587,7 +579,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 					lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
 				)) {
 				cane_report_and_die(
-					cane_lexer_location_create(lx),
+					cane_location_create(lx),
 					CANE_REPORT_SYNTAX,
 					"expected an identifier"
 				);
@@ -600,7 +592,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			// Parameter type
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_BACKTICK)) {
 				cane_report_and_die(
-					cane_lexer_location_create(lx),
+					cane_location_create(lx),
 					CANE_REPORT_SYNTAX,
 					"expected a type annotation"
 				);
@@ -651,7 +643,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			// Body type
 			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_BACKTICK)) {
 				cane_report_and_die(
-					cane_lexer_location_create(lx),
+					cane_location_create(lx),
 					CANE_REPORT_SYNTAX,
 					"expected a type annotation"
 				);
@@ -708,7 +700,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 	}
 
 	cane_report_and_die(
-		cane_lexer_location_create(lx),
+		cane_location_create(lx),
 		CANE_REPORT_SYNTAX,
 		"expected a primary expression"
 	);
@@ -725,7 +717,7 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 	// peeking again would return the incorrect/lexical token kind instead.
 	if (!cane_parser_is_prefix(symbol.kind)) {
 		cane_report_and_die(
-			cane_lexer_location_create(lx),
+			cane_location_create(lx),
 			CANE_REPORT_SYNTAX,
 			"expected a prefix operator"
 		);
@@ -746,7 +738,7 @@ static cane_ast_node_t* cane_parse_infix(
 
 	if (!cane_parser_is_infix(symbol.kind)) {
 		cane_report_and_die(
-			cane_lexer_location_create(lx),
+			cane_location_create(lx),
 			CANE_REPORT_SYNTAX,
 			"expected an infix operator"
 		);
@@ -768,7 +760,7 @@ static cane_ast_node_t* cane_parse_postfix(
 
 	if (!cane_parser_is_postfix(symbol.kind)) {
 		cane_report_and_die(
-			cane_lexer_location_create(lx),
+			cane_location_create(lx),
 			CANE_REPORT_SYNTAX,
 			"expected a postfix operator"
 		);
@@ -789,7 +781,7 @@ static cane_ast_node_t* cane_parse_postfix(
 				lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
 			)) {
 			cane_report_and_die(
-				cane_lexer_location_create(lx),
+				cane_location_create(lx),
 				CANE_REPORT_SYNTAX,
 				"expected an identifier"
 			);
@@ -822,7 +814,7 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 
 	else {
 		cane_report_and_die(
-			cane_lexer_location_create(lx),
+			cane_location_create(lx),
 			CANE_REPORT_SYNTAX,
 			"expected a primary expression or a prefix operator"
 		);
@@ -857,7 +849,7 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 
 		else {
 			cane_report_and_die(
-				cane_lexer_location_create(lx),
+				cane_location_create(lx),
 				CANE_REPORT_SYNTAX,
 				"expected an infix or postfix operator"
 

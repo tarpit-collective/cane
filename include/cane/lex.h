@@ -11,18 +11,19 @@
 #include <cane/str.h>
 
 // Allow us to provide line info and line preview.
-typedef struct cane_lexer_location cane_lexer_location_t;
+typedef struct cane_location cane_location_t;
 
-struct cane_lexer_location {
+struct cane_location {
 	cane_string_view_t source;  // Original source file
 	cane_string_view_t symbol;  // Specific token
 };
 
 typedef struct cane_lexer cane_lexer_t;
 
-static cane_lexer_location_t cane_lexer_location_create(cane_lexer_t* lx);
+static cane_location_t cane_location_create(cane_lexer_t* lx);
+
 static void cane_report_and_die(
-	cane_lexer_location_t loc, cane_report_kind_t kind, const char* fmt, ...
+	cane_location_t loc, cane_report_kind_t kind, const char* fmt, ...
 );
 
 /////////////
@@ -33,7 +34,7 @@ typedef struct cane_symbol cane_symbol_t;
 
 struct cane_symbol {
 	cane_symbol_kind_t kind;
-	cane_lexer_location_t location;
+	cane_location_t location;
 };
 
 // Parser and lexer predicates & other function pointers
@@ -47,12 +48,7 @@ typedef cane_symbol_kind_t (*cane_lexer_fixup_t)(cane_symbol_kind_t);
 ///////////
 
 struct cane_lexer {
-	// cane_string_view_t source;
-
-	// const char* ptr;
-	// const char* end;
-
-	cane_lexer_location_t location;
+	cane_location_t location;
 	cane_symbol_t peek;
 };
 
@@ -473,7 +469,7 @@ static bool cane_lexer_take_any(
 			   cane_lexer_produce_sigil(lx, &symbol))) {
 		cane_report_and_die(
 
-			cane_lexer_location_create(lx),
+			cane_location_create(lx),
 			CANE_REPORT_LEXICAL,
 			"unknown character `%c`!",
 			*lx->location.symbol.begin
@@ -574,24 +570,23 @@ cane_lexer_discard_if_kind(cane_lexer_t* lx, cane_symbol_kind_t kind) {
 // Reporting //
 ///////////////
 
-static cane_lexer_location_t cane_lexer_location_create(cane_lexer_t* lx) {
-	return (cane_lexer_location_t){
+static cane_location_t cane_location_create(cane_lexer_t* lx) {
+	return (cane_location_t){
 		.source = lx->location.source,
 		.symbol = lx->peek.location.symbol,
 	};
 }
 
-typedef struct cane_lexer_lineinfo cane_lexer_lineinfo_t;
+typedef struct cane_lineinfo cane_lineinfo_t;
 
-struct cane_lexer_lineinfo {
+struct cane_lineinfo {
 	size_t line;
 	size_t column;
 };
 
 // Calculate line and column.
-static cane_lexer_lineinfo_t
-cane_location_coordinates(cane_lexer_location_t location) {
-	cane_lexer_lineinfo_t info = (cane_lexer_lineinfo_t){
+static cane_lineinfo_t cane_location_coordinates(cane_location_t location) {
+	cane_lineinfo_t info = (cane_lineinfo_t){
 		.line = 1,
 		.column = 1,
 	};
@@ -617,9 +612,9 @@ cane_location_coordinates(cane_lexer_location_t location) {
 
 // TODO: Preview of token/line of code where error occured
 static void cane_report_and_die(
-	cane_lexer_location_t loc, cane_report_kind_t kind, const char* fmt, ...
+	cane_location_t loc, cane_report_kind_t kind, const char* fmt, ...
 ) {
-	cane_lexer_lineinfo_t info = cane_location_coordinates(loc);
+	cane_lineinfo_t info = cane_location_coordinates(loc);
 
 	va_list args;
 	va_start(args, fmt);

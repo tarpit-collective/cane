@@ -41,8 +41,7 @@ struct cane_string_view_info {
 	size_t length;
 };
 
-static cane_string_view_info_t cane_string_view_ptr_length(cane_string_view_t sv
-) {
+static cane_string_view_info_t cane_string_view_info(cane_string_view_t sv) {
 	return (cane_string_view_info_t){
 		.ptr = sv.begin,
 		.length = cane_string_view_length(sv),
