@@ -1,11 +1,13 @@
 #ifndef CANE_LIST_H
 #define CANE_LIST_H
 
-#include "cane/util.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+#include <cane/mem.h>
+#include <cane/util.h>
 
 // TODO:
 // - create

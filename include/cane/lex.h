@@ -37,6 +37,24 @@ struct cane_symbol {
 	cane_location_t location;
 };
 
+static cane_symbol_t
+cane_symbol_create(cane_symbol_kind_t kind, cane_location_t loc) {
+	return (cane_symbol_t){
+		.kind = kind,
+		.location = loc,
+	};
+}
+
+static cane_symbol_t cane_symbol_create_default() {
+	return cane_symbol_create(
+		CANE_SYMBOL_NONE,
+		(cane_location_t){
+			.symbol = CANE_SV("(empty)"),
+			.source = CANE_SV("(empty)"),
+		}
+	);
+}
+
 // Parser and lexer predicates & other function pointers
 typedef bool (*cane_char_pred_t)(char);
 typedef bool (*cane_symbol_pred_t)(cane_symbol_kind_t);
@@ -58,10 +76,7 @@ static bool cane_lexer_take(
 
 static cane_lexer_t cane_lexer_create(cane_string_view_t sv) {
 	// Initialise peek to NONE
-	cane_symbol_t symbol = (cane_symbol_t){
-		.kind = CANE_SYMBOL_NONE,
-		.location = {{sv.begin, sv.end}, {sv.begin, sv.end}},
-	};
+	cane_symbol_t symbol = cane_symbol_create_default();
 
 	cane_lexer_t lx = (cane_lexer_t){
 		.location.source = sv,  // Original source for error reporting
@@ -237,10 +252,8 @@ static bool cane_lexer_produce_str(
 // Cane specific lexer functions
 static bool
 cane_lexer_produce_identifier(cane_lexer_t* lx, cane_symbol_t* out) {
-	cane_symbol_t symbol = (cane_symbol_t){
-		.kind = CANE_SYMBOL_IDENTIFIER,
-		.location = lx->location,
-	};
+	cane_symbol_t symbol =
+		cane_symbol_create(CANE_SYMBOL_IDENTIFIER, lx->location);
 
 	if (!cane_str_take_if(lx, cane_is_identifier_start, NULL)) {
 		return false;
@@ -364,10 +377,8 @@ cane_lexer_produce_whitespace(cane_lexer_t* lx, cane_symbol_t* out) {
 }
 
 static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
-	cane_symbol_t symbol = (cane_symbol_t){
-		.kind = CANE_SYMBOL_COMMENT,
-		.location = lx->location,
-	};
+	cane_symbol_t symbol =
+		cane_symbol_create(CANE_SYMBOL_COMMENT, lx->location);
 
 	if (!cane_str_take_str(lx, CANE_SV("#!")) ||
 		!cane_str_take_while(lx, cane_is_not_newline)) {
@@ -451,10 +462,7 @@ static bool cane_lexer_peek_is_kind(
 static bool cane_lexer_take_any(
 	cane_lexer_t* lx, cane_symbol_t* out, cane_lexer_fixup_t fixup
 ) {
-	cane_symbol_t symbol = (cane_symbol_t){
-		.kind = CANE_SYMBOL_NONE,
-		.location = lx->location,
-	};
+	cane_symbol_t symbol = cane_symbol_create_default();
 
 	// Handle EOF
 	if (lx->location.symbol.begin >=

@@ -2,12 +2,17 @@
 #define CANE_UTIL_H
 
 #include <stddef.h>
-#include <cane/def.h>
-#include <cane/log.h>
-#include <stdlib.h>
 #include <unistd.h>
 
+#include <cane/def.h>
+#include <cane/log.h>
+
 // UTILITY FUNCTIONS
+// Return absolute difference between 2 pointers regardless of order.
+static size_t cane_ptrdiff(const void* a, const void* b) {
+	return b > a ? b - a : a - b;
+}
+
 // Get the name of the binary from argv[0].
 // Basically `basename` but without allocating or trimming trailing slashes.
 static const char* cane_exe(const char* exe) {
@@ -21,27 +26,6 @@ static const char* cane_exe(const char* exe) {
 	}
 
 	return exe + CANE_MIN(slash, i);
-}
-
-void* cane_allocate(size_t size) {
-	void* ptr = calloc(1, size);
-	memset(ptr, 0, size);
-
-	if (!ptr) {
-		CANE_DIE("failed to allocate %lu bytes", size);
-	}
-
-	return ptr;
-}
-
-void* cane_reallocate(void* ptr, size_t size) {
-	ptr = realloc(ptr, size);
-
-	if (!ptr) {
-		CANE_DIE("failed to realloc to size %lu", size);
-	}
-
-	return ptr;
 }
 
 // TODO: Properly wrap file functions.

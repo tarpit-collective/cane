@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <cane/str.h>
+#include <cane/def.h>
 #include <cane/enum.h>
 
 // ANSI Colours

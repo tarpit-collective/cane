@@ -249,7 +249,7 @@ static cane_ast_node_t* cane_ast_node_create_number(
 	int number,
 	cane_location_t loc
 ) {
-	cane_ast_node_t* node = calloc(1, sizeof(cane_ast_node_t));
+	cane_ast_node_t* node = cane_allocate(sizeof(cane_ast_node_t));
 
 	node->kind = kind;
 	node->type = type;
@@ -371,7 +371,7 @@ static cane_ast_node_t* cane_parse(cane_string_view_t sv) {
 static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 	CANE_FUNCTION_ENTER();
 
-	cane_symbol_t symbol;
+	cane_symbol_t symbol = cane_symbol_create_default();
 	cane_ast_node_t* root = NULL;
 
 	while (!cane_lexer_peek_is_kind(lx, CANE_SYMBOL_ENDFILE, &symbol, NULL)) {
@@ -448,12 +448,12 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 			cane_vector_t* list = NULL;
 
-			switch (symbol.kind) {
-					// case CANE_SYMBOL_BEAT: list = cane_list_create(1); break;
-					// case CANE_SYMBOL_REST: list = cane_list_create(0); break;
+			// switch (symbol.kind) {
+			// case CANE_SYMBOL_BEAT: list = cane_list_create(1); break;
+			// case CANE_SYMBOL_REST: list = cane_list_create(0); break;
 
-				default: CANE_UNREACHABLE();
-			}
+			// 	default: CANE_UNREACHABLE();
+			// }
 
 			cane_ast_node_t* rhythm = cane_ast_node_create_list(
 				CANE_SYMBOL_RHYTHM, CANE_TYPE_RHYTHM, list, symbol.location
@@ -470,13 +470,13 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 				// Add to list
 				// cane_vec_t* current = NULL;
 
-				switch (symbol.kind) {
-						// case CANE_SYMBOL_BEAT: current = cane_list_create(1);
-						// break; case CANE_SYMBOL_REST: current =
-						// cane_list_create(0); break;
+				// switch (symbol.kind) {
+				// case CANE_SYMBOL_BEAT: current = cane_list_create(1);
+				// break; case CANE_SYMBOL_REST: current =
+				// cane_list_create(0); break;
 
-					default: CANE_UNREACHABLE();
-				}
+				// 	default: CANE_UNREACHABLE();
+				// }
 
 				// list = cane_list_concat(list, current);
 			}

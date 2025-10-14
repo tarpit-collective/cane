@@ -5,14 +5,11 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <cane/util.h>
+
 /////////////
 // Strings //
 /////////////
-//
-// Return absolute difference between 2 pointers regardless of order.
-static size_t cane_ptrdiff(const void* a, const void* b) {
-	return b > a ? b - a : a - b;
-}
 
 typedef struct cane_string_view cane_string_view_t;
 
