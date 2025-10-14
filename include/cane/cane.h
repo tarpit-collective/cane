@@ -145,7 +145,7 @@ static void cane_pass_graphviz_edge(
 		type = node->type;
 	}
 
-	cane_string_view_info_t info = cane_string_view_ptr_length(sv);
+	cane_string_view_info_t info = cane_string_view_info(sv);
 
 	fprintf(
 		fp,
