@@ -85,6 +85,7 @@ if not meson.is_subproject()
 
 	  'die': { 'path': 'tests/die.c', 'environment': [], 'arguments': [], 'should_fail': true },
 	  'assert': { 'path': 'tests/assert.c', 'environment': [], 'arguments': [], 'should_fail': true },
+	  'vec': { 'path': 'tests/vec.c', 'environment': [], 'arguments': [], 'should_fail': false },
 	}
 
 	foreach name, fields: cane_tests

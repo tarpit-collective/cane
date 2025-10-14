@@ -127,11 +127,10 @@ static uint8_t* cane_vector_remove(cane_vector_t* vec, size_t pos) {
 	return vec->data + pos;
 }
 
-static uint8_t* cane_vector_remove_span(cane_vector_t* vec, size_t size) {
-	CANE_UNUSED(vec, size);
+static uint8_t*
+cane_vector_remove_span(cane_vector_t* vec, size_t pos, size_t len) {
+	CANE_UNUSED(vec, pos, len);
 	return NULL;
 }
-
-// TODO: implement
 
 #endif
