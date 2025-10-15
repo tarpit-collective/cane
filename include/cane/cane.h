@@ -95,6 +95,7 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 
 		case CANE_SYMBOL_CALL:
 		case CANE_SYMBOL_CONCATENATE:
+		case CANE_SYMBOL_RANDOM:
 
 		case CANE_SYMBOL_ASSIGN:
 		case CANE_SYMBOL_FUNCTION: {
@@ -239,6 +240,7 @@ static void cane_pass_graphviz_walker(
 
 		case CANE_SYMBOL_CALL:
 		case CANE_SYMBOL_CONCATENATE:
+		case CANE_SYMBOL_RANDOM:
 
 		case CANE_SYMBOL_ASSIGN:
 		case CANE_SYMBOL_FUNCTION: {
@@ -270,8 +272,8 @@ static void cane_pass_graphviz_walker(
 // Type Checker //
 //////////////////
 
-static cane_type_kind_t
-cane_pass_semantic_analysis_walker(cane_ast_node_t* node);
+static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
+);
 
 static void cane_pass_semantic_analysis(cane_ast_node_t* node) {
 	CANE_FUNCTION_ENTER();
@@ -348,6 +350,7 @@ static bool cane_type_remap_trivial(cane_ast_node_t* node) {
 	// clang-format off
 
 	return
+		/* Prefix/Unary */
 		CANE_TYPE_REMAP(ABS, SCALAR, NONE, SCALAR, ABS_SCALAR) ||
 		CANE_TYPE_REMAP(NEG, SCALAR, NONE, SCALAR, NEG_SCALAR) ||
 
@@ -370,6 +373,7 @@ static bool cane_type_remap_trivial(cane_ast_node_t* node) {
 
 		CANE_TYPE_REMAP(EUCLIDEAN, SCALAR, SCALAR, SCALAR, EUCLIDEAN_SCALAR_SCALAR) ||
 		CANE_TYPE_REMAP(CONCATENATE, SCALAR, SCALAR, MELODY, CONCATENATE_SCALAR_SCALAR) ||
+		CANE_TYPE_REMAP(RANDOM, SCALAR, SCALAR, SCALAR, RANDOM_SCALAR_SCALAR) ||
 
 		/* Melody */
 		CANE_TYPE_REMAP(MAP, MELODY, RHYTHM, SEQUENCE, MAP_MELODY_RHYTHM) ||
@@ -410,8 +414,8 @@ static bool cane_type_remap_trivial(cane_ast_node_t* node) {
 #undef CANE_TYPE_REMAP
 }
 
-static cane_type_kind_t
-cane_pass_semantic_analysis_walker(cane_ast_node_t* node) {
+static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
+) {
 	if (node == NULL) {
 		return CANE_TYPE_NONE;
 	}
@@ -422,6 +426,10 @@ cane_pass_semantic_analysis_walker(cane_ast_node_t* node) {
 	// switch where we handle them manually.
 	if (!cane_type_remap_trivial(node)) {
 		switch (node->kind) {
+			case CANE_SYMBOL_IDENTIFIER: {
+				CANE_UNIMPLEMENTED();
+			} break;
+
 			case CANE_SYMBOL_NUMBER: {
 				return CANE_TYPE_SCALAR;
 			} break;
@@ -438,6 +446,25 @@ cane_pass_semantic_analysis_walker(cane_ast_node_t* node) {
 			// cases.
 			case CANE_SYMBOL_FUNCTION: {
 				return node->rhs->type;
+			} break;
+
+			case CANE_SYMBOL_CALL: {
+				cane_type_kind_t function =
+					cane_pass_semantic_analysis_walker(node->lhs);
+
+				cane_type_kind_t argument =
+					cane_pass_semantic_analysis_walker(node->rhs);
+
+				if (function != argument) {
+					cane_report_and_die(
+						loc,
+						CANE_REPORT_TYPE,
+						"incorrect argument type for function `%s`!",
+						CANE_SYMBOL_TO_STR[node->kind]
+					);
+				}
+
+				return function;
 			} break;
 
 			// Statements always return the type of their last expression.

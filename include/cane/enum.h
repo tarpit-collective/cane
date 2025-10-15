@@ -57,6 +57,7 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_AT, "at `@`") \
 	X(CANE_SYMBOL_STARS, "stars `**`") \
 	X(CANE_SYMBOL_TILDA, "tilda `~`") \
+	X(CANE_SYMBOL_QUESTION, "question `?`") \
 \
 	/* AST */ \
 	X(CANE_SYMBOL_COERCE, "coerce") \
@@ -82,6 +83,8 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	/* Operators */ \
 	X(CANE_SYMBOL_LCM, "lcm") \
 	X(CANE_SYMBOL_GCD, "gcd") \
+\
+	X(CANE_SYMBOL_RANDOM, "random") \
 \
 	X(CANE_SYMBOL_OR, "or") \
 	X(CANE_SYMBOL_XOR, "xor") \
@@ -146,6 +149,8 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 \
 	X(CANE_SYMBOL_EUCLIDEAN_SCALAR_SCALAR, "scalar euclidean") \
 	X(CANE_SYMBOL_CONCATENATE_SCALAR_SCALAR, "scalar concatenate") \
+\
+	X(CANE_SYMBOL_RANDOM_SCALAR_SCALAR, "scalar random") \
 \
 	/* MELODY */ \
 	X(CANE_SYMBOL_MAP_MELODY_RHYTHM, "melody map") \

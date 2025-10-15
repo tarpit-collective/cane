@@ -51,6 +51,7 @@ static bool cane_parser_is_infix(cane_symbol_kind_t kind) {
 		kind == CANE_SYMBOL_REPEAT ||       // Repeat
 		kind == CANE_SYMBOL_MAP ||          // Map
 		kind == CANE_SYMBOL_CONCATENATE ||  // Concatenate
+		kind == CANE_SYMBOL_RANDOM ||       // Random
 
 		// Logic
 		kind == CANE_SYMBOL_OR || kind == CANE_SYMBOL_XOR ||
@@ -104,6 +105,7 @@ static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_STARS, CANE_SYMBOL_REPEAT) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_AT, CANE_SYMBOL_MAP) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_CONCATENATE) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_QUESTION, CANE_SYMBOL_RANDOM) \
 \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_LCHEVRON, CANE_SYMBOL_LSHIFT) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_RCHEVRON, CANE_SYMBOL_RSHIFT) \
@@ -199,8 +201,10 @@ static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
 	X(CANE_SYMBOL_LCM,         10, 11) \
 	X(CANE_SYMBOL_GCD,         10, 11) \
 \
-	X(CANE_SYMBOL_ABS,         11, 11) \
-	X(CANE_SYMBOL_NEG,         11, 11)
+	X(CANE_SYMBOL_RANDOM,      11, 12) \
+\
+	X(CANE_SYMBOL_ABS,         12, 12) \
+	X(CANE_SYMBOL_NEG,         12, 12)
 
 	// clang-format on
 
