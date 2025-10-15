@@ -11,16 +11,15 @@ int main(int argc, const char* argv[]) {
 	// cane_string_view_t sv = CANE_SV("(1 . 2) < 3");
 	// cane_string_view_t sv = CANE_SV("\\x `number x `number");
 
-	cane_string_view_t sv = CANE_SV("1 + 2 * 3");
+	// cane_string_view_t sv = CANE_SV("1 + 2 * 3");
+	cane_string_view_t sv = CANE_SV("x(1 + 2)");
 	cane_ast_node_t* root = cane_parse(sv);
 
+	cane_pass_print(root);
 	cane_pass_semantic_analysis(root);
 
 	cane_file_t fp = cane_file_open(CANE_SV("cane.dot"));
-
 	cane_pass_graphviz(root, fp);
-	cane_pass_print(root);
-
 	cane_file_close(fp);
 	cane_vector_t vec1 = cane_vector_create();
 

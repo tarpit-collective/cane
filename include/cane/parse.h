@@ -61,7 +61,8 @@ static bool cane_parser_is_infix(cane_symbol_kind_t kind) {
 }
 
 static bool cane_parser_is_postfix(cane_symbol_kind_t kind) {
-	return kind == CANE_SYMBOL_ASSIGN;  // Assignment
+	return kind == CANE_SYMBOL_ASSIGN ||  // Assignment
+		kind == CANE_SYMBOL_CALL;         // Function call
 }
 
 static bool cane_parser_is_unary(cane_symbol_kind_t kind) {
@@ -107,7 +108,8 @@ static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_LCHEVRON, CANE_SYMBOL_LSHIFT) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_RCHEVRON, CANE_SYMBOL_RSHIFT) \
 \
-	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_FATARROW, CANE_SYMBOL_ASSIGN)
+	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_FATARROW, CANE_SYMBOL_ASSIGN) \
+	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_LPAREN, CANE_SYMBOL_CALL)
 
 static cane_symbol_kind_t
 cane_fix_symbol(cane_opfix_kind_t opfix, cane_symbol_kind_t kind) {
@@ -157,8 +159,6 @@ struct cane_binding_power {
 	size_t rbp;
 };
 
-// TODO: This is ugly as fuck. Fix it.
-// X macro?
 static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
 	cane_binding_power_t bp = (cane_binding_power_t){
 		.lbp = 0,
@@ -348,6 +348,8 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t bp);
 //////////////////////
 
 static cane_ast_node_t* cane_parse(cane_string_view_t sv) {
+	CANE_FUNCTION_ENTER();
+
 	cane_lexer_t lx = cane_lexer_create(sv);
 	return cane_parse_program(&lx);
 }
@@ -430,6 +432,8 @@ static bool cane_parse_type(cane_lexer_t* lx, cane_type_kind_t* type) {
 
 static cane_ast_node_t*
 cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
+	CANE_FUNCTION_ENTER();
+
 	switch (symbol.kind) {
 		// Literals
 		case CANE_SYMBOL_IDENTIFIER: {
@@ -602,6 +606,8 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 static cane_ast_node_t*
 cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
+	CANE_FUNCTION_ENTER();
+
 	// We need to call this function directly instead of using something like
 	// `cane_lexer_discard_if` because we have fixed up the symbol earlier and
 	// peeking again would return the incorrect/lexical token kind instead.
@@ -624,6 +630,8 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 static cane_ast_node_t* cane_parse_infix(
 	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs, size_t bp
 ) {
+	CANE_FUNCTION_ENTER();
+
 	if (!cane_parser_is_infix(symbol.kind)) {
 		cane_report_and_die(
 			cane_location_create(lx),
@@ -644,6 +652,8 @@ static cane_ast_node_t* cane_parse_infix(
 static cane_ast_node_t* cane_parse_postfix(
 	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs
 ) {
+	CANE_FUNCTION_ENTER();
+
 	if (!cane_parser_is_postfix(symbol.kind)) {
 		cane_report_and_die(
 			cane_location_create(lx),
@@ -652,36 +662,54 @@ static cane_ast_node_t* cane_parse_postfix(
 		);
 	}
 
-	cane_ast_node_t* node = cane_ast_node_create_unary(
-		symbol.kind, CANE_TYPE_NONE, lhs, symbol.location
+	cane_ast_node_t* node = cane_ast_node_create_binary(
+		symbol.kind, CANE_TYPE_NONE, lhs, NULL, symbol.location
 	);
 
 	cane_lexer_discard(lx);
 
 	// Assignment is a bit special in that it has a parameter in the form of an
 	// identifier to bind the expression's value to.
-	if (symbol.kind == CANE_SYMBOL_ASSIGN) {
-		cane_symbol_t ident;
+	switch (symbol.kind) {
+		case CANE_SYMBOL_ASSIGN: {
+			cane_symbol_t ident;
 
-		if (!cane_lexer_take_if_kind(
-				lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
-			)) {
-			cane_report_and_die(
-				cane_location_create(lx),
-				CANE_REPORT_SYNTAX,
-				"expected an identifier"
+			if (!cane_lexer_take_if_kind(
+					lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
+				)) {
+				cane_report_and_die(
+					cane_location_create(lx),
+					CANE_REPORT_SYNTAX,
+					"expected an identifier"
+				);
+			}
+
+			node->rhs = cane_ast_node_create(
+				CANE_SYMBOL_IDENTIFIER, CANE_TYPE_NONE, ident.location
 			);
+		} break;
+
+		case CANE_SYMBOL_CALL: {
+			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
+
+			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RPAREN)) {
+				cane_report_and_die(
+					node->location, CANE_REPORT_SYNTAX, "expecting `)`"
+				);
+			}
+
+			node->rhs = expr;
 		}
 
-		node->lhs = cane_ast_node_create(
-			CANE_SYMBOL_IDENTIFIER, CANE_TYPE_NONE, ident.location
-		);
+		default: break;
 	}
 
 	return node;
 }
 
 static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
+	CANE_FUNCTION_ENTER();
+
 	cane_ast_node_t* node = NULL;
 
 	cane_symbol_t symbol;
