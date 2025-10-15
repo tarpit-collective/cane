@@ -1,13 +1,9 @@
-- add string parsing
-
 - how do we handle velocity? should we?
   - an accent can be applied to a sequence which is just an array of numbers like a melody
 
 - sequences and patterns can be output to a midi channel by assigning it to a named channel
   - for example: `!...!... @ 65 . 64 ~> "drums"`
   - this can later be assigned an actual midi channel as a cli pair: `drums=0`
-
-- `?` operator that takes a min/max as it's lhs/rhs and gives a random number
 
 - Debugging with per-expression logging
   - We have access to location information in the AST so we can just print
@@ -24,18 +20,10 @@
 - Update passes to take newly created type-specific node kinds
   - Maybe needs to be re-designed a bit because it adds a _tonne_ of cases.
 
-- Implement function calls as postfix `()`
-
 - Add handling for functions, layers, choice, patterns and sequences to parser/typechecker
 
 - Evaluation pass that generates a list of events we can then serialise into
 a MIDI file
-
-- Refactor passes and parser to create melody/rhythm nodes
-  - We don't need to print out or work with the actual values, the nodes
-  simply need to exist so we can use them later in the evaluation passes
-
-- Move all allocations to cane_alloc, cane_free etc.
 
 - Actually free memory :v)
 
@@ -46,12 +34,6 @@ a MIDI file
 
 - LSHIFT/RSHIFT vs LROTATE/RROTATE
   - Scalars can be bit-shifted while melodies/rhythms can be rotated element-wise
-
-- Graphviz
-  - Make dot pass take a file pointer instead of file name
-  - Wrap fopen/fclose and handle `cane_string_view_t` as filename
-
-- Parsing for function type annotations
 
 - Should assignment be made into an infix expression?
   - `is_binary` being an infix _or_ postfix operator doesn't really make sense
