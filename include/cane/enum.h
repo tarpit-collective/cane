@@ -37,18 +37,12 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 #define CANE_SYMBOL_KINDS \
 	X(CANE_SYMBOL_NONE, "none") \
 \
+	/* Misc. */ \
 	X(CANE_SYMBOL_ENDFILE, "end of file") \
 	X(CANE_SYMBOL_WHITESPACE, "whitespace") \
 	X(CANE_SYMBOL_COMMENT, "comment") \
 \
-	X(CANE_SYMBOL_ANNOTATION_NUMBER, "number (type)") \
-	X(CANE_SYMBOL_ANNOTATION_STRING, "string (type)") \
-	X(CANE_SYMBOL_ANNOTATION_RHYTHM, "rhythm (type)") \
-	X(CANE_SYMBOL_ANNOTATION_MELODY, "melody (type)") \
-	X(CANE_SYMBOL_ANNOTATION_SEQUENCE, "sequence (type)") \
-	X(CANE_SYMBOL_ANNOTATION_PATTERN, "pattern (type)") \
-\
-	/* Misc. */ \
+	/* Raw Symbols (later converted to operator symbols) */ \
 	X(CANE_SYMBOL_AMPERSAND, "ampersand `&`") \
 	X(CANE_SYMBOL_BACKSLASH, "backslash `\\`") \
 	X(CANE_SYMBOL_BACKTICK, "backtick ```") \
@@ -62,13 +56,6 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_AT, "at `@`") \
 	X(CANE_SYMBOL_STARS, "stars `**`") \
 	X(CANE_SYMBOL_TILDA, "tilda `~`") \
-\
-	/* Cons Lists */ \
-	X(CANE_SYMBOL_STATEMENT, "statement") \
-	X(CANE_SYMBOL_CHOICE, "choice") \
-	X(CANE_SYMBOL_LAYER, "layer") \
-	X(CANE_SYMBOL_RHYTHM, "rhythm") \
-	X(CANE_SYMBOL_MELODY, "melody") \
 \
 	/* AST */ \
 	X(CANE_SYMBOL_COERCE, "coerce") \
@@ -85,22 +72,16 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_ABS, "abs") \
 	X(CANE_SYMBOL_NEG, "neg") \
 \
-	X(CANE_SYMBOL_BEAT, "beat") \
-	X(CANE_SYMBOL_REST, "rest") \
-\
 	X(CANE_SYMBOL_LSHIFT, "lshift") \
 	X(CANE_SYMBOL_RSHIFT, "rshift") \
 \
-	/* Atoms */ \
-	X(CANE_SYMBOL_NUMBER, "number") \
-	X(CANE_SYMBOL_STRING, "string") \
-	X(CANE_SYMBOL_IDENTIFIER, "identifier") \
+	X(CANE_SYMBOL_LCHEVRON, "lchevron `<`") \
+	X(CANE_SYMBOL_RCHEVRON, "rchevron `>`") \
 \
-	/* Keywords */ \
+	/* Operators */ \
 	X(CANE_SYMBOL_LCM, "lcm") \
 	X(CANE_SYMBOL_GCD, "gcd") \
 \
-	/* Operators */ \
 	X(CANE_SYMBOL_OR, "or") \
 	X(CANE_SYMBOL_XOR, "xor") \
 	X(CANE_SYMBOL_AND, "and") \
@@ -113,15 +94,91 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	/* Grouping */ \
 	X(CANE_SYMBOL_LPAREN, "lparen `(`") \
 	X(CANE_SYMBOL_RPAREN, "rparen `)`") \
-\
 	X(CANE_SYMBOL_LBRACE, "lbrace `{`") \
 	X(CANE_SYMBOL_RBRACE, "rbrace `}`") \
-\
 	X(CANE_SYMBOL_LBRACKET, "lbracket `[`") \
 	X(CANE_SYMBOL_RBRACKET, "rbracket `]`") \
 \
-	X(CANE_SYMBOL_LCHEVRON, "lchevron `<`") \
-	X(CANE_SYMBOL_RCHEVRON, "rchevron `>`")
+	/* Cons Lists */ \
+	X(CANE_SYMBOL_STATEMENT, "statement") \
+	X(CANE_SYMBOL_CHOICE, "choice") \
+	X(CANE_SYMBOL_LAYER, "layer") \
+\
+	/* Atoms */ \
+	X(CANE_SYMBOL_NUMBER, "number") \
+	X(CANE_SYMBOL_STRING, "string") \
+	X(CANE_SYMBOL_IDENTIFIER, "identifier") \
+	X(CANE_SYMBOL_RHYTHM, "rhythm") \
+	X(CANE_SYMBOL_MELODY, "melody") \
+	X(CANE_SYMBOL_BEAT, "beat") \
+	X(CANE_SYMBOL_REST, "rest") \
+\
+	/* Annotations */ \
+	X(CANE_SYMBOL_ANNOTATION_NUMBER, "number (type)") \
+	X(CANE_SYMBOL_ANNOTATION_STRING, "string (type)") \
+	X(CANE_SYMBOL_ANNOTATION_RHYTHM, "rhythm (type)") \
+	X(CANE_SYMBOL_ANNOTATION_MELODY, "melody (type)") \
+	X(CANE_SYMBOL_ANNOTATION_SEQUENCE, "sequence (type)") \
+	X(CANE_SYMBOL_ANNOTATION_PATTERN, "pattern (type)") \
+\
+	/* Type Specific Symbols (Assigned during typechecking) */ \
+\
+	/* PREFIX */ \
+	X(CANE_SYMBOL_ABS_SCALAR, "scalar abs") \
+	X(CANE_SYMBOL_NEG_SCALAR, "scalar neg") \
+\
+	X(CANE_SYMBOL_INVERT_RHYTHM, "rhythm invert") \
+	X(CANE_SYMBOL_REVERSE_RHYTHM, "rhythm reverse") \
+\
+	X(CANE_SYMBOL_REVERSE_MELODY, "melody reverse") \
+\
+	/* SCALAR */ \
+	X(CANE_SYMBOL_ADD_SCALAR_SCALAR, "scalar add") \
+	X(CANE_SYMBOL_SUB_SCALAR_SCALAR, "scalar sub") \
+	X(CANE_SYMBOL_MUL_SCALAR_SCALAR, "scalar mul") \
+	X(CANE_SYMBOL_DIV_SCALAR_SCALAR, "scalar div") \
+\
+	X(CANE_SYMBOL_LSHIFT_SCALAR_SCALAR, "scalar lshift") \
+	X(CANE_SYMBOL_RSHIFT_SCALAR_SCALAR, "scalar rshift") \
+\
+	X(CANE_SYMBOL_LCM_SCALAR_SCALAR, "scalar lcm") \
+	X(CANE_SYMBOL_GCD_SCALAR_SCALAR, "scalar gcd") \
+\
+	X(CANE_SYMBOL_EUCLIDEAN_SCALAR_SCALAR, "scalar euclidean") \
+	X(CANE_SYMBOL_CONCATENATE_SCALAR_SCALAR, "scalar concatenate") \
+\
+	/* MELODY */ \
+	X(CANE_SYMBOL_MAP_MELODY_RHYTHM, "melody map") \
+\
+	X(CANE_SYMBOL_LSHIFT_MELODY_SCALAR, "melody lshift") \
+	X(CANE_SYMBOL_RSHIFT_MELODY_SCALAR, "melody rshift") \
+\
+	X(CANE_SYMBOL_ADD_MELODY_SCALAR, "melody add") \
+	X(CANE_SYMBOL_SUB_MELODY_SCALAR, "melody sub") \
+	X(CANE_SYMBOL_MUL_MELODY_SCALAR, "melody mul") \
+	X(CANE_SYMBOL_DIV_MELODY_SCALAR, "melody div") \
+\
+	X(CANE_SYMBOL_REPEAT_MELODY_SCALAR, "melody repeat") \
+	X(CANE_SYMBOL_CONCATENATE_MELODY_MELODY, "melody concatenate") \
+\
+	/* RHYTHM */ \
+	X(CANE_SYMBOL_MAP_RHYTHM_MELODY, "rhythm map") \
+\
+	X(CANE_SYMBOL_LSHIFT_RHYTHM_SCALAR, "rhythm lshift") \
+	X(CANE_SYMBOL_RSHIFT_RHYTHM_SCALAR, "rhythm rshift") \
+\
+	X(CANE_SYMBOL_REPEAT_RHYTHM_SCALAR, "rhythm repeat") \
+	X(CANE_SYMBOL_CONCATENATE_RHYTHM_RHYTHM, "rhythm concatenate") \
+\
+	X(CANE_SYMBOL_OR_RHYTHM_RHYTHM, "rhythm or") \
+	X(CANE_SYMBOL_XOR_RHYTHM_RHYTHM, "rhythm xor") \
+	X(CANE_SYMBOL_AND_RHYTHM_RHYTHM, "rhythm and") \
+\
+	/* SEQUENCE */ \
+	X(CANE_SYMBOL_CONCATENATE_SEQUENCE_SEQUENCE, "sequence concatenate") \
+\
+	X(CANE_SYMBOL_MUL_SEQUENCE_SCALAR, "sequence mul") \
+	X(CANE_SYMBOL_DIV_SEQUENCE_SCALAR, "sequence div")
 
 #define X(x, y) x,
 

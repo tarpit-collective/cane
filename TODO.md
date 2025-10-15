@@ -1,3 +1,8 @@
+- Update passes to take newly created type-specific node kinds
+  - Maybe needs to be re-designed a bit because it adds a _tonne_ of cases.
+
+- Implement function calls as postfix `()`
+
 - Add handling for functions, layers, choice, patterns and sequences to parser/typechecker
 
 - Evaluation pass that generates a list of events we can then serialise into

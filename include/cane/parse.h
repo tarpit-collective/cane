@@ -454,7 +454,7 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			return rhythm;
 		} break;
 
-		// Melody Coercion
+		// Melody Coercion (Convert a single scalar to a melody)
 		case CANE_SYMBOL_COERCE: {
 			cane_lexer_discard(lx);  // Skip `&`
 			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
@@ -798,11 +798,6 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 	while (cane_parser_is_infix(symbol.kind) ||
 		   cane_parser_is_postfix(symbol.kind) ||
 		   cane_parser_is_expression(symbol.kind)) {
-		// Two expressions juxtaposed is a function call
-		// if (cane_is_expression(symbol)) {
-		// 	symbol.kind = CANE_SYMBOL_CALL;
-		// }
-
 		cane_binding_power_t binding_power =
 			cane_parser_binding_power(symbol.kind);
 
