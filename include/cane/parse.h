@@ -362,16 +362,12 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t bp);
 //////////////////////
 
 static cane_ast_node_t* cane_parse(cane_string_view_t sv) {
-	CANE_FUNCTION_ENTER();
-
 	cane_lexer_t lx = cane_lexer_create(sv);
 	return cane_parse_program(&lx);
 }
 
 // Core parsing functions
 static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
-	CANE_FUNCTION_ENTER();
-
 	cane_symbol_t symbol = cane_symbol_create_default();
 	cane_ast_node_t* root = NULL;
 
@@ -399,8 +395,6 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 // Expression parsing
 static cane_ast_node_t*
 cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
-	CANE_FUNCTION_ENTER();
-
 	switch (symbol.kind) {
 		// Literals
 		case CANE_SYMBOL_IDENTIFIER: {
@@ -681,8 +675,6 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 
 static cane_ast_node_t*
 cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
-	CANE_FUNCTION_ENTER();
-
 	// We need to call this function directly instead of using something like
 	// `cane_lexer_discard_if` because we have fixed up the symbol earlier and
 	// peeking again would return the incorrect/lexical token kind instead.
@@ -705,8 +697,6 @@ cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
 static cane_ast_node_t* cane_parse_infix(
 	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs, size_t bp
 ) {
-	CANE_FUNCTION_ENTER();
-
 	if (!cane_parser_is_infix(symbol.kind)) {
 		cane_report_and_die(
 			cane_location_create(lx),
@@ -727,8 +717,6 @@ static cane_ast_node_t* cane_parse_infix(
 static cane_ast_node_t* cane_parse_postfix(
 	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs
 ) {
-	CANE_FUNCTION_ENTER();
-
 	if (!cane_parser_is_postfix(symbol.kind)) {
 		cane_report_and_die(
 			cane_location_create(lx),
@@ -768,8 +756,6 @@ static cane_ast_node_t* cane_parse_postfix(
 
 static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 	cane_ast_node_t* node = NULL;
-
-	CANE_FUNCTION_ENTER();
 
 	cane_symbol_t symbol;
 	cane_lexer_peek(lx, &symbol, cane_fix_unary_symbol);

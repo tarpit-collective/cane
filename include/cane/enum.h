@@ -6,7 +6,7 @@
 /////////////
 
 #define CANE_REPORT_KINDS \
-	X(CANE_REPORT_GENERIC, "error") \
+	X(CANE_REPORT_GENERIC, "generic") \
 	X(CANE_REPORT_LEXICAL, "lexical") \
 	X(CANE_REPORT_SYNTAX, "syntax") \
 	X(CANE_REPORT_SEMANTIC, "semantic") \
