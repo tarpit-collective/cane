@@ -14,8 +14,8 @@ expression = '(' expression ')'
 
 // Functions
 type = ':' ( 'number' | 'string' | 'rhythm' | 'melody' | 'sequence' | 'pattern' )
-expression = '\' ident ':' type expr ':' type
-expression = expression expression  // Function call
+expression = '\' ident '->' type expr '->' type
+expression = expression '(' expression ')'  // Function call
 
 // Scalars
 expression =
@@ -23,38 +23,31 @@ expression =
 	expression ( '+' | '-' | '*' | '/' | 'lcm' | 'gcd' | '.' ) expression |
 	expression ':' expression |
 	expression '=>' ident |
-	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Rhythm
 expression =
-	( '~' | '\'' ) expression |
+	( '~' | "'" ) expression |
 	expression ( '<' | '>' | '**' | 'or' | 'and' | 'xor' | '.' ) expression |
 	expression '=>' ident |
-	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Melody
 expression =
 	'&' expression |  // Coerce scalar to a melody
-	'\'' expression |
+	"'" expression |
 	expression '@' expression |   // Mapping
 	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' | '.' ) expression |
 	expression '=>' ident |
-	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Sequence
 expression =
 	expression ( '.' | '*' | '/' ) expression |
 	expression '=>' ident |
-	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Pattern
 expression =
 	expression '.' expression |
 	expression '=>' ident |
 	'[' [( ',' expression )* [ ',' ]] ']' |  // Layer sequences
-	'{' expression [( ',' expression )* [ ',' ]] '}'  // Random choice
 
 // Program
 program = [ expression [(';' expression)* [ ';' ]]]
-
-

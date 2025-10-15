@@ -49,7 +49,8 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_COMMA, "comma `,`") \
 	X(CANE_SYMBOL_DOT, "dot `.`") \
 	X(CANE_SYMBOL_EXCLAIM, "exclaim `!`") \
-	X(CANE_SYMBOL_ARROW, "arrow `=>`") \
+	X(CANE_SYMBOL_FATARROW, "fat arrow `=>`") \
+	X(CANE_SYMBOL_ARROW, "arrow `->`") \
 	X(CANE_SYMBOL_COLON, "colon `:`") \
 	X(CANE_SYMBOL_SEMICOLON, "semicolon `;`") \
 	X(CANE_SYMBOL_QUOTE, "quote `'`") \
@@ -101,7 +102,6 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 \
 	/* Cons Lists */ \
 	X(CANE_SYMBOL_STATEMENT, "statement") \
-	X(CANE_SYMBOL_CHOICE, "choice") \
 	X(CANE_SYMBOL_LAYER, "layer") \
 \
 	/* Atoms */ \
@@ -121,7 +121,7 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_ANNOTATION_SEQUENCE, "sequence (type)") \
 	X(CANE_SYMBOL_ANNOTATION_PATTERN, "pattern (type)") \
 \
-	/* Type Specific Symbols (Assigned during typechecking) */ \
+	/* === Type Specific Symbols (Assigned during typechecking) === */ \
 \
 	/* PREFIX */ \
 	X(CANE_SYMBOL_ABS_SCALAR, "scalar abs") \

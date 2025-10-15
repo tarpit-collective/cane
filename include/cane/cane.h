@@ -47,6 +47,9 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 		case CANE_SYMBOL_BEAT:
 		case CANE_SYMBOL_REST:
 
+		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_MELODY:
+
 		case CANE_SYMBOL_IDENTIFIER:
 		case CANE_SYMBOL_NUMBER: {
 			printf(
@@ -102,12 +105,7 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 		} break;
 
 		// Lists
-		case CANE_SYMBOL_RHYTHM:
-		case CANE_SYMBOL_MELODY:
-
-		case CANE_SYMBOL_CHOICE:
 		case CANE_SYMBOL_LAYER:
-
 		case CANE_SYMBOL_STATEMENT: {
 			printf("%*s%s\n", depth * 4, "", CANE_SYMBOL_TO_STR[kind]);
 
@@ -201,6 +199,9 @@ static void cane_pass_graphviz_walker(
 		case CANE_SYMBOL_BEAT:
 		case CANE_SYMBOL_REST:
 
+		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_MELODY:
+
 		case CANE_SYMBOL_IDENTIFIER:
 		case CANE_SYMBOL_NUMBER: {
 			cane_pass_graphviz_edge(fp, node, parent, self);
@@ -247,12 +248,7 @@ static void cane_pass_graphviz_walker(
 		} break;
 
 		// Lists
-		case CANE_SYMBOL_RHYTHM:
-		case CANE_SYMBOL_MELODY:
-
-		case CANE_SYMBOL_CHOICE:
 		case CANE_SYMBOL_LAYER:
-
 		case CANE_SYMBOL_STATEMENT: {
 			cane_pass_graphviz_edge(fp, node, parent, self);
 			cane_pass_graphviz_walker(fp, lhs, id, self);
@@ -430,25 +426,13 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 				return CANE_TYPE_SCALAR;
 			} break;
 
-			case CANE_SYMBOL_BEAT:
-			case CANE_SYMBOL_REST: {
+			case CANE_SYMBOL_RHYTHM: {
 				return CANE_TYPE_RHYTHM;
 			} break;
 
-				// Statements always return the type of their last expression.
-			case CANE_SYMBOL_RHYTHM:
 			case CANE_SYMBOL_MELODY: {
-				cane_type_kind_t lhs =
-					cane_pass_semantic_analysis_walker(node->lhs);
-				cane_type_kind_t rhs =
-					cane_pass_semantic_analysis_walker(node->rhs);
-
-				CANE_UNUSED(rhs);  // Always discard right hand type since
-								   // we return the last expression's type.
-
-				// node->type = lhs;
-				return lhs;
-			}
+				return CANE_TYPE_MELODY;
+			} break;
 
 			// TODO: Fix this, not sure if this is actually correct in all
 			// cases.
@@ -456,9 +440,8 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 				return node->rhs->type;
 			} break;
 
-			case CANE_SYMBOL_CHOICE:
+			// Statements always return the type of their last expression.
 			case CANE_SYMBOL_LAYER:
-
 			case CANE_SYMBOL_STATEMENT: {
 				cane_type_kind_t lhs =
 					cane_pass_semantic_analysis_walker(node->lhs);
