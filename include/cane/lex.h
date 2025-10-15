@@ -46,11 +46,13 @@ cane_symbol_create(cane_symbol_kind_t kind, cane_location_t loc) {
 }
 
 static cane_symbol_t cane_symbol_create_default() {
+	cane_string_view_t sv = CANE_SV("(empty)");
+
 	return cane_symbol_create(
 		CANE_SYMBOL_NONE,
 		(cane_location_t){
-			.symbol = CANE_SV("(empty)"),
-			.source = CANE_SV("(empty)"),
+			.symbol = sv,
+			.source = sv,
 		}
 	);
 }

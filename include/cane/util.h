@@ -6,6 +6,7 @@
 
 #include <cane/def.h>
 #include <cane/log.h>
+#include <cane/str.h>
 
 // UTILITY FUNCTIONS
 // Return absolute difference between 2 pointers regardless of order.
@@ -28,11 +29,59 @@ static const char* cane_exe(const char* exe) {
 	return exe + CANE_MIN(slash, i);
 }
 
+// File IO
 // TODO: Properly wrap file functions.
-void cane_close(int fd) {
-	if (close(fd) == -1) {
-		CANE_DIE("failed to close fd %d", fd);
+static FILE* cane_file_open(cane_string_view_t sv) {
+	char buffer[256] = {0};
+	cane_string_view_info_t info = cane_string_view_info(sv);
+
+	if (info.length > 256) {
+		CANE_DIE("filename too long");
 	}
+
+	memcpy(buffer, info.ptr, info.length);
+	FILE* fp = fopen(buffer, "w+");
+
+	if (!fp) {
+		CANE_DIE("failed to open file");
+	}
+
+	return fp;
+}
+
+static void cane_file_close(FILE* fp) {
+	if (fclose(fp) != 0) {
+		CANE_DIE("failed to close file");
+	}
+}
+
+// Memory allocation
+static void* cane_allocate(size_t size) {
+	void* ptr = calloc(1, size);
+
+	if (!ptr) {
+		CANE_DIE("failed to allocate %lu bytes", size);
+	}
+
+	return ptr;
+}
+
+static void* cane_reallocate(void* ptr, size_t size) {
+	ptr = realloc(ptr, size);
+
+	if (!ptr) {
+		CANE_DIE("failed to re-allocate to size %lu", size);
+	}
+
+	return ptr;
+}
+
+static void cane_free(void* ptr) {
+	if (!ptr) {
+		CANE_DIE("attempting to free a NULL pointer");
+	}
+
+	free(ptr);
 }
 
 #endif

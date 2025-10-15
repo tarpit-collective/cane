@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include <cane/util.h>
-
 /////////////
 // Strings //
 /////////////
@@ -20,13 +18,13 @@ struct cane_string_view {
 
 // String functions
 static size_t cane_string_view_length(cane_string_view_t sv) {
-	return cane_ptrdiff(sv.begin, sv.end);
+	return (sv.end - sv.begin);
 }
 
 static bool
 cane_string_view_eq(cane_string_view_t lhs, cane_string_view_t rhs) {
-	size_t lhs_length = cane_ptrdiff(lhs.begin, lhs.end);
-	size_t rhs_length = cane_ptrdiff(rhs.begin, rhs.end);
+	size_t lhs_length = (lhs.end - lhs.begin);
+	size_t rhs_length = (rhs.end - rhs.begin);
 
 	if (lhs_length != rhs_length) {
 		return false;

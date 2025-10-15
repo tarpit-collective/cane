@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <cane/mem.h>
 #include <cane/util.h>
 
 // TODO:
