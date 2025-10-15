@@ -159,4 +159,20 @@ cane_vector_fill_span(cane_vector_t* vec, size_t pos, size_t len, uint8_t val) {
 	return vec->data + pos;
 }
 
+static bool cane_vector_compare_span(
+	cane_vector_t* vec, size_t pos, size_t len, uint8_t* buf
+) {
+	if (pos >= vec->length || pos + len >= vec->length || !buf) {
+		return false;
+	}
+
+	for (size_t i = pos; i < pos + len; i++) {
+		if (buf[i] != vec->data[i]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 #endif
