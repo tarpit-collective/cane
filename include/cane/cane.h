@@ -7,7 +7,7 @@
 #include <cane/def.h>
 #include <cane/log.h>
 #include <cane/util.h>
-#include <cane/list.h>
+#include <cane/vec.h>
 #include <cane/str.h>
 #include <cane/lex.h>
 #include <cane/parse.h>
@@ -270,8 +270,8 @@ static void cane_pass_graphviz_walker(
 // Type Checker //
 //////////////////
 
-static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
-);
+static cane_type_kind_t
+cane_pass_semantic_analysis_walker(cane_ast_node_t* node);
 
 static void cane_pass_semantic_analysis(cane_ast_node_t* node) {
 	CANE_FUNCTION_ENTER();
@@ -410,8 +410,8 @@ static bool cane_type_remap_trivial(cane_ast_node_t* node) {
 #undef CANE_TYPE_REMAP
 }
 
-static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
-) {
+static cane_type_kind_t
+cane_pass_semantic_analysis_walker(cane_ast_node_t* node) {
 	if (node == NULL) {
 		return CANE_TYPE_NONE;
 	}

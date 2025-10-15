@@ -131,7 +131,32 @@ static uint8_t* cane_vector_remove(cane_vector_t* vec, size_t pos) {
 static uint8_t*
 cane_vector_remove_span(cane_vector_t* vec, size_t pos, size_t len) {
 	CANE_UNUSED(vec, pos, len);
-	return NULL;
+
+	if (pos >= vec->length) {
+		return NULL;
+	}
+
+	for (size_t i = 0; i < len; i++) {
+		cane_vector_remove(vec, pos);
+	}
+
+	// memmove(vec->data + pos, vec->data + l, vec->length - l);
+	// vec->length = l;
+
+	return vec->data + pos;
+}
+
+static uint8_t*
+cane_vector_fill_span(cane_vector_t* vec, size_t pos, size_t len, uint8_t val) {
+	if (pos >= vec->length) {
+		return NULL;
+	}
+
+	size_t l = CANE_MIN(vec->length - pos, len);
+
+	memset(vec->data + pos, val, l);
+
+	return vec->data + pos;
 }
 
 #endif

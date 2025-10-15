@@ -13,7 +13,7 @@
 #include <cane/enum.h>
 #include <cane/log.h>
 #include <cane/util.h>
-#include <cane/list.h>
+#include <cane/vec.h>
 #include <cane/lex.h>
 
 /////////////////
