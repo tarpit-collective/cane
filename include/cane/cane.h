@@ -131,7 +131,7 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 //////////////////
 
 static void cane_pass_graphviz_edge(
-	FILE* fp, cane_ast_node_t* node, size_t parent, size_t self
+	cane_file_t fp, cane_ast_node_t* node, size_t parent, size_t self
 ) {
 	cane_symbol_kind_t kind = CANE_SYMBOL_NONE;
 	cane_string_view_t sv = CANE_SV("NULL");
@@ -163,38 +163,22 @@ static void cane_pass_graphviz_edge(
 }
 
 static void cane_pass_graphviz_walker(
-	FILE* fp, cane_ast_node_t* node, size_t* id, size_t parent
+	cane_file_t fp, cane_ast_node_t* node, size_t* id, size_t parent
 );
 
-static void
-cane_pass_graphviz(cane_ast_node_t* node, cane_string_view_t filename) {
+static void cane_pass_graphviz(cane_ast_node_t* node, cane_file_t fp) {
 	CANE_FUNCTION_ENTER();
-
-	size_t length = cane_string_view_length(filename);
-
-	// TODO: Make this not ugly.
-	// Try taking file pointer directly as an argument and wrapping fopen
-	if (length > 256) {
-		CANE_DIE("filename too long");
-	}
-
-	char buf[256] = {0};
-	memcpy(&buf, filename.begin, length);
-
-	FILE* fp = fopen(buf, "w+");
 
 	size_t id = 0;
 
 	fprintf(fp, "digraph {\n");
-	// fprintf(fp, "  node [shape=record style=filled
-	// fillcolor=\"#bfbfbf\"];\n");
 	fprintf(fp, "  node [shape=box style=filled fillcolor=\"#bfbfbf\"];\n");
 	cane_pass_graphviz_walker(fp, node, &id, 0);
 	fprintf(fp, "}\n");
 }
 
 static void cane_pass_graphviz_walker(
-	FILE* fp, cane_ast_node_t* node, size_t* id, size_t parent
+	cane_file_t fp, cane_ast_node_t* node, size_t* id, size_t parent
 ) {
 	size_t self = (*id)++;
 

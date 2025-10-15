@@ -31,7 +31,9 @@ static const char* cane_exe(const char* exe) {
 
 // File IO
 // TODO: Properly wrap file functions.
-static FILE* cane_file_open(cane_string_view_t sv) {
+typedef FILE* cane_file_t;
+
+static cane_file_t cane_file_open(cane_string_view_t sv) {
 	char buffer[256] = {0};
 	cane_string_view_info_t info = cane_string_view_info(sv);
 
@@ -40,7 +42,7 @@ static FILE* cane_file_open(cane_string_view_t sv) {
 	}
 
 	memcpy(buffer, info.ptr, info.length);
-	FILE* fp = fopen(buffer, "w+");
+	cane_file_t fp = fopen(buffer, "w+");
 
 	if (!fp) {
 		CANE_DIE("failed to open file");
@@ -49,7 +51,7 @@ static FILE* cane_file_open(cane_string_view_t sv) {
 	return fp;
 }
 
-static void cane_file_close(FILE* fp) {
+static void cane_file_close(cane_file_t fp) {
 	if (fclose(fp) != 0) {
 		CANE_DIE("failed to close file");
 	}
