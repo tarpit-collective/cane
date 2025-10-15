@@ -49,8 +49,6 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_COMMA, "comma `,`") \
 	X(CANE_SYMBOL_DOT, "dot `.`") \
 	X(CANE_SYMBOL_EXCLAIM, "exclaim `!`") \
-	X(CANE_SYMBOL_FATARROW, "fat arrow `=>`") \
-	X(CANE_SYMBOL_ARROW, "arrow `->`") \
 	X(CANE_SYMBOL_COLON, "colon `:`") \
 	X(CANE_SYMBOL_SEMICOLON, "semicolon `;`") \
 	X(CANE_SYMBOL_QUOTE, "quote `'`") \
@@ -59,11 +57,16 @@ const char* CANE_REPORT_KIND_TO_STR_HUMAN[] = {CANE_REPORT_KINDS};
 	X(CANE_SYMBOL_TILDA, "tilda `~`") \
 	X(CANE_SYMBOL_QUESTION, "question `?`") \
 \
+	X(CANE_SYMBOL_FATARROW, "fat arrow `=>`") \
+	X(CANE_SYMBOL_WIGGLEARROW, "wiggle arrow `~>`") \
+	X(CANE_SYMBOL_ARROW, "arrow `->`") \
+\
 	/* AST */ \
 	X(CANE_SYMBOL_COERCE, "coerce") \
 	X(CANE_SYMBOL_CONCATENATE, "concatenate") \
 	X(CANE_SYMBOL_CALL, "call") \
 	X(CANE_SYMBOL_ASSIGN, "assign") \
+	X(CANE_SYMBOL_SEND, "send") \
 	X(CANE_SYMBOL_FUNCTION, "function") \
 	X(CANE_SYMBOL_REPEAT, "repeat") \
 	X(CANE_SYMBOL_MAP, "map") \

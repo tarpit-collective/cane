@@ -98,6 +98,7 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 		case CANE_SYMBOL_RANDOM:
 
 		case CANE_SYMBOL_ASSIGN:
+		case CANE_SYMBOL_SEND:
 		case CANE_SYMBOL_FUNCTION: {
 			printf("%*s%s\n", depth * 4, "", CANE_SYMBOL_TO_STR[kind]);
 
@@ -243,6 +244,7 @@ static void cane_pass_graphviz_walker(
 		case CANE_SYMBOL_RANDOM:
 
 		case CANE_SYMBOL_ASSIGN:
+		case CANE_SYMBOL_SEND:
 		case CANE_SYMBOL_FUNCTION: {
 			cane_pass_graphviz_edge(fp, node, parent, self);
 			cane_pass_graphviz_walker(fp, lhs, id, self);
@@ -426,10 +428,14 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 	// switch where we handle them manually.
 	if (!cane_type_remap_trivial(node)) {
 		switch (node->kind) {
-			case CANE_SYMBOL_IDENTIFIER: {
+			// Assignment
+			case CANE_SYMBOL_IDENTIFIER:
+			case CANE_SYMBOL_ASSIGN:
+			case CANE_SYMBOL_SEND: {
 				CANE_UNIMPLEMENTED();
 			} break;
 
+			// Literals
 			case CANE_SYMBOL_NUMBER: {
 				return CANE_TYPE_SCALAR;
 			} break;

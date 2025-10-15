@@ -63,7 +63,8 @@ static bool cane_parser_is_infix(cane_symbol_kind_t kind) {
 
 static bool cane_parser_is_postfix(cane_symbol_kind_t kind) {
 	return kind == CANE_SYMBOL_ASSIGN ||  // Assignment
-		kind == CANE_SYMBOL_CALL;         // Function call
+		kind == CANE_SYMBOL_CALL ||       // Function call
+		kind == CANE_SYMBOL_SEND;         // Send to channel
 }
 
 static bool cane_parser_is_unary(cane_symbol_kind_t kind) {
@@ -111,6 +112,7 @@ static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_RCHEVRON, CANE_SYMBOL_RSHIFT) \
 \
 	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_FATARROW, CANE_SYMBOL_ASSIGN) \
+	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_WIGGLEARROW, CANE_SYMBOL_SEND) \
 	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_LPAREN, CANE_SYMBOL_CALL)
 
 static cane_symbol_kind_t
@@ -690,6 +692,24 @@ static cane_ast_node_t* cane_parse_postfix(
 
 			node->rhs = cane_ast_node_create(
 				CANE_SYMBOL_IDENTIFIER, CANE_TYPE_NONE, ident.location
+			);
+		} break;
+
+		case CANE_SYMBOL_SEND: {
+			cane_symbol_t channel;
+
+			if (!cane_lexer_take_if_kind(
+					lx, CANE_SYMBOL_STRING, &channel, NULL
+				)) {
+				cane_report_and_die(
+					cane_location_create(lx),
+					CANE_REPORT_SYNTAX,
+					"expected a string"
+				);
+			}
+
+			node->rhs = cane_ast_node_create(
+				CANE_SYMBOL_SEND, CANE_TYPE_NONE, channel.location
 			);
 		} break;
 
