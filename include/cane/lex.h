@@ -401,6 +401,28 @@ static bool cane_lexer_produce_comment(cane_lexer_t* lx, cane_symbol_t* out) {
 	return true;
 }
 
+static bool cane_lexer_produce_quoted(cane_lexer_t* lx, cane_symbol_t* out) {
+	cane_symbol_t symbol = cane_symbol_create(CANE_SYMBOL_STRING, lx->location);
+
+	if (!cane_str_take_if(lx, cane_is_quote, NULL)) {
+		return false;
+	}
+
+	symbol.location.symbol.begin = lx->location.symbol.begin;  // Skip quote
+	cane_str_take_while(lx, cane_is_not_quote);
+	symbol.location.symbol.end = lx->location.symbol.begin;  // Skip quote
+
+	if (!cane_str_take_if(lx, cane_is_quote, NULL)) {
+		return false;
+	}
+
+	if (out != NULL) {
+		*out = symbol;
+	}
+
+	return true;
+}
+
 ////////////////
 // Lexer Core //
 ////////////////
@@ -481,7 +503,8 @@ static bool cane_lexer_take_any(
 	// Handle normal tokens
 	else if (!(cane_lexer_produce_identifier(lx, &symbol) ||
 			   cane_lexer_produce_number(lx, &symbol) ||
-			   cane_lexer_produce_sigil(lx, &symbol))) {
+			   cane_lexer_produce_sigil(lx, &symbol) ||
+			   cane_lexer_produce_quoted(lx, &symbol))) {
 		cane_report_and_die(
 
 			cane_location_create(lx),

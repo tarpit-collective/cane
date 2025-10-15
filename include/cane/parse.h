@@ -449,6 +449,13 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			);
 		}
 
+		case CANE_SYMBOL_STRING: {
+			cane_lexer_discard(lx);
+			return cane_ast_node_create(
+				symbol.kind, CANE_TYPE_STRING, symbol.location
+			);
+		}
+
 		case CANE_SYMBOL_NUMBER: {
 			cane_symbol_t number;
 			cane_lexer_take(lx, &number, NULL);

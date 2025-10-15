@@ -51,6 +51,7 @@ static void cane_pass_print_walker(cane_ast_node_t* node, int depth) {
 		case CANE_SYMBOL_MELODY:
 
 		case CANE_SYMBOL_IDENTIFIER:
+		case CANE_SYMBOL_STRING:
 		case CANE_SYMBOL_NUMBER: {
 			printf(
 				"%*s%s %.*s\n",
@@ -205,6 +206,7 @@ static void cane_pass_graphviz_walker(
 		case CANE_SYMBOL_MELODY:
 
 		case CANE_SYMBOL_IDENTIFIER:
+		case CANE_SYMBOL_STRING:
 		case CANE_SYMBOL_NUMBER: {
 			cane_pass_graphviz_edge(fp, node, parent, self);
 		} break;
@@ -436,16 +438,11 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 			} break;
 
 			// Literals
-			case CANE_SYMBOL_NUMBER: {
-				return CANE_TYPE_SCALAR;
-			} break;
-
-			case CANE_SYMBOL_RHYTHM: {
-				return CANE_TYPE_RHYTHM;
-			} break;
-
+			case CANE_SYMBOL_NUMBER:
+			case CANE_SYMBOL_STRING:
+			case CANE_SYMBOL_RHYTHM:
 			case CANE_SYMBOL_MELODY: {
-				return CANE_TYPE_MELODY;
+				return node->type;
 			} break;
 
 			// TODO: Fix this, not sure if this is actually correct in all

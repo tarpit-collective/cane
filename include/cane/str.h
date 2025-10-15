@@ -55,10 +55,6 @@ static bool cane_is_whitespace(char c) {
 	return isspace(c);
 }
 
-static bool cane_is_not_newline(char c) {
-	return c != '\n';
-}
-
 static bool cane_is_alpha(char c) {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
@@ -77,6 +73,19 @@ static bool cane_is_identifier(char c) {
 
 static bool cane_is_identifier_start(char c) {
 	return cane_is_alpha(c) || c == '_';
+}
+
+static bool cane_is_quote(char c) {
+	return c == '"';
+}
+
+// Inverse predicates
+static bool cane_is_not_newline(char c) {
+	return c != '\n';
+}
+
+static bool cane_is_not_quote(char c) {
+	return c != '"';
 }
 
 #endif
