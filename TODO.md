@@ -1,3 +1,26 @@
+- add string parsing
+
+- how do we handle velocity? should we?
+  - an accent can be applied to a sequence which is just an array of numbers like a melody
+
+- sequences and patterns can be output to a midi channel by assigning it to a named channel
+  - for example: `!...!... @ 65 . 64 ~> "drums"`
+  - this can later be assigned an actual midi channel as a cli pair: `drums=0`
+
+- `?` operator that takes a min/max as it's lhs/rhs and gives a random number
+
+- Debugging with per-expression logging
+  - We have access to location information in the AST so we can just print
+  the source as we eval
+  - For operator nodes, we can find print everything between the two symbols aswell
+
+- Allow typing a unique subset of characters as part of a keyword for shorthand
+
+- Cycles (as part of sequences) that allow alternating a sequence every bar
+  - A way to generate a progression by just altering a subset of the sequence that
+  rotates around every bar
+  - Maybe "choice" should do this instead of randomness
+
 - Update passes to take newly created type-specific node kinds
   - Maybe needs to be re-designed a bit because it adds a _tonne_ of cases.
 
