@@ -1,6 +1,7 @@
 // Literals
 ident = ? {XID_Start}{XID_Continue}* ?
 number = ? 0-9* ?
+string = '"' ? .* ? '"'
 comment = ? #!.*\n ?
 
 rhythm = '!' | '.'
@@ -8,6 +9,9 @@ expression = ident | number | rhythm
 
 // Definition
 expression = expression '=>' ident
+
+// Concatenation
+expression = expression '.' expression
 
 // Expression
 expression = '(' expression ')'
@@ -20,34 +24,30 @@ expression = expression '(' expression ')'  // Function call
 // Scalars
 expression =
 	( '+' | '-' ) expression |
-	expression ( '+' | '-' | '*' | '/' | 'lcm' | 'gcd' | '.' ) expression |
+	expression ( '+' | '-' | '*' | '/' | 'lcm' | 'gcd' | '?' ) expression |
 	expression ':' expression |
-	expression '=>' ident |
 
 // Rhythm
 expression =
 	( '~' | "'" ) expression |
-	expression ( '<' | '>' | '**' | 'or' | 'and' | 'xor' | '.' ) expression |
-	expression '=>' ident |
+	expression ( '<' | '>' | '**' | 'or' | 'and' | 'xor' ) expression |
+	expression '@' expression |   // Mapping
 
 // Melody
 expression =
-	'&' expression |  // Coerce scalar to a melody
-	"'" expression |
+	( '&' | "'" ) expression |
 	expression '@' expression |   // Mapping
-	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' | '.' ) expression |
-	expression '=>' ident |
+	expression ( '<' | '>' | '**' | '+' | '-' | '*' | '/' ) expression |
 
 // Sequence
 expression =
-	expression ( '.' | '*' | '/' ) expression |
-	expression '=>' ident |
+	expression ( '*' | '/' ) expression |
+	expression '~>' string |
 
 // Pattern
 expression =
-	expression '.' expression |
-	expression '=>' ident |
 	'[' [( ',' expression )* [ ',' ]] ']' |  // Layer sequences
+	expression '~>' string
 
 // Program
-program = [ expression [(';' expression)* [ ';' ]]]
+program = [ expression [ (';' expression)* [ ';' ] ]]
