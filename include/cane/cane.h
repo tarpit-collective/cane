@@ -499,4 +499,88 @@ static cane_type_kind_t cane_pass_semantic_analysis_walker(cane_ast_node_t* node
 	return node->type;
 }
 
+///////////////
+// Evaluator //
+///////////////
+
+static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node);
+
+static cane_value_t cane_pass_evaluator(cane_ast_node_t* node) {
+	CANE_FUNCTION_ENTER();
+	return cane_pass_evaluator_walker(node);
+}
+
+static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node) {
+	if (node == NULL) {
+		return (cane_value_t){};
+	}
+
+	cane_location_t loc = node->location;
+
+	switch (node->kind) {
+		case CANE_SYMBOL_ABS_SCALAR:
+		case CANE_SYMBOL_NEG_SCALAR:
+
+		case CANE_SYMBOL_INVERT_RHYTHM:
+		case CANE_SYMBOL_REVERSE_RHYTHM:
+		case CANE_SYMBOL_REVERSE_MELODY:
+
+		case CANE_SYMBOL_ADD_SCALAR_SCALAR:
+		case CANE_SYMBOL_SUB_SCALAR_SCALAR:
+		case CANE_SYMBOL_MUL_SCALAR_SCALAR:
+		case CANE_SYMBOL_DIV_SCALAR_SCALAR:
+
+		case CANE_SYMBOL_LSHIFT_SCALAR_SCALAR:
+		case CANE_SYMBOL_RSHIFT_SCALAR_SCALAR:
+
+		case CANE_SYMBOL_LCM_SCALAR_SCALAR:
+		case CANE_SYMBOL_GCD_SCALAR_SCALAR:
+
+		case CANE_SYMBOL_EUCLIDEAN_SCALAR_SCALAR:
+		case CANE_SYMBOL_CONCATENATE_SCALAR_SCALAR:
+		case CANE_SYMBOL_RANDOM_SCALAR_SCALAR:
+		case CANE_SYMBOL_MAP_MELODY_RHYTHM:
+
+		case CANE_SYMBOL_LSHIFT_MELODY_SCALAR:
+		case CANE_SYMBOL_RSHIFT_MELODY_SCALAR:
+
+		case CANE_SYMBOL_ADD_MELODY_SCALAR:
+		case CANE_SYMBOL_SUB_MELODY_SCALAR:
+		case CANE_SYMBOL_MUL_MELODY_SCALAR:
+		case CANE_SYMBOL_DIV_MELODY_SCALAR:
+
+		case CANE_SYMBOL_REPEAT_MELODY_SCALAR:
+		case CANE_SYMBOL_CONCATENATE_MELODY_MELODY:
+		case CANE_SYMBOL_MAP_RHYTHM_MELODY:
+
+		case CANE_SYMBOL_LSHIFT_RHYTHM_SCALAR:
+		case CANE_SYMBOL_RSHIFT_RHYTHM_SCALAR:
+
+		case CANE_SYMBOL_REPEAT_RHYTHM_SCALAR:
+		case CANE_SYMBOL_CONCATENATE_RHYTHM_RHYTHM:
+
+		case CANE_SYMBOL_OR_RHYTHM_RHYTHM:
+		case CANE_SYMBOL_XOR_RHYTHM_RHYTHM:
+		case CANE_SYMBOL_AND_RHYTHM_RHYTHM:
+
+		case CANE_SYMBOL_CONCATENATE_SEQUENCE_SEQUENCE:
+
+		case CANE_SYMBOL_MUL_SEQUENCE_SCALAR:
+		case CANE_SYMBOL_DIV_SEQUENCE_SCALAR: {
+			CANE_UNIMPLEMENTED();
+		} break;
+
+		default: {
+			cane_report_and_die(
+				loc,
+				CANE_REPORT_TYPE,
+				"cannot evaluate `%s`!",
+				CANE_SYMBOL_TO_STR[node->kind]
+			);
+		} break;
+	}
+
+	return (cane_value_t){};
+}
+
 #endif

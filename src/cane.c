@@ -23,5 +23,7 @@ int main(int argc, const char* argv[]) {
 	cane_pass_graphviz(root, fp);
 	cane_file_close(fp);
 
+	cane_pass_evaluator(root);
+
 	return 0;
 }

@@ -231,12 +231,20 @@ static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
 // AST //
 /////////
 
+typedef struct cane_value cane_value_t;
 typedef struct cane_ast_node cane_ast_node_t;
+
+struct cane_value {
+	union {
+		cane_vector_t* list;
+		cane_string_view_t string;
+		int number;
+	};
+};
 
 struct cane_ast_node {
 	cane_symbol_kind_t kind;
 	cane_type_kind_t type;
-
 	cane_location_t location;
 
 	union {
@@ -245,10 +253,7 @@ struct cane_ast_node {
 			cane_ast_node_t* rhs;
 		};
 
-		cane_vector_t* list;
-
-		cane_string_view_t string;
-		int number;
+		cane_value_t value;
 	};
 };
 
@@ -264,7 +269,7 @@ static cane_ast_node_t* cane_ast_node_create_number(
 	node->type = type;
 
 	node->location = loc;
-	node->number = number;
+	node->value.number = number;
 
 	return node;
 }
@@ -281,7 +286,7 @@ static cane_ast_node_t* cane_ast_node_create_string(
 	node->type = type;
 
 	node->location = loc;
-	node->string = string;
+	node->value.string = string;
 
 	return node;
 }
@@ -298,7 +303,7 @@ static cane_ast_node_t* cane_ast_node_create_list(
 	node->type = type;
 
 	node->location = loc;
-	node->list = list;
+	node->value.list = list;
 
 	return node;
 }
