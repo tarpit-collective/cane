@@ -72,8 +72,13 @@ static void cane_vector_push(cane_vector_t* vec, uint8_t val) {
 	vec->data[vec->length++] = val;
 }
 
-static uint8_t cane_vector_pop(cane_vector_t* vec) {
-	return vec->data[--vec->length];
+static bool cane_vector_pop(cane_vector_t* vec, uint8_t* out) {
+	if (vec->length == 0) {
+		return false;
+	}
+
+	*out = vec->data[--vec->length];
+	return true;
 }
 
 // return ptr to lhs
@@ -162,17 +167,21 @@ cane_vector_fill_span(cane_vector_t* vec, size_t pos, size_t len, uint8_t val) {
 static bool cane_vector_compare_span(
 	cane_vector_t* vec, size_t pos, size_t len, uint8_t* buf
 ) {
-	if (pos >= vec->length || pos + len >= vec->length || !buf) {
+	if (pos > vec->length || pos + len > vec->length || !buf) {
+		CANE_LOG_INFO("FUCK");
 		return false;
 	}
 
-	for (size_t i = pos; i < pos + len; i++) {
-		if (buf[i] != vec->data[i]) {
-			return false;
-		}
+	return memcmp(vec->data + pos, buf, len) == 0;
+}
+
+static uint8_t* cane_vector_at(cane_vector_t* vec, size_t index) {
+	if (index >= vec->length) {
+		return NULL;
+		CANE_DIE("index %zu >> length of %zu", index, vec->length);
 	}
 
-	return true;
+	return &vec->data[index];
 }
 
 #endif
