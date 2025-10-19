@@ -75,10 +75,6 @@ static bool cane_parser_is_binary(cane_symbol_kind_t kind) {
 	return cane_parser_is_infix(kind) || cane_parser_is_postfix(kind);
 }
 
-static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
-	return cane_parser_is_primary(kind) || cane_parser_is_prefix(kind);
-}
-
 //////////////////////
 // Symbol Remapping //
 //////////////////////
@@ -105,7 +101,7 @@ static bool cane_parser_is_expression(cane_symbol_kind_t kind) {
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COLON, CANE_SYMBOL_EUCLIDEAN) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_STARS, CANE_SYMBOL_REPEAT) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_AT, CANE_SYMBOL_MAP) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_CONCATENATE) \
+	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COMMA, CANE_SYMBOL_CONCATENATE) \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_QUESTION, CANE_SYMBOL_RANDOM) \
 \
 	X(CANE_OPFIX_INFIX, CANE_SYMBOL_LCHEVRON, CANE_SYMBOL_LSHIFT) \
@@ -244,6 +240,8 @@ struct cane_value {
 
 struct cane_ast_node {
 	cane_symbol_kind_t kind;
+	cane_symbol_kind_t op;
+
 	cane_type_kind_t type;
 	cane_location_t location;
 
@@ -379,7 +377,16 @@ static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
 
 		root = concat;
 
-		cane_lexer_discard_if_kind(lx, CANE_SYMBOL_SEMICOLON);
+		// Statements must be terminated by a semicolon unless they are EOF.
+		if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_SEMICOLON) &&
+			!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ENDFILE)) {
+			cane_symbol_t peek;
+			cane_lexer_peek(lx, &peek, NULL);
+
+			cane_report_and_die(
+				peek.location, CANE_REPORT_SYNTAX, "expected `;`"
+			);
+		}
 	}
 
 	if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ENDFILE)) {
@@ -465,9 +472,11 @@ cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
 			cane_symbol_t number;
 			cane_lexer_take(lx, &number, NULL);
 
-			// TODO: Parse literal to int and pass it to the constructor below.
 			cane_ast_node_t* root = cane_ast_node_create_number(
-				symbol.kind, CANE_TYPE_SCALAR, 0, symbol.location
+				symbol.kind,
+				CANE_TYPE_SCALAR,
+				cane_string_view_to_int(number.location.symbol),
+				symbol.location
 			);
 
 			// TODO: Parse adjacent numbers as a melody.
@@ -773,8 +782,7 @@ static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
 	cane_lexer_peek(lx, &symbol, cane_fix_binary_symbol);
 
 	while (cane_parser_is_infix(symbol.kind) ||
-		   cane_parser_is_postfix(symbol.kind) ||
-		   cane_parser_is_expression(symbol.kind)) {
+		   cane_parser_is_postfix(symbol.kind)) {
 		cane_binding_power_t binding_power =
 			cane_parser_binding_power(symbol.kind);
 

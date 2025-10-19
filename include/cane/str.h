@@ -47,6 +47,18 @@ static cane_string_view_info_t cane_string_view_info(cane_string_view_t sv) {
 	};
 }
 
+static int cane_string_view_to_int(cane_string_view_t sv) {
+	cane_string_view_info_t info = cane_string_view_info(sv);
+	int number = 0;
+
+	for (size_t i = 0; i < info.length; i++) {
+		number *= 10;
+		number += info.ptr[i] - '0';
+	}
+
+	return number;
+}
+
 #define CANE_SV(str) \
 	((cane_string_view_t){str, ((const char*)str) + (sizeof(str) - 1)})
 

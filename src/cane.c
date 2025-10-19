@@ -11,9 +11,9 @@ int main(int argc, const char* argv[]) {
 	// cane_string_view_t sv = CANE_SV("(1 . 2) < 3");
 	// cane_string_view_t sv = CANE_SV("\\x `number x `number");
 
-	// cane_string_view_t sv = CANE_SV("1 + 2 * 3");
+	cane_string_view_t sv = CANE_SV("1 << 3");
 	// cane_string_view_t sv = CANE_SV("x(1 + 2)");
-	cane_string_view_t sv = CANE_SV("\"foo\"");
+	// cane_string_view_t sv = CANE_SV("\"foo\"");
 	cane_ast_node_t* root = cane_parse(sv);
 
 	cane_pass_print(root);
@@ -23,7 +23,9 @@ int main(int argc, const char* argv[]) {
 	cane_pass_graphviz(root, fp);
 	cane_file_close(fp);
 
-	cane_pass_evaluator(root);
+	cane_value_t v = cane_pass_evaluator(root);
+
+	CANE_LOG_OKAY("%d", v.number);
 
 	return 0;
 }

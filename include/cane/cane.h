@@ -293,7 +293,7 @@ static bool cane_type_remapper(
 	cane_type_kind_t expected_lhs,
 	cane_type_kind_t expected_rhs,
 	cane_type_kind_t out,
-	cane_symbol_kind_t new_kind
+	cane_symbol_kind_t op
 ) {
 	if (node == NULL || node->kind != kind) {
 		return false;
@@ -332,7 +332,7 @@ static bool cane_type_remapper(
 	CANE_LOG_OKAY("└─ " CANE_YELLOW "success!" CANE_RESET);
 
 	node->type = out;
-	node->kind = new_kind;
+	node->op = op;
 
 	return true;
 }
@@ -355,13 +355,13 @@ static bool cane_type_remap_trivial(cane_ast_node_t* node) {
 
 	return
 		/* Prefix/Unary */
-		CANE_TYPE_REMAP(ABS, SCALAR, NONE, SCALAR, ABS_SCALAR) ||
-		CANE_TYPE_REMAP(NEG, SCALAR, NONE, SCALAR, NEG_SCALAR) ||
+		CANE_TYPE_REMAP(ABS, NONE, SCALAR , SCALAR, ABS_SCALAR) ||
+		CANE_TYPE_REMAP(NEG, NONE, SCALAR , SCALAR, NEG_SCALAR) ||
 
-		CANE_TYPE_REMAP(INVERT, RHYTHM, NONE, RHYTHM, INVERT_RHYTHM) ||
-		CANE_TYPE_REMAP(REVERSE, RHYTHM, NONE, RHYTHM, REVERSE_RHYTHM) ||
+		CANE_TYPE_REMAP(INVERT, NONE, RHYTHM , RHYTHM, INVERT_RHYTHM) ||
+		CANE_TYPE_REMAP(REVERSE, NONE, RHYTHM , RHYTHM, REVERSE_RHYTHM) ||
 
-		CANE_TYPE_REMAP(REVERSE, MELODY, NONE, MELODY, REVERSE_MELODY) ||
+		CANE_TYPE_REMAP(REVERSE, NONE, MELODY , MELODY, REVERSE_MELODY) ||
 
 		/* Scalar */
 		CANE_TYPE_REMAP(ADD, SCALAR, SCALAR, SCALAR, ADD_SCALAR_SCALAR) ||
@@ -517,24 +517,60 @@ static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node) {
 
 	cane_location_t loc = node->location;
 
+	// Trivial/special cases
 	switch (node->kind) {
+		case CANE_SYMBOL_STATEMENT: {
+			cane_value_t lhs = cane_pass_evaluator_walker(node->lhs);
+			cane_value_t rhs = cane_pass_evaluator_walker(node->rhs);
+
+			CANE_UNUSED(rhs);
+			return lhs;
+		} break;
+
+		case CANE_SYMBOL_STRING:
+		case CANE_SYMBOL_NUMBER:
+
+		case CANE_SYMBOL_RHYTHM:
+		case CANE_SYMBOL_MELODY: {
+			return node->value;
+		} break;
+
+		default: break;
+	}
+
+	cane_value_t lhs = cane_pass_evaluator_walker(node->lhs);
+	cane_value_t rhs = cane_pass_evaluator_walker(node->rhs);
+
+	switch (node->op) {
+		// Unary Scalar
 		case CANE_SYMBOL_ABS_SCALAR:
+			return (cane_value_t){.number = abs(rhs.number)};
 		case CANE_SYMBOL_NEG_SCALAR:
+			return (cane_value_t){.number = -rhs.number};
+
+		// Binary Scalar
+		case CANE_SYMBOL_ADD_SCALAR_SCALAR:
+			return (cane_value_t){.number = lhs.number + rhs.number};
+		case CANE_SYMBOL_SUB_SCALAR_SCALAR:
+			return (cane_value_t){.number = lhs.number - rhs.number};
+		case CANE_SYMBOL_MUL_SCALAR_SCALAR:
+			return (cane_value_t){.number = lhs.number * rhs.number};
+		case CANE_SYMBOL_DIV_SCALAR_SCALAR:
+			return (cane_value_t){.number = lhs.number / rhs.number};
+
+		case CANE_SYMBOL_LSHIFT_SCALAR_SCALAR:
+			return (cane_value_t){.number = lhs.number << rhs.number};
+		case CANE_SYMBOL_RSHIFT_SCALAR_SCALAR:
+			return (cane_value_t){.number = lhs.number >> rhs.number};
+
+		case CANE_SYMBOL_LCM_SCALAR_SCALAR:
+			return (cane_value_t){.number = cane_lcm(lhs.number, rhs.number)};
+		case CANE_SYMBOL_GCD_SCALAR_SCALAR:
+			return (cane_value_t){.number = cane_gcd(lhs.number, rhs.number)};
 
 		case CANE_SYMBOL_INVERT_RHYTHM:
 		case CANE_SYMBOL_REVERSE_RHYTHM:
 		case CANE_SYMBOL_REVERSE_MELODY:
-
-		case CANE_SYMBOL_ADD_SCALAR_SCALAR:
-		case CANE_SYMBOL_SUB_SCALAR_SCALAR:
-		case CANE_SYMBOL_MUL_SCALAR_SCALAR:
-		case CANE_SYMBOL_DIV_SCALAR_SCALAR:
-
-		case CANE_SYMBOL_LSHIFT_SCALAR_SCALAR:
-		case CANE_SYMBOL_RSHIFT_SCALAR_SCALAR:
-
-		case CANE_SYMBOL_LCM_SCALAR_SCALAR:
-		case CANE_SYMBOL_GCD_SCALAR_SCALAR:
 
 		case CANE_SYMBOL_EUCLIDEAN_SCALAR_SCALAR:
 		case CANE_SYMBOL_CONCATENATE_SCALAR_SCALAR:
@@ -567,15 +603,16 @@ static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node) {
 
 		case CANE_SYMBOL_MUL_SEQUENCE_SCALAR:
 		case CANE_SYMBOL_DIV_SEQUENCE_SCALAR: {
+			CANE_LOG_WARN("%s", CANE_SYMBOL_TO_STR[node->op]);
 			CANE_UNIMPLEMENTED();
 		} break;
 
 		default: {
 			cane_report_and_die(
 				loc,
-				CANE_REPORT_TYPE,
+				CANE_REPORT_EVAL,
 				"cannot evaluate `%s`!",
-				CANE_SYMBOL_TO_STR[node->kind]
+				CANE_SYMBOL_TO_STR[node->op]
 			);
 		} break;
 	}

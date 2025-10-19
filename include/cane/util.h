@@ -86,4 +86,19 @@ static void cane_free(void* ptr) {
 	free(ptr);
 }
 
+static int cane_gcd(int lhs, int rhs) {
+	while (rhs != 0) {
+		int tmp = lhs % rhs;
+
+		lhs = rhs;
+		rhs = tmp;
+	}
+
+	return lhs;
+}
+
+static int cane_lcm(int lhs, int rhs) {
+	return (CANE_MAX(lhs, rhs) / cane_gcd(lhs, rhs)) * CANE_MIN(lhs, rhs);
+}
+
 #endif

@@ -10,7 +10,8 @@
 	X(CANE_REPORT_LEXICAL, "lexical") \
 	X(CANE_REPORT_SYNTAX, "syntax") \
 	X(CANE_REPORT_SEMANTIC, "semantic") \
-	X(CANE_REPORT_TYPE, "type")
+	X(CANE_REPORT_TYPE, "type") \
+	X(CANE_REPORT_EVAL, "eval")
 
 #define X(x, y) x,
 
