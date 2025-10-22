@@ -27,6 +27,23 @@ int main(int argc, const char* argv[]) {
 	for (size_t i = 3; cane_vector_pop(&vec1, &val); i--) {
 		CANE_ASSERT(i == val, "expected %zd", i);
 	}
+
+	for (uint8_t i = 1; i <= 10; i++) {
+		cane_vector_push(&vec1, i);
+	}
+
+	size_t len = cane_vector_length(&vec1);
+	// cane_vector_rotate_right(&vec1, 3);
+	// cane_vector_rotate(&vec1, 0, 5, cane_vector_length(&vec1));
+
+	// cane_vector_reverse(&vec1);
+
+	cane_vector_sort(&vec1);
+
+	for (size_t i = 0; i < len; i++) {
+		CANE_LOG_INFO("VAL %d", *cane_vector_at(&vec1, i));
+	}
+
 	// while (cane_vector_pop(&vec1, &val)) {
 
 	// }
