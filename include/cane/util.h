@@ -29,6 +29,35 @@ static const char* cane_exe(const char* exe) {
 	return exe + CANE_MIN(slash, i);
 }
 
+// Memory allocation
+static void* cane_allocate(size_t size) {
+	void* ptr = calloc(1, size);
+
+	if (!ptr) {
+		CANE_DIE("failed to allocate %lu bytes", size);
+	}
+
+	return ptr;
+}
+
+static void* cane_reallocate(void* ptr, size_t size) {
+	ptr = realloc(ptr, size);
+
+	if (!ptr) {
+		CANE_DIE("failed to re-allocate to size %lu", size);
+	}
+
+	return ptr;
+}
+
+static void cane_free(void* ptr) {
+	if (!ptr) {
+		CANE_DIE("attempting to free a NULL pointer");
+	}
+
+	free(ptr);
+}
+
 // File IO
 // TODO: Properly wrap file functions.
 typedef FILE* cane_file_t;
@@ -57,33 +86,38 @@ static void cane_file_close(cane_file_t fp) {
 	}
 }
 
-// Memory allocation
-static void* cane_allocate(size_t size) {
-	void* ptr = calloc(1, size);
-
-	if (!ptr) {
-		CANE_DIE("failed to allocate %lu bytes", size);
+static bool cane_read_file(const char* path, const char** data, int* size) {
+	FILE* f = fopen(path, "r");
+	if (!f) {
+		return false;
 	}
 
-	return ptr;
-}
-
-static void* cane_reallocate(void* ptr, size_t size) {
-	ptr = realloc(ptr, size);
-
-	if (!ptr) {
-		CANE_DIE("failed to re-allocate to size %lu", size);
+	if (fseek(f, 0, SEEK_END) == -1) {
+		return false;
 	}
 
-	return ptr;
-}
-
-static void cane_free(void* ptr) {
-	if (!ptr) {
-		CANE_DIE("attempting to free a NULL pointer");
+	int len = ftell(f);
+	if (len == -1) {
+		return false;
 	}
 
-	free(ptr);
+	rewind(f);
+
+	char* buf = cane_allocate(len);
+	size_t n = fread(buf, 1, len, f);
+
+	if (n != (size_t)len && ferror(f)) {
+		return false;
+	}
+
+	*data = buf;
+	*size = n;
+
+	if (fclose(f) == EOF) {
+		return false;
+	}
+
+	return true;
 }
 
 static int cane_gcd(int lhs, int rhs) {

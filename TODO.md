@@ -1,3 +1,12 @@
+- location at eof should be more clear (dont print a column number)
+
+- should newline imply `;`?
+
+- rethink binding power definition, use old approach from cane where we have LAST & INCR
+
+- since the AST is a binary tree, we can probably implement it as an
+array of nodes rather than a tree of nodes to reduce memory fragmentation
+
 - how do we handle velocity? should we?
   - an accent can be applied to a sequence which is just an array of numbers like a melody
 

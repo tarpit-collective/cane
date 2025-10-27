@@ -238,6 +238,24 @@ struct cane_value {
 	};
 };
 
+static cane_value_t cane_value_create_number(int number) {
+	return (cane_value_t){
+		.number = number,
+	};
+}
+
+static cane_value_t cane_value_create_string(cane_string_view_t string) {
+	return (cane_value_t){
+		.string = string,
+	};
+}
+
+static cane_value_t cane_value_create_list(cane_vector_t* list) {
+	return (cane_value_t){
+		.list = list,
+	};
+}
+
 struct cane_ast_node {
 	cane_symbol_kind_t kind;
 	cane_symbol_kind_t op;

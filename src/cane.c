@@ -11,9 +11,20 @@ int main(int argc, const char* argv[]) {
 	// cane_string_view_t sv = CANE_SV("(1 . 2) < 3");
 	// cane_string_view_t sv = CANE_SV("\\x `number x `number");
 
-	cane_string_view_t sv = CANE_SV("1 << 3");
+	// cane_string_view_t sv = CANE_SV("[1, 2, 3]");
 	// cane_string_view_t sv = CANE_SV("x(1 + 2)");
 	// cane_string_view_t sv = CANE_SV("\"foo\"");
+
+	const char* buf = "";
+	int len = 0;
+
+	cane_read_file("cane.cn", &buf, &len);
+
+	cane_string_view_t sv;
+
+	sv.begin = buf;
+	sv.end = buf + len;
+
 	cane_ast_node_t* root = cane_parse(sv);
 
 	cane_pass_print(root);

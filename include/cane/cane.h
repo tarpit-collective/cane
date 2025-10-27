@@ -544,67 +544,77 @@ static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node) {
 	switch (node->op) {
 		// Unary Scalar
 		case CANE_SYMBOL_ABS_SCALAR:
-			return (cane_value_t){.number = abs(rhs.number)};
+			return cane_value_create_number(abs(rhs.number));
 		case CANE_SYMBOL_NEG_SCALAR:
-			return (cane_value_t){.number = -rhs.number};
+			return cane_value_create_number(-rhs.number);
 
 		// Binary Scalar
 		case CANE_SYMBOL_ADD_SCALAR_SCALAR:
-			return (cane_value_t){.number = lhs.number + rhs.number};
+			return cane_value_create_number(lhs.number + rhs.number);
 		case CANE_SYMBOL_SUB_SCALAR_SCALAR:
-			return (cane_value_t){.number = lhs.number - rhs.number};
+			return cane_value_create_number(lhs.number - rhs.number);
 		case CANE_SYMBOL_MUL_SCALAR_SCALAR:
-			return (cane_value_t){.number = lhs.number * rhs.number};
+			return cane_value_create_number(lhs.number * rhs.number);
 		case CANE_SYMBOL_DIV_SCALAR_SCALAR:
-			return (cane_value_t){.number = lhs.number / rhs.number};
+			return cane_value_create_number(lhs.number / rhs.number);
 
 		case CANE_SYMBOL_LSHIFT_SCALAR_SCALAR:
-			return (cane_value_t){.number = lhs.number << rhs.number};
+			return cane_value_create_number(lhs.number << rhs.number);
 		case CANE_SYMBOL_RSHIFT_SCALAR_SCALAR:
-			return (cane_value_t){.number = lhs.number >> rhs.number};
+			return cane_value_create_number(lhs.number >> rhs.number);
 
 		case CANE_SYMBOL_LCM_SCALAR_SCALAR:
-			return (cane_value_t){.number = cane_lcm(lhs.number, rhs.number)};
+			return cane_value_create_number(cane_lcm(lhs.number, rhs.number));
 		case CANE_SYMBOL_GCD_SCALAR_SCALAR:
-			return (cane_value_t){.number = cane_gcd(lhs.number, rhs.number)};
+			return cane_value_create_number(cane_gcd(lhs.number, rhs.number));
 
 		case CANE_SYMBOL_INVERT_RHYTHM:
 		case CANE_SYMBOL_REVERSE_RHYTHM:
 		case CANE_SYMBOL_REVERSE_MELODY:
 
 		case CANE_SYMBOL_EUCLIDEAN_SCALAR_SCALAR:
-		case CANE_SYMBOL_CONCATENATE_SCALAR_SCALAR:
 		case CANE_SYMBOL_RANDOM_SCALAR_SCALAR:
-		case CANE_SYMBOL_MAP_MELODY_RHYTHM:
 
 		case CANE_SYMBOL_LSHIFT_MELODY_SCALAR:
 		case CANE_SYMBOL_RSHIFT_MELODY_SCALAR:
+		case CANE_SYMBOL_LSHIFT_RHYTHM_SCALAR:
+		case CANE_SYMBOL_RSHIFT_RHYTHM_SCALAR: {
+			// Rotate vector
+		} break;
 
 		case CANE_SYMBOL_ADD_MELODY_SCALAR:
 		case CANE_SYMBOL_SUB_MELODY_SCALAR:
 		case CANE_SYMBOL_MUL_MELODY_SCALAR:
-		case CANE_SYMBOL_DIV_MELODY_SCALAR:
+		case CANE_SYMBOL_DIV_MELODY_SCALAR: {
+			// Broadcast vector
+		} break;
+
+		case CANE_SYMBOL_MAP_RHYTHM_MELODY:
+		case CANE_SYMBOL_MAP_MELODY_RHYTHM: {
+			// Create sequence
+		} break;
 
 		case CANE_SYMBOL_REPEAT_MELODY_SCALAR:
+		case CANE_SYMBOL_REPEAT_RHYTHM_SCALAR: {
+			// Repeat vector
+		} break;
+
+		case CANE_SYMBOL_CONCATENATE_SCALAR_SCALAR:
 		case CANE_SYMBOL_CONCATENATE_MELODY_MELODY:
-		case CANE_SYMBOL_MAP_RHYTHM_MELODY:
-
-		case CANE_SYMBOL_LSHIFT_RHYTHM_SCALAR:
-		case CANE_SYMBOL_RSHIFT_RHYTHM_SCALAR:
-
-		case CANE_SYMBOL_REPEAT_RHYTHM_SCALAR:
 		case CANE_SYMBOL_CONCATENATE_RHYTHM_RHYTHM:
+		case CANE_SYMBOL_CONCATENATE_SEQUENCE_SEQUENCE: {
+			// Concat vector
+		} break;
 
 		case CANE_SYMBOL_OR_RHYTHM_RHYTHM:
 		case CANE_SYMBOL_XOR_RHYTHM_RHYTHM:
-		case CANE_SYMBOL_AND_RHYTHM_RHYTHM:
-
-		case CANE_SYMBOL_CONCATENATE_SEQUENCE_SEQUENCE:
+		case CANE_SYMBOL_AND_RHYTHM_RHYTHM: {
+			// Vector broadcast
+		} break;
 
 		case CANE_SYMBOL_MUL_SEQUENCE_SCALAR:
 		case CANE_SYMBOL_DIV_SEQUENCE_SCALAR: {
-			CANE_LOG_WARN("%s", CANE_SYMBOL_TO_STR[node->op]);
-			CANE_UNIMPLEMENTED();
+			// Time div/mul on sequences
 		} break;
 
 		default: {

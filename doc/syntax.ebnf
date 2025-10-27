@@ -11,7 +11,7 @@ expression = ident | number | rhythm
 expression = expression '=>' ident
 
 // Concatenation
-expression = expression '.' expression
+expression = expression ',' expression
 
 // Expression
 expression = '(' expression ')'
