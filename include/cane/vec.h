@@ -288,7 +288,7 @@ static cane_vector_t* cane_vector_repeat(cane_vector_t* lhs, size_t n) {
 		return lhs;
 	}
 
-	for (size_t i = 1; i < n + 1; i++) {
+	for (size_t i = 1; i < n; i++) {
 		memcpy(lhs->data + lhs->length * i, lhs->data, lhs->length);
 	}
 

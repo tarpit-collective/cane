@@ -28,7 +28,7 @@ int main(int argc, const char* argv[]) {
 	// 	CANE_ASSERT(i == val, "expected %zd", i);
 	// }
 
-	for (uint8_t i = 1; i <= 6; i++) {
+	for (uint8_t i = 1; i <= 15; i++) {
 		cane_vector_push(&vec1, i);
 	}
 

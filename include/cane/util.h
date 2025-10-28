@@ -55,7 +55,7 @@ static void cane_zero(void* ptr, size_t length) {
 	void* end = ptr + length;
 
 	while (ptr != end) {
-		*((uint8_t*)ptr) = 0;
+		*((uint8_t*)ptr++) = 0;
 	}
 }
 
