@@ -2,6 +2,7 @@
 #define CANE_UTIL_H
 
 #include <stddef.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #include <cane/def.h>
@@ -48,6 +49,14 @@ static void* cane_reallocate(void* ptr, size_t size) {
 	}
 
 	return ptr;
+}
+
+static void cane_zero(void* ptr, size_t length) {
+	void* end = ptr + length;
+
+	while (ptr != end) {
+		*((uint8_t*)ptr) = 0;
+	}
 }
 
 static void cane_free(void* ptr) {
