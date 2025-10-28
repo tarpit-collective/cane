@@ -13,36 +13,38 @@ int main(int argc, const char* argv[]) {
 
 	// cane_vector_t vec2 = cane_vector_create();
 
-	for (uint8_t i = 1; i <= 3; i++) {
+	// for (uint8_t i = 1; i <= 3; i++) {
+	// 	cane_vector_push(&vec1, i);
+	// }
+
+	// uint8_t expected[3] = {1, 2, 3};
+
+	// if (!cane_vector_compare_span(&vec1, 0, 3, expected)) {
+	// 	return EXIT_FAILURE;
+	// }
+
+	// uint8_t val;
+	// for (size_t i = 3; cane_vector_pop(&vec1, &val); i--) {
+	// 	CANE_ASSERT(i == val, "expected %zd", i);
+	// }
+
+	for (uint8_t i = 1; i <= 6; i++) {
 		cane_vector_push(&vec1, i);
 	}
 
-	uint8_t expected[3] = {1, 2, 3};
-
-	if (!cane_vector_compare_span(&vec1, 0, 3, expected)) {
-		return EXIT_FAILURE;
-	}
-
-	uint8_t val;
-	for (size_t i = 3; cane_vector_pop(&vec1, &val); i--) {
-		CANE_ASSERT(i == val, "expected %zd", i);
-	}
-
-	for (uint8_t i = 1; i <= 10; i++) {
-		cane_vector_push(&vec1, i);
-	}
-
-	size_t len = cane_vector_length(&vec1);
 	// cane_vector_rotate_right(&vec1, 3);
 	// cane_vector_rotate(&vec1, 0, 5, cane_vector_length(&vec1));
 
 	// cane_vector_reverse(&vec1);
 
-	cane_vector_sort(&vec1);
+	cane_vector_repeat(&vec1, 2);
+	size_t len = cane_vector_length(&vec1);
 
+	CANE_LOG_INFO("LOL");
 	for (size_t i = 0; i < len; i++) {
 		CANE_LOG_INFO("VAL %d", *cane_vector_at(&vec1, i));
 	}
+	CANE_LOG_INFO("LOL");
 
 	// while (cane_vector_pop(&vec1, &val)) {
 
