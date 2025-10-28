@@ -363,23 +363,23 @@ static uint8_t* cane_vector_reverse(cane_vector_t* vec) {
 	return cane_vector_end(vec);
 }
 
-static int cane_sort_gt(const void* lhs, const void* rhs) {
+static int cane_sort_cmp(const void* lhs, const void* rhs) {
 	int8_t lval = *(uint8_t*)lhs;
 	int8_t rval = *(uint8_t*)rhs;
 
 	return lval - rval;
 }
 
-static int cane_sort_lt(const void* lhs, const void* rhs) {
-	int8_t lval = *(uint8_t*)lhs;
-	int8_t rval = *(uint8_t*)rhs;
+// static int cane_sort_lt(const void* lhs, const void* rhs) {
+// 	int8_t lval = *(uint8_t*)lhs;
+// 	int8_t rval = *(uint8_t*)rhs;
 
-	return lval - rval;
-}
+// 	return lval - rval;
+// }
 
 static void cane_vector_sort(cane_vector_t* vec) {
 	size_t len = cane_vector_length(vec);
-	qsort(vec->data, len, sizeof(uint8_t), cane_sort_gt);
+	qsort(vec->data, len, sizeof(uint8_t), cane_sort_cmp);
 }
 
 #endif
