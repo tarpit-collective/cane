@@ -2,13 +2,13 @@
 
 project(
   'cane',
-  'c',
+  'cpp',
 
   license: 'AGPL-3.0-only',
   version: '1.0',
 
   default_options: [
-    'c_std=c17',
+    'cpp_std=c++26',
     'buildtype=release',
     'strip=true',
     'warning_level=2',  # 3=pedantic
@@ -18,49 +18,38 @@ project(
 
 cane_name = meson.project_name()
 cane_version = meson.project_version()
+
 cane_description = 'MIDI Sequencing Language'
 
 cane_hdr = files(
-  'include/cane/cane.h',
-  'include/cane/def.h',
-  'include/cane/log.h',
-  'include/cane/util.h',
-  'include/cane/str.h',
-  'include/cane/lex.h',
-  'include/cane/parse.h',
+  'include/cane/cane.hpp',
 )
 
 cane_src = files(
-  'src/cane.c',
+  'src/cane.cpp',
 )
 
 cane_inc = include_directories('include/')
 
 cane_deps = []  # Libraries
-cane_opts = []  # C build options
+cane_opts = []  # Build options
 
 meson_opts = []  # Meson options
 
 # Set error limits.
-if meson.get_compiler('c').get_id() == 'clang'
-	add_project_arguments('-ferror-limit=2', language: 'c')
+if meson.get_compiler('cpp').get_id() == 'clang'
+	add_project_arguments('-ferror-limit=2', language: 'cpp')
+	add_project_arguments('-Wno-unused-function', language: 'cpp')
 
-	add_project_arguments('-Wno-unused-function', language: 'c')
-	# add_project_arguments('-Wno-unused-variable', language: 'c')
-	# add_project_arguments('-Wno-unused-parameter', language: 'c')
-
-elif meson.get_compiler('c').get_id() == 'gcc'
-	add_project_arguments('-fmax-errors=2', language: 'c')
-
-	add_project_arguments('-Wno-unused-function', language: 'c')
-	# add_project_arguments('-Wno-unused-variable', language: 'c')
-	# add_project_arguments('-Wno-unused-parameter', language: 'c')
+elif meson.get_compiler('cpp').get_id() == 'gcc'
+	add_project_arguments('-fmax-errors=2', language: 'cpp')
+	add_project_arguments('-Wno-unused-function', language: 'cpp')
 endif
 
 # Sanitizers.
 if get_option('sanitizers')
 	meson_opts += 'b_sanitize=address,undefined'
-	cane_deps += meson.get_compiler('c').find_library('asan', required: true)
+	cane_deps += meson.get_compiler('cpp').find_library('asan', required: true)
 endif
 
 # Build library
@@ -80,12 +69,11 @@ cane = executable(
 # Unit tests
 if not meson.is_subproject()
 	cane_tests = {
-	  'pass': { 'path': 'tests/pass.c', 'environment': [], 'arguments': [], 'should_fail': false },
-	  'fail': { 'path': 'tests/fail.c', 'environment': [], 'arguments': [], 'should_fail': true },
+	  'pass': { 'path': 'tests/pass.cpp', 'environment': [], 'arguments': [], 'should_fail': false },
+	  'fail': { 'path': 'tests/fail.cpp', 'environment': [], 'arguments': [], 'should_fail': true },
 
-	  'die': { 'path': 'tests/die.c', 'environment': [], 'arguments': [], 'should_fail': true },
-	  'assert': { 'path': 'tests/assert.c', 'environment': [], 'arguments': [], 'should_fail': true },
-	  'vec': { 'path': 'tests/vec.c', 'environment': [], 'arguments': [], 'should_fail': false },
+	  'die': { 'path': 'tests/die.cpp', 'environment': [], 'arguments': [], 'should_fail': true },
+	  'assert': { 'path': 'tests/assert.cpp', 'environment': [], 'arguments': [], 'should_fail': true },
 	}
 
 	foreach name, fields: cane_tests

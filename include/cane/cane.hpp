@@ -1,16 +1,12 @@
-#ifndef CANE_H
-#define CANE_H
+#ifndef CANE_HPP
+#define CANE_HPP
 
-#include <stdbool.h>
-
-#include <cane/enum.h>
-#include <cane/def.h>
-#include <cane/log.h>
-#include <cane/util.h>
-#include <cane/vec.h>
-#include <cane/str.h>
-#include <cane/lex.h>
-#include <cane/parse.h>
+#include <cane/enum.hpp>
+#include <cane/macro.hpp>
+#include <cane/log.hpp>
+#include <cane/util.hpp>
+#include <cane/lex.hpp>
+#include <cane/parse.hpp>
 
 //////////////////////
 // AST Printer Pass //
@@ -512,7 +508,7 @@ static cane_value_t cane_pass_evaluator(cane_ast_node_t* node) {
 
 static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node) {
 	if (node == NULL) {
-		return (cane_value_t){};
+		return (cane_value_t) {};
 	}
 
 	cane_location_t loc = node->location;
@@ -627,7 +623,7 @@ static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node) {
 		} break;
 	}
 
-	return (cane_value_t){};
+	return (cane_value_t) {};
 }
 
 #endif

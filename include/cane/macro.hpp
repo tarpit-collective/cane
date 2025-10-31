@@ -1,24 +1,9 @@
-#ifndef CANE_DEF_H
-#define CANE_DEF_H
+#ifndef CANE_MACRO_HPP
+#define CANE_MACRO_HPP
 
-#include <stdbool.h>
+namespace cane {
 
-// Typedefs
-typedef struct cane_status cane_status_t;  // Used for error handling
-
-struct cane_status {
-	bool is_okay;
-};
-
-static cane_status_t cane_okay(void) {
-	return (cane_status_t){.is_okay = true};
-}
-
-static cane_status_t cane_fail(void) {
-	return (cane_status_t){.is_okay = false};
-}
-
-// Unused Macro
+// Mark as unused.
 #define CANE_IMPL_UNUSED0()
 #define CANE_IMPL_UNUSED1(a)          (void)(a)
 #define CANE_IMPL_UNUSED2(a, b)       (void)(a), CANE_IMPL_UNUSED1(b)
@@ -36,7 +21,13 @@ static cane_status_t cane_fail(void) {
 #define CANE_UNUSED(...) \
 	CANE_UNUSED_IMPL(CANE_VA_NUM_ARGS(__VA_ARGS__))(__VA_ARGS__)
 
-// Macro Utils
+// String macros
+#define CANE_CSTR(s \
+) /* Convert c-string into a string_view before decaying to pointer. */ \
+	std::string_view { \
+		s, ((const char*)s) + (sizeof(s) - 1) \
+	}
+
 #define CANE_STR_IMPL_(x) #x
 #define CANE_STR(x)       CANE_STR_IMPL_(x)
 
@@ -45,9 +36,17 @@ static cane_status_t cane_fail(void) {
 
 #define CANE_VAR(x) CANE_CAT(var_, CANE_CAT(x, CANE_CAT(__LINE__, _)))
 
+// Location info
 #define CANE_LINEINFO "[" __FILE__ ":" CANE_STR(__LINE__) "]"
 
+#define CANE_LOCATION_FILE __FILE__
+#define CANE_LOCATION_LINE CANE_STR(__LINE__)
+#define CANE_LOCATION_FUNC __func__
+
+// Utils
 #define CANE_MAX(a, b) ((a > b) ? a : b)
 #define CANE_MIN(a, b) ((a < b) ? a : b)
+
+}  // namespace cane
 
 #endif
