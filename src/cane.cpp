@@ -3,16 +3,29 @@
 #include <cane/lex.hpp>
 
 int main(int, const char*[]) {
-	CANE_LOG(cane::LogKind::Okay, "hello {}!", "jack");
-	CANE_LOG(cane::LogKind::Warn, "hello {}!", "jack");
-	CANE_LOG(cane::LogKind::Fail, "hello {}!", "jack");
-	CANE_LOG(cane::LogKind::Info, "hello {}!", "jack");
+	try {
+		cane::Lexer lx { CANE_CSTR("123 456") };
 
-	CANE_FUNC();
+		do {
+			auto symbol = lx.take();
 
-	CANE_INSPECT(123);
+			if (symbol.has_value()) {
+				auto [kind, sv] = symbol.value();
+				std::println(
+					stderr, "{} {}", cane::symbol_kind_to_str_human(kind), sv
+				);
+			}
 
-	CANE_WHEREAMI();
+			else {
+				std::println(stderr, "no value");
+			}
+		} while (not lx.peek_is_kind(cane::SymbolKind::EndFile));
+	}
 
-	return 0;
+	catch (cane::Fatal e) {
+		std::cerr << e.what();
+		return EXIT_FAILURE;
+	}
+
+	return EXIT_SUCCESS;
 }

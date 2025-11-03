@@ -30,9 +30,25 @@ namespace cane {
 
 	constexpr std::string_view DEFAULT_SYMBOL_SV = "(empty)";
 
-	inline std::ostream& operator<<(std::ostream& os, Symbol s) {
+	consteval std::ostream& operator<<(std::ostream& os, Symbol s) {
 		return (os << "{\"" << s.kind << "\", " << s.sv << "}");
 	}
+}  // namespace cane
+
+// template <>
+// struct std::formatter<cane::Symbol>: std::formatter<string_view> {
+// 	auto format(const cane::Symbol& s, std::format_context& ctx) const {
+// 		std::string tmp;
+
+// 		std::format_to(
+// 			std::back_inserter(tmp), "{{ .kind = {}, .sv = '' }}", s.kind, s.sv
+// 		);
+
+// 		return std::formatter<string_view>::format(tmp, ctx);
+// 	}
+// };
+
+namespace cane {
 
 	// Parser and lexer predicates & other function pointers
 	using CharacterPredicate = bool (*)(char);
@@ -160,24 +176,6 @@ namespace cane {
 		// These functions wrap the basic "str_take" functions and
 		// wrap them into a symbol type/token.
 
-		// TODO: Verify this actually works lol
-		template <typename F>
-		std::optional<Symbol>
-		produce(F producer, SymbolKind kind, CharacterPredicate pred) {
-			auto begin = it;
-
-			if (not producer(pred)) {
-				return std::nullopt;
-			}
-
-			auto end = it;
-
-			return Symbol {
-				.kind = kind,
-				.sv = std::string_view { begin, end },
-			};
-		}
-
 		std::optional<Symbol>
 		produce_if(SymbolKind kind, CharacterPredicate pred) {
 			auto begin = it;
@@ -192,12 +190,6 @@ namespace cane {
 				.kind = kind,
 				.sv = std::string_view { begin, end },
 			};
-
-			// return produce(
-			// 	std::bind(&Lexer::str_take_if, this, std::placeholders::_1),
-			// 	kind,
-			// 	pred
-			// );
 		}
 
 		std::optional<Symbol>
@@ -407,14 +399,14 @@ namespace cane {
 
 		std::optional<Symbol> produce_whitespace() {
 			return produce_while(SymbolKind::Whitespace, [](char c) {
-				return c == '_';
+				return static_cast<bool>(std::isspace(c));
 			});
 		}
 
 		std::optional<Symbol> produce_comment() {
 			auto begin = it;
 
-			if (not str_take_str(CANE_CSTR("#!")) ||
+			if (not str_take_str(CANE_CSTR("#!")) or
 				not str_take_while([](char c) { return c != '\n'; })) {
 				return std::nullopt;
 			}
@@ -488,31 +480,48 @@ namespace cane {
 
 		std::optional<Symbol> take_any(SymbolFixup fixup) {
 			SymbolKind kind = SymbolKind::None;
+			std::string_view sv = DEFAULT_SYMBOL_SV;
 
 			// Handle EOF
-			if (it >= end) {  // Must be >= which means we can't
-							  // use `cane_str_peek`
+			if (it >= end) {
 				kind = SymbolKind::EndFile;
+				sv = DEFAULT_SYMBOL_SV;
 			}
 
 			// Handle normal tokens
-			// TODO: Implement `try_all` style function for chaining a bunch of
-			// failable functions returning an optional. Return the one that
-			// succeeds.
-			auto next =
-				produce_identifier().or_else([&] { return produce_number(); }
-				).or_else([&] {
-					 return produce_sigil();
-				 }).or_else([&] { return produce_quoted(); });
+			else {
+				// TODO: Implement `try_all` style function for chaining a bunch
+				// of failable functions returning an optional. Return the one
+				// that succeeds.
+				auto next = produce_identifier()
+								.or_else([&] { return produce_whitespace(); })
+								.or_else([&] { return produce_comment(); })
+								.or_else([&] { return produce_number(); })
+								.or_else([&] { return produce_sigil(); })
+								.or_else([&] { return produce_quoted(); });
 
-			if (not next.has_value()) {
-				// TODO: Better error/cleanup error API
-				cane::die("unknown charater `{}`!", *it);
+				if (next.has_value()) {
+					kind = next.value().kind;
+					sv = next.value().sv;
+				}
+
+				else {
+					char c = *it;
+
+					cane::die(
+						"unknown character '{}'({})!",
+						c == '\0' ? ' ' : c,
+						static_cast<uint8_t>(c)
+					);
+				}
 			}
 
-			lookahead = next.value();
+			auto out =
+				Symbol { .kind = fixup(lookahead.kind), .sv = lookahead.sv };
 
-			return Symbol { .kind = fixup(kind), .sv = DEFAULT_SYMBOL_SV };
+			lookahead = Symbol { .kind = kind, .sv = sv };
+
+			return out;
 		}
 
 		std::optional<Symbol> take_any() {
@@ -521,13 +530,10 @@ namespace cane {
 
 		// Filter out whitespace and comments.
 		std::optional<Symbol> take(SymbolFixup fixup) {
-			std::optional<Symbol> symbol;
-
-			do {
-				symbol = produce_whitespace().or_else([&] {
-					return produce_comment();
-				});
-			} while (symbol.has_value());
+			while (peek_is_kind(SymbolKind::Whitespace) or
+				   peek_is_kind(SymbolKind::Comment)) {
+				take_any();  // Can't use `discard` here because it's recursive.
+			};
 
 			return take_any(fixup);
 		}
@@ -575,75 +581,6 @@ namespace cane {
 		bool discard_if_kind(SymbolKind kind) {
 			return take_if_kind(kind).has_value();
 		}
-
-		///////////////
-		// Reporting //
-		///////////////
-
-		// 	cane_location_t cane_location_create(Lexer* lx) {
-		// 		return (cane_location_t) {
-		// 			.source = lx->location.source,
-		// 			.symbol = lx->peek.location.symbol,
-		// 		};
-		// 	}
-
-		// 	typedef struct cane_lineinfo cane_lineinfo_t;
-
-		// 	struct cane_lineinfo {
-		// 		size_t line;
-		// 		size_t column;
-		// 	};
-
-		// 	// Calculate line and column.
-		// 	cane_lineinfo_t cane_location_coordinates(cane_location_t location)
-		// { 		cane_lineinfo_t info = (cane_lineinfo_t) { 			.line =
-		// 1, 			.column = 1,
-		// 		};
-
-		// 		std::string_view source = location.source;
-		// 		std::string_view symbol = location.symbol;
-
-		// 		if (!(symbol.begin >= source.begin && symbol.end <= source.end))
-		// { 			CANE_DIE("symbol not in range of source");
-		// 		}
-
-		// 		for (const char* ptr = source.begin; ptr != symbol.end; ptr++) {
-		// 			if (*ptr == '\n') {
-		// 				info.line++;
-		// 				info.column = 0;
-		// 			}
-
-		// 			info.column++;
-		// 		}
-
-		// 		return info;
-		// 	}
-
-		// 	// TODO: Preview of token/line of code where error occured
-		// 	void cane_report_and_die(
-		// 		cane_location_t loc, cane_report_kind_t kind, const char* fmt,
-		// ... 	) { 		cane_lineinfo_t info =
-		// cane_location_coordinates(loc);
-
-		// 		va_list args;
-		// 		va_start(args, fmt);
-
-		// 		fprintf(
-		// 			stderr,
-		// 			"%s%s %s error" CANE_RESET " @ %zu:%zu => ",
-		// 			CANE_LOGLEVEL_COLOUR[CANE_PRIORITY_FAIL],
-		// 			CANE_LOGLEVEL_TO_STR[CANE_PRIORITY_FAIL],
-		// 			CANE_REPORT_KIND_TO_STR_HUMAN[kind],
-		// 			info.line,
-		// 			info.column
-		// 		);
-
-		// 		vfprintf(stderr, fmt, args);
-		// 		fputc('\n', stderr);
-
-		// 		va_end(args);
-		// 		exit(EXIT_FAILURE);
-		// 	}
 	};
 
 }  // namespace cane
