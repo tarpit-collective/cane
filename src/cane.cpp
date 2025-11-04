@@ -1,13 +1,14 @@
 #include <cane/util.hpp>
 #include <cane/log.hpp>
 #include <cane/lex.hpp>
+#include <cane/parse.hpp>
 
 int main(int, const char*[]) {
 	try {
 		cane::Lexer lx { CANE_CSTR("123 456") };
 
 		do {
-			auto symbol = lx.take();
+			auto symbol = lx.take_opt();
 
 			if (symbol.has_value()) {
 				auto [kind, sv] = symbol.value();

@@ -81,7 +81,7 @@ namespace cane {
 		public:
 		Lexer(std::string_view sv):
 				source(sv), it(sv.begin()), end(sv.end()), lookahead() {
-			take();
+			take_opt();
 		}
 
 		// Basic stream interaction
@@ -341,11 +341,11 @@ namespace cane {
 					return produce_str(SymbolKind::Semicolon, CANE_CSTR(";"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Fatarrow, CANE_CSTR("=>"));
+					return produce_str(SymbolKind::FatArrow, CANE_CSTR("=>"));
 				})
 				.or_else([&] {
 					return produce_str(
-						SymbolKind::Wigglearrow, CANE_CSTR("~>")
+						SymbolKind::WiggleArrow, CANE_CSTR("~>")
 					);
 				})
 				.or_else([&] {
@@ -437,7 +437,7 @@ namespace cane {
 		////////////////
 
 		// With fixup
-		std::optional<Symbol> peek(SymbolFixup fixup) {
+		std::optional<Symbol> peek_opt(SymbolFixup fixup) {
 			if (not str_peek()) {
 				return std::nullopt;
 			}
@@ -446,7 +446,7 @@ namespace cane {
 		}
 
 		bool peek_is(SymbolPredicate cond, SymbolFixup fixup) {
-			auto next = peek(fixup);
+			auto next = peek_opt(fixup);
 
 			if (not next or not cond(next.value().kind)) {
 				return false;
@@ -456,7 +456,7 @@ namespace cane {
 		}
 
 		bool peek_is_kind(SymbolKind kind, SymbolFixup fixup) {
-			auto next = peek(fixup);
+			auto next = peek_opt(fixup);
 
 			if (not next or kind != next.value().kind) {
 				return false;
@@ -466,8 +466,8 @@ namespace cane {
 		}
 
 		// Without fixup
-		std::optional<Symbol> peek() {
-			return peek([](auto x) { return x; });
+		std::optional<Symbol> peek_opt() {
+			return peek_opt([](auto x) { return x; });
 		}
 
 		bool peek_is(SymbolPredicate cond) {
@@ -478,7 +478,11 @@ namespace cane {
 			return peek_is_kind(kind, [](auto x) { return x; });
 		}
 
-		std::optional<Symbol> take_any(SymbolFixup fixup) {
+		//////////////
+		// Take Any //
+		//////////////
+
+		std::optional<Symbol> take_any_opt(SymbolFixup fixup) {
 			SymbolKind kind = SymbolKind::None;
 			std::string_view sv = DEFAULT_SYMBOL_SV;
 
@@ -524,62 +528,130 @@ namespace cane {
 			return out;
 		}
 
-		std::optional<Symbol> take_any() {
-			return take_any([](auto x) { return x; });
+		std::optional<Symbol> take_any_opt() {
+			return take_any_opt([](auto x) { return x; });
 		}
+
+		//////////
+		// Take //
+		//////////
 
 		// Filter out whitespace and comments.
-		std::optional<Symbol> take(SymbolFixup fixup) {
+		std::optional<Symbol> take_opt(SymbolFixup fixup) {
 			while (peek_is_kind(SymbolKind::Whitespace) or
 				   peek_is_kind(SymbolKind::Comment)) {
-				take_any();  // Can't use `discard` here because it's recursive.
+				take_any_opt(
+				);  // Can't use `discard` here because it's recursive.
 			};
 
-			return take_any(fixup);
+			return take_any_opt(fixup);
 		}
 
-		std::optional<Symbol> take() {
-			return take([](auto x) { return x; });
+		std::optional<Symbol> take_opt() {
+			return take_opt([](auto x) { return x; });
 		}
 
-		std::optional<Symbol> take_if(SymbolPredicate pred, SymbolFixup fixup) {
-			auto next = peek(fixup);
+		///////////////////////
+		// Take If Predicate //
+		///////////////////////
+
+		std::optional<Symbol>
+		take_if_opt(SymbolPredicate pred, SymbolFixup fixup) {
+			auto next = peek_opt(fixup);
 
 			if (not next or not pred(next.value().kind)) {
 				return std::nullopt;
 			}
 
-			return take(fixup);
+			return take_opt(fixup);
 		}
 
-		std::optional<Symbol> take_if_kind(SymbolKind kind, SymbolFixup fixup) {
-			auto next = peek(fixup);
+		std::optional<Symbol> take_if_opt(SymbolPredicate pred) {
+			return take_if_opt(pred, [](auto x) { return x; });
+		}
+
+		//////////////////
+		// Take If Kind //
+		//////////////////
+
+		std::optional<Symbol>
+		take_if_kind_opt(SymbolKind kind, SymbolFixup fixup) {
+			auto next = peek_opt(fixup);
 
 			if (not next or kind != next.value().kind) {
 				return std::nullopt;
 			}
 
-			return take(fixup);
+			return take_opt(fixup);
 		}
 
-		std::optional<Symbol> take_if(SymbolPredicate pred) {
-			return take_if(pred, [](auto x) { return x; });
+		std::optional<Symbol> take_if_kind_opt(SymbolKind kind) {
+			return take_if_kind_opt(kind, [](auto x) { return x; });
 		}
 
-		std::optional<Symbol> take_if_kind(SymbolKind kind) {
-			return take_if_kind(kind, [](auto x) { return x; });
+		///////////////
+		// Unwrapped //
+		///////////////
+
+		// Peek
+		Symbol peek() {
+			return peek_opt().value();
 		}
+
+		Symbol peek(SymbolFixup fixup) {
+			return peek_opt(fixup).value();
+		}
+
+		// Take Any
+		Symbol take_any() {
+			return take_any_opt().value();
+		}
+
+		Symbol take_any(SymbolFixup fixup) {
+			return take_any_opt(fixup).value();
+		}
+
+		// Take
+		Symbol take() {
+			return take_opt().value();
+		}
+
+		Symbol take(SymbolFixup fixup) {
+			return take_opt(fixup).value();
+		}
+
+		// Take If
+		Symbol take_if(SymbolPredicate pred) {
+			return take_if_opt(pred).value();
+		}
+
+		Symbol take_if(SymbolPredicate pred, SymbolFixup fixup) {
+			return take_if_opt(pred, fixup).value();
+		}
+
+		// Take If Kind
+		Symbol take_if_kind(SymbolKind kind) {
+			return take_if_kind_opt(kind).value();
+		}
+
+		Symbol take_if_kind(SymbolKind kind, SymbolFixup fixup) {
+			return take_if_kind_opt(kind, fixup).value();
+		}
+
+		/////////////
+		// Discard //
+		/////////////
 
 		bool discard() {
-			return take().has_value();
+			return take_opt().has_value();
 		}
 
 		bool discard_if(SymbolPredicate pred) {
-			return take_if(pred).has_value();
+			return take_if_opt(pred).has_value();
 		}
 
 		bool discard_if_kind(SymbolKind kind) {
-			return take_if_kind(kind).has_value();
+			return take_if_kind_opt(kind).has_value();
 		}
 	};
 

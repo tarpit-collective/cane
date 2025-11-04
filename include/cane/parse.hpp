@@ -1,825 +1,661 @@
 #ifndef CANE_PARSE_HPP
 #define CANE_PARSE_HPP
 
+#include <string_view>
+#include <memory>
+#include <variant>
+
 #include <cane/macro.hpp>
 #include <cane/enum.hpp>
 #include <cane/log.hpp>
 #include <cane/util.hpp>
 #include <cane/lex.hpp>
 
-/////////////////
-// Classifiers //
-/////////////////
+namespace cane {
+	//////////////////////
+	// Symbol Remapping //
+	//////////////////////
 
-// Note: these functions use the symbol kind _after_ remapping.
-
-static bool cane_parser_is_literal(cane_symbol_kind_t kind) {
-	return kind == CANE_SYMBOL_NUMBER || kind == CANE_SYMBOL_STRING ||
-		kind == CANE_SYMBOL_REST || kind == CANE_SYMBOL_BEAT;
-}
-
-static bool cane_parser_is_primary(cane_symbol_kind_t kind) {
-	return cane_parser_is_literal(kind) || kind == CANE_SYMBOL_COERCE ||
-		kind == CANE_SYMBOL_FUNCTION || kind == CANE_SYMBOL_IDENTIFIER ||
-		kind == CANE_SYMBOL_LPAREN || kind == CANE_SYMBOL_LAYER;
-}
-
-static bool cane_parser_is_prefix(cane_symbol_kind_t kind) {
-	return kind == CANE_SYMBOL_ABS || kind == CANE_SYMBOL_NEG ||
-		kind == CANE_SYMBOL_INVERT || kind == CANE_SYMBOL_REVERSE;
-}
-
-static bool cane_parser_is_infix(cane_symbol_kind_t kind) {
-	return
-		// Arithmetic
-		kind == CANE_SYMBOL_ADD || kind == CANE_SYMBOL_SUB ||
-		kind == CANE_SYMBOL_MUL || kind == CANE_SYMBOL_DIV ||
-
-		kind == CANE_SYMBOL_LCM || kind == CANE_SYMBOL_GCD ||
-
-		// Misc.
-		kind == CANE_SYMBOL_EUCLIDEAN ||    // Euclide
-		kind == CANE_SYMBOL_REPEAT ||       // Repeat
-		kind == CANE_SYMBOL_MAP ||          // Map
-		kind == CANE_SYMBOL_CONCATENATE ||  // Concatenate
-		kind == CANE_SYMBOL_RANDOM ||       // Random
-
-		// Logic
-		kind == CANE_SYMBOL_OR || kind == CANE_SYMBOL_XOR ||
-		kind == CANE_SYMBOL_AND ||
-
-		// Left/Right Shift
-		kind == CANE_SYMBOL_LSHIFT || kind == CANE_SYMBOL_RSHIFT;
-}
-
-static bool cane_parser_is_postfix(cane_symbol_kind_t kind) {
-	return kind == CANE_SYMBOL_ASSIGN ||  // Assignment
-		kind == CANE_SYMBOL_CALL ||       // Function call
-		kind == CANE_SYMBOL_SEND;         // Send to channel
-}
-
-static bool cane_parser_is_unary(cane_symbol_kind_t kind) {
-	return cane_parser_is_prefix(kind);
-}
-
-static bool cane_parser_is_binary(cane_symbol_kind_t kind) {
-	return cane_parser_is_infix(kind) || cane_parser_is_postfix(kind);
-}
-
-//////////////////////
-// Symbol Remapping //
-//////////////////////
-
-// Remap symbols based on their position.
-// Makes it easier to reason about operator kinds during parsing and when
-// constructing the AST.
+	// Remap symbols based on their position.
+	// Makes it easier to reason about operator kinds during parsing and when
+	// constructing the AST.
 
 #define CANE_SYMBOL_OPFIX \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_AMPERSAND, CANE_SYMBOL_COERCE) \
+	X(OpfixKind::Prefix, SymbolKind::Ampersand, SymbolKind::Coerce) \
 \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_DOT, CANE_SYMBOL_REST) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_EXCLAIM, CANE_SYMBOL_BEAT) \
+	X(OpfixKind::Prefix, SymbolKind::Dot, SymbolKind::Rest) \
+	X(OpfixKind::Prefix, SymbolKind::Exclaim, SymbolKind::Beat) \
 \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_TILDA, CANE_SYMBOL_INVERT) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_QUOTE, CANE_SYMBOL_REVERSE) \
+	X(OpfixKind::Prefix, SymbolKind::Tilda, SymbolKind::Invert) \
+	X(OpfixKind::Prefix, SymbolKind::Quote, SymbolKind::Reverse) \
 \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_ADD, CANE_SYMBOL_ABS) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_SUB, CANE_SYMBOL_NEG) \
+	X(OpfixKind::Prefix, SymbolKind::Add, SymbolKind::Abs) \
+	X(OpfixKind::Prefix, SymbolKind::Sub, SymbolKind::Neg) \
 \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_BACKSLASH, CANE_SYMBOL_FUNCTION) \
-	X(CANE_OPFIX_PREFIX, CANE_SYMBOL_LBRACKET, CANE_SYMBOL_LAYER) \
+	X(OpfixKind::Prefix, SymbolKind::Backslash, SymbolKind::Function) \
+	X(OpfixKind::Prefix, SymbolKind::LeftBracket, SymbolKind::Layer) \
 \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COLON, CANE_SYMBOL_EUCLIDEAN) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_STARS, CANE_SYMBOL_REPEAT) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_AT, CANE_SYMBOL_MAP) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_COMMA, CANE_SYMBOL_CONCATENATE) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_QUESTION, CANE_SYMBOL_RANDOM) \
+	X(OpfixKind::Infix, SymbolKind::Colon, SymbolKind::Euclidean) \
+	X(OpfixKind::Infix, SymbolKind::Stars, SymbolKind::Repeat) \
+	X(OpfixKind::Infix, SymbolKind::At, SymbolKind::Map) \
+	X(OpfixKind::Infix, SymbolKind::Comma, SymbolKind::Concatenate) \
+	X(OpfixKind::Infix, SymbolKind::Question, SymbolKind::Random) \
 \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_LCHEVRON, CANE_SYMBOL_LSHIFT) \
-	X(CANE_OPFIX_INFIX, CANE_SYMBOL_RCHEVRON, CANE_SYMBOL_RSHIFT) \
+	X(OpfixKind::Infix, SymbolKind::LeftChevron, SymbolKind::LeftShift) \
+	X(OpfixKind::Infix, SymbolKind::RightChevron, SymbolKind::RightShift) \
 \
-	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_FATARROW, CANE_SYMBOL_ASSIGN) \
-	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_WIGGLEARROW, CANE_SYMBOL_SEND) \
-	X(CANE_OPFIX_POSTFIX, CANE_SYMBOL_LPAREN, CANE_SYMBOL_CALL)
+	X(OpfixKind::Postfix, SymbolKind::FatArrow, SymbolKind::Assign) \
+	X(OpfixKind::Postfix, SymbolKind::WiggleArrow, SymbolKind::Send) \
+	X(OpfixKind::Postfix, SymbolKind::LeftParen, SymbolKind::Call)
 
-static cane_symbol_kind_t
-cane_fix_symbol(cane_opfix_kind_t opfix, cane_symbol_kind_t kind) {
+	constexpr SymbolKind cane_fix_symbol(OpfixKind opfix, SymbolKind kind) {
 #define X(o, f, t) \
 	if (o == opfix && f == kind) { \
 		return t; \
 	}
 
-	CANE_SYMBOL_OPFIX;
-	return kind;
-
+		CANE_SYMBOL_OPFIX;
+		return kind;
 #undef X
-}
-
-// Wrappers so we can pass them directly to various lexer utility functions.
-static cane_symbol_kind_t cane_fix_prefix_symbol(cane_symbol_kind_t kind) {
-	return cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
-}
-
-static cane_symbol_kind_t cane_fix_infix_symbol(cane_symbol_kind_t kind) {
-	return cane_fix_symbol(CANE_OPFIX_INFIX, kind);
-}
-
-static cane_symbol_kind_t cane_fix_postfix_symbol(cane_symbol_kind_t kind) {
-	return cane_fix_symbol(CANE_OPFIX_POSTFIX, kind);
-}
-
-static cane_symbol_kind_t cane_fix_unary_symbol(cane_symbol_kind_t kind) {
-	return cane_fix_symbol(CANE_OPFIX_PREFIX, kind);
-}
-
-static cane_symbol_kind_t cane_fix_binary_symbol(cane_symbol_kind_t kind) {
-	kind = cane_fix_symbol(CANE_OPFIX_INFIX, kind);
-	kind = cane_fix_symbol(CANE_OPFIX_POSTFIX, kind);
-
-	return kind;
-}
-
-/////////////////////////////////////////
-// Binding Power / Operator Precedence //
-/////////////////////////////////////////
-
-typedef struct cane_binding_power cane_binding_power_t;
-
-struct cane_binding_power {
-	size_t lbp;
-	size_t rbp;
-};
-
-static cane_binding_power_t cane_parser_binding_power(cane_symbol_kind_t kind) {
-	cane_binding_power_t bp = (cane_binding_power_t) {
-		.lbp = 0,
-		.rbp = 0,
-	};
-
-	// TODO: Combine this with symbol definition X macros aswell as remapping
-	// macros
-
-	// clang-format off
-
-#define CANE_BINDING_POWERS \
-	X(CANE_SYMBOL_CALL,        1, 2) \
-	X(CANE_SYMBOL_ASSIGN,      2, 3) \
-\
-	X(CANE_SYMBOL_OR,          3, 4) \
-	X(CANE_SYMBOL_AND,         3, 4) \
-	X(CANE_SYMBOL_XOR,         3, 4) \
-	X(CANE_SYMBOL_REPEAT,      3, 4) \
-	X(CANE_SYMBOL_LSHIFT,      3, 4) \
-	X(CANE_SYMBOL_RSHIFT,      3, 4) \
-\
-	X(CANE_SYMBOL_MAP,         4, 5) \
-\
-	X(CANE_SYMBOL_CONCATENATE, 5, 6) \
-\
-	X(CANE_SYMBOL_INVERT,      6, 6) \
-	X(CANE_SYMBOL_REVERSE,     6, 6) \
-\
-	X(CANE_SYMBOL_ADD,         7, 8) \
-	X(CANE_SYMBOL_SUB,         7, 8) \
-\
-	X(CANE_SYMBOL_MUL,         8, 9) \
-	X(CANE_SYMBOL_DIV,         8, 9) \
-\
-	X(CANE_SYMBOL_EUCLIDEAN,   9, 10) \
-\
-	X(CANE_SYMBOL_LCM,         10, 11) \
-	X(CANE_SYMBOL_GCD,         10, 11) \
-\
-	X(CANE_SYMBOL_RANDOM,      11, 12) \
-\
-	X(CANE_SYMBOL_ABS,         12, 12) \
-	X(CANE_SYMBOL_NEG,         12, 12)
-
-	// clang-format on
-
-#define X(symbol, lbp, rbp) \
-	case symbol: bp = (cane_binding_power_t) { lbp, rbp }; break;
-
-	switch (kind) {
-		CANE_BINDING_POWERS;
-
-		default: {
-			CANE_DIE("no binding power for `%s`", CANE_SYMBOL_TO_STR[kind]);
-		} break;
 	}
 
-	return bp;
+	// Wrappers so we can pass them directly to various lexer utility functions.
+	constexpr SymbolKind cane_fix_prefix_symbol(SymbolKind kind) {
+		return cane_fix_symbol(OpfixKind::Prefix, kind);
+	}
+
+	constexpr SymbolKind cane_fix_infix_symbol(SymbolKind kind) {
+		return cane_fix_symbol(OpfixKind::Infix, kind);
+	}
+
+	constexpr SymbolKind cane_fix_postfix_symbol(SymbolKind kind) {
+		return cane_fix_symbol(OpfixKind::Postfix, kind);
+	}
+
+	constexpr SymbolKind cane_fix_unary_symbol(SymbolKind kind) {
+		return cane_fix_symbol(OpfixKind::Prefix, kind);
+	}
+
+	constexpr SymbolKind cane_fix_binary_symbol(SymbolKind kind) {
+		kind = cane_fix_symbol(OpfixKind::Infix, kind);
+		kind = cane_fix_symbol(OpfixKind::Postfix, kind);
+
+		return kind;
+	}
+
+	/////////////////////////////////////////
+	// Binding Power / Operator Precedence //
+	/////////////////////////////////////////
+
+	constexpr std::pair<size_t, size_t> binding_power(SymbolKind kind) {
+		// TODO: Combine this with symbol definition X macros aswell as
+		// remapping macros
+
+		// clang-format off
+
+#define CANE_BINDING_POWERS \
+	X(SymbolKind::Call,        1, 2) \
+	X(SymbolKind::Assign,      2, 3) \
+\
+	X(SymbolKind::Or,          3, 4) \
+	X(SymbolKind::And,         3, 4) \
+	X(SymbolKind::Xor,         3, 4) \
+	X(SymbolKind::Repeat,      3, 4) \
+	X(SymbolKind::LeftShift,   3, 4) \
+	X(SymbolKind::RightShift,  3, 4) \
+\
+	X(SymbolKind::Map,         4, 5) \
+\
+	X(SymbolKind::Concatenate, 5, 6) \
+\
+	X(SymbolKind::Invert,      6, 6) \
+	X(SymbolKind::Reverse,     6, 6) \
+\
+	X(SymbolKind::Add,         7, 8) \
+	X(SymbolKind::Sub,         7, 8) \
+\
+	X(SymbolKind::Mul,         8, 9) \
+	X(SymbolKind::Div,         8, 9) \
+\
+	X(SymbolKind::Euclidean,   9, 10) \
+\
+	X(SymbolKind::LCM,         10, 11) \
+	X(SymbolKind::GCD,         10, 11) \
+\
+	X(SymbolKind::Random,      11, 12) \
+\
+	X(SymbolKind::Abs,         12, 12) \
+	X(SymbolKind::Neg,         12, 12)
+
+		// clang-format on
+
+#define X(symbol, lbp, rbp) \
+	case symbol: return { lbp, rbp }; break;
+
+		switch (kind) {
+			CANE_BINDING_POWERS;
+
+			default: {
+				CANE_UNREACHABLE();
+			} break;
+		}
+
+		return { 0, 0 };
 
 #undef X
 #undef CANE_BINDING_POWERS
-}
+	}
 
-/////////
-// AST //
-/////////
+	/////////
+	// AST //
+	/////////
 
-typedef struct cane_value cane_value_t;
-typedef struct cane_ast_node cane_ast_node_t;
+	struct ASTNode {
+		using Ptr = std::shared_ptr<ASTNode>;
+		using Binary = std::pair<Ptr, Ptr>;
 
-struct cane_value {
-	union {
-		cane_vector_t* list;
-		cane_string_view_t string;
-		int number;
+		SymbolKind kind;
+		TypeKind type;
+
+		Ptr lhs;
+		Ptr rhs;
+
+		std::
+			variant<std::monostate, std::string_view, int, std::vector<uint8_t>>
+				value;
+
+		ASTNode(SymbolKind kind_, TypeKind type_):
+				kind(kind_),
+				type(type_),
+				lhs(nullptr),
+				rhs(nullptr),
+				value(std::monostate {}) {}
+
+		ASTNode(SymbolKind kind_, int number):
+				kind(kind_),
+				type(TypeKind::Scalar),
+				lhs(nullptr),
+				rhs(nullptr),
+				value(number) {}
+
+		ASTNode(SymbolKind kind_, std::string_view sv):
+				kind(kind_),
+				type(TypeKind::String),
+				lhs(nullptr),
+				rhs(nullptr),
+				value(sv) {}
+
+		ASTNode(SymbolKind kind_, TypeKind type_, std::vector<uint8_t> vec):
+				kind(kind_),
+				type(type_),
+				lhs(nullptr),
+				rhs(nullptr),
+				value(vec) {}
+
+		ASTNode(SymbolKind kind_, TypeKind type_, Ptr lhs_, Ptr rhs_):
+				kind(kind_),
+				type(type_),
+				lhs(lhs_),
+				rhs(rhs_),
+				value(std::monostate {}) {}
+
+		ASTNode(SymbolKind kind_, TypeKind type_, Ptr node):
+				kind(kind_),
+				type(type_),
+				lhs(nullptr),
+				rhs(node),
+				value(std::monostate {}) {}
 	};
-};
 
-static cane_value_t cane_value_create_number(int number) {
-	return (cane_value_t) {
-		.number = number,
-	};
-}
+	////////////
+	// PARSER //
+	////////////
 
-static cane_value_t cane_value_create_string(cane_string_view_t string) {
-	return (cane_value_t) {
-		.string = string,
-	};
-}
+	class Parser {
+		private:
+		Lexer lx;
 
-static cane_value_t cane_value_create_list(cane_vector_t* list) {
-	return (cane_value_t) {
-		.list = list,
-	};
-}
+		public:
+		Parser(std::string_view sv): lx(sv) {}
 
-struct cane_ast_node {
-	cane_symbol_kind_t kind;
-	cane_symbol_kind_t op;
+		/////////////////
+		// Classifiers //
+		/////////////////
 
-	cane_type_kind_t type;
-	cane_location_t location;
+		// Note: these functions use the symbol kind _after_ remapping.
 
-	union {
-		struct {
-			cane_ast_node_t* lhs;
-			cane_ast_node_t* rhs;
-		};
+		constexpr bool is_literal(SymbolKind kind) {
+			return eq_any(
+				kind,
+				SymbolKind::Number,
+				SymbolKind::String,
 
-		cane_value_t value;
-	};
-};
-
-static cane_ast_node_t* cane_ast_node_create_number(
-	cane_symbol_kind_t kind,
-	cane_type_kind_t type,
-	int number,
-	cane_location_t loc
-) {
-	cane_ast_node_t* node = cane_allocate(sizeof(cane_ast_node_t));
-
-	node->kind = kind;
-	node->type = type;
-
-	node->location = loc;
-	node->value.number = number;
-
-	return node;
-}
-
-static cane_ast_node_t* cane_ast_node_create_string(
-	cane_symbol_kind_t kind,
-	cane_type_kind_t type,
-	cane_string_view_t string,
-	cane_location_t loc
-) {
-	cane_ast_node_t* node = cane_allocate(sizeof(cane_ast_node_t));
-
-	node->kind = kind;
-	node->type = type;
-
-	node->location = loc;
-	node->value.string = string;
-
-	return node;
-}
-
-static cane_ast_node_t* cane_ast_node_create_list(
-	cane_symbol_kind_t kind,
-	cane_type_kind_t type,
-	cane_vector_t* list,
-	cane_location_t loc
-) {
-	cane_ast_node_t* node = cane_allocate(sizeof(cane_ast_node_t));
-
-	node->kind = kind;
-	node->type = type;
-
-	node->location = loc;
-	node->value.list = list;
-
-	return node;
-}
-
-static cane_ast_node_t* cane_ast_node_create_binary(
-	cane_symbol_kind_t kind,
-	cane_type_kind_t type,
-	cane_ast_node_t* lhs,
-	cane_ast_node_t* rhs,
-	cane_location_t loc
-) {
-	cane_ast_node_t* node = cane_allocate(sizeof(cane_ast_node_t));
-
-	node->kind = kind;
-	node->type = type;
-
-	node->location = loc;
-
-	node->lhs = lhs;
-	node->rhs = rhs;
-
-	return node;
-}
-
-static cane_ast_node_t* cane_ast_node_create_unary(
-	cane_symbol_kind_t kind,
-	cane_type_kind_t type,
-	cane_ast_node_t* node,
-	cane_location_t loc
-) {
-	return cane_ast_node_create_binary(kind, type, NULL, node, loc);
-}
-
-static cane_ast_node_t* cane_ast_node_create(
-	cane_symbol_kind_t kind, cane_type_kind_t type, cane_location_t loc
-) {
-	return cane_ast_node_create_binary(kind, type, NULL, NULL, loc);
-}
-
-////////////
-// PARSER //
-////////////
-
-// Primary call that sets up lexer and context automatically.
-static cane_ast_node_t* cane_parse(cane_string_view_t sv);
-
-// Core
-static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx);
-static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t bp);
-
-//////////////////////
-// PARSER FUNCTIONS //
-//////////////////////
-
-static cane_ast_node_t* cane_parse(cane_string_view_t sv) {
-	CANE_FUNCTION_ENTER();
-
-	cane_lexer_t lx = cane_lexer_create(sv);
-	return cane_parse_program(&lx);
-}
-
-// Core parsing functions
-static cane_ast_node_t* cane_parse_program(cane_lexer_t* lx) {
-	cane_symbol_t symbol = cane_symbol_create_default();
-	cane_ast_node_t* root = NULL;
-
-	while (!cane_lexer_peek_is_kind(lx, CANE_SYMBOL_ENDFILE, &symbol, NULL)) {
-		cane_ast_node_t* node = cane_parse_expression(lx, 0);
-
-		cane_ast_node_t* concat = cane_ast_node_create_binary(
-			CANE_SYMBOL_STATEMENT, CANE_TYPE_NONE, node, root, symbol.location
-		);
-
-		root = concat;
-
-		// Statements must be terminated by a semicolon unless they are EOF.
-		if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_SEMICOLON) &&
-			!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ENDFILE)) {
-			cane_symbol_t peek;
-			cane_lexer_peek(lx, &peek, NULL);
-
-			cane_report_and_die(
-				peek.location, CANE_REPORT_SYNTAX, "expected `;`"
-			);
-		}
-	}
-
-	if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ENDFILE)) {
-		cane_report_and_die(
-			cane_location_create(lx), CANE_REPORT_SYNTAX, "expected end of file"
-		);
-	}
-
-	return root;
-}
-
-// Expression parsing
-
-static bool
-cane_parse_type_annotation(cane_lexer_t* lx, cane_type_kind_t* type) {
-	if (cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ANNOTATION_NUMBER)) {
-		*type = CANE_TYPE_SCALAR;
-		return true;
-	}
-
-	else if (cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ANNOTATION_STRING)) {
-		*type = CANE_TYPE_STRING;
-		return true;
-	}
-
-	else if (cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ANNOTATION_RHYTHM)) {
-		*type = CANE_TYPE_RHYTHM;
-		return true;
-	}
-
-	else if (cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ANNOTATION_MELODY)) {
-		*type = CANE_TYPE_MELODY;
-		return true;
-	}
-
-	else if (cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ANNOTATION_SEQUENCE)) {
-		*type = CANE_TYPE_SEQUENCE;
-		return true;
-	}
-
-	else if (cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ANNOTATION_PATTERN)) {
-		*type = CANE_TYPE_PATTERN;
-		return true;
-	}
-
-	*type = CANE_TYPE_NONE;
-	return false;
-}
-
-static bool cane_parse_type(cane_lexer_t* lx, cane_type_kind_t* type) {
-	if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_ARROW)) {
-		return false;
-	}
-
-	if (!cane_parse_type_annotation(lx, type)) {
-		return false;
-	}
-
-	return true;
-}
-
-static cane_ast_node_t*
-cane_parse_primary(cane_lexer_t* lx, cane_symbol_t symbol) {
-	CANE_FUNCTION_ENTER();
-
-	switch (symbol.kind) {
-		// Literals
-		case CANE_SYMBOL_IDENTIFIER: {
-			cane_lexer_discard(lx);
-			return cane_ast_node_create(
-				symbol.kind, CANE_TYPE_NONE, symbol.location
+				SymbolKind::Rest,
+				SymbolKind::Beat
 			);
 		}
 
-		case CANE_SYMBOL_STRING: {
-			cane_lexer_discard(lx);
-			return cane_ast_node_create(
-				symbol.kind, CANE_TYPE_STRING, symbol.location
+		constexpr bool is_primary(SymbolKind kind) {
+			return is_literal(kind) or
+				eq_any(kind,
+					   SymbolKind::Coerce,
+					   SymbolKind::Function,
+					   SymbolKind::Identifier,
+					   SymbolKind::LeftParen,
+					   SymbolKind::Layer);
+		}
+
+		constexpr bool is_prefix(SymbolKind kind) {
+			return eq_any(
+				kind,
+				SymbolKind::Abs,
+				SymbolKind::Neg,
+				SymbolKind::Invert,
+				SymbolKind::Reverse
 			);
 		}
 
-		case CANE_SYMBOL_NUMBER: {
-			cane_symbol_t number;
-			cane_lexer_take(lx, &number, NULL);
+		constexpr bool is_infix(SymbolKind kind) {
+			return eq_any(
+				kind,
+				// Arithmetic
+				SymbolKind::Add,
+				SymbolKind::Sub,
+				SymbolKind::Mul,
+				SymbolKind::Div,
 
-			cane_ast_node_t* root = cane_ast_node_create_number(
-				symbol.kind,
-				CANE_TYPE_SCALAR,
-				cane_string_view_to_int(number.location.symbol),
-				symbol.location
+				SymbolKind::LCM,
+				SymbolKind::GCD,
+
+				// Misc.
+				SymbolKind::Euclidean,    // Euclide
+				SymbolKind::Repeat,       // Repeat
+				SymbolKind::Map,          // Map
+				SymbolKind::Concatenate,  // Concatenate
+				SymbolKind::Random,       // Random
+
+				// Logic
+				SymbolKind::Or,
+				SymbolKind::Xor,
+				SymbolKind::And,
+
+				// Left/Right Shift
+				SymbolKind::LeftShift,
+				SymbolKind::RightShift
 			);
+		}
 
-			// TODO: Parse adjacent numbers as a melody.
-			while (
-				cane_lexer_peek_is_kind(lx, CANE_SYMBOL_NUMBER, &symbol, NULL)
-			) {
-				// TODO: Create vector of melody values
-				cane_lexer_take(lx, &number, NULL);
+		constexpr bool is_postfix(SymbolKind kind) {
+			return eq_any(
+				kind,
+				SymbolKind::Assign,  // Assignment
+				SymbolKind::Call,    // Function call
+				SymbolKind::Send     // Send to channel
+			);
+		}
+
+		constexpr bool is_unary(SymbolKind kind) {
+			return is_prefix(kind);
+		}
+
+		constexpr bool is_binary(SymbolKind kind) {
+			return is_infix(kind) or is_postfix(kind);
+		}
+
+		//////////////////////
+		// PARSER FUNCTIONS //
+		//////////////////////
+
+		// Core parsing functions
+		std::shared_ptr<ASTNode> parse() {
+			std::shared_ptr<ASTNode> root = nullptr;
+
+			while (not lx.peek_is_kind(SymbolKind::EndFile)) {
+				std::shared_ptr<ASTNode> node = expression(0);
+
+				std::shared_ptr<ASTNode> concat = std::make_shared<ASTNode>(
+					SymbolKind::Statement, TypeKind::None, node, root
+				);
+
+				root = concat;
+
+				// Statements must be terminated by a semicolon unless they are
+				// EOF.
+				if (not lx.discard_if_kind(SymbolKind::Semicolon) and
+					not lx.discard_if_kind(SymbolKind::EndFile)) {
+					cane::die("expected `;`");
+				}
+			}
+
+			if (not lx.discard_if_kind(SymbolKind::EndFile)) {
+				cane::die("expected end of file");
 			}
 
 			return root;
 		}
 
-		// Literals (Implicit Concat)
-		case CANE_SYMBOL_BEAT:
-		case CANE_SYMBOL_REST: {
-			cane_lexer_discard(lx);
-
-			cane_vector_t* list = NULL;
-
-			cane_ast_node_t* rhythm = cane_ast_node_create_list(
-				CANE_SYMBOL_RHYTHM, CANE_TYPE_RHYTHM, list, symbol.location
-			);
-
-			while (cane_lexer_peek_is_kind(
-					   lx, CANE_SYMBOL_BEAT, &symbol, cane_fix_unary_symbol
-				   ) ||
-				   cane_lexer_peek_is_kind(
-					   lx, CANE_SYMBOL_REST, &symbol, cane_fix_unary_symbol
-				   )) {
-				// TODO: Create vector of rhythm values.
-				cane_lexer_take(lx, &symbol, cane_fix_unary_symbol);
+		// Expression parsing
+		std::optional<TypeKind> type_annotation() {
+			if (lx.discard_if_kind(SymbolKind::AnnotationNumber)) {
+				return TypeKind::Scalar;
 			}
 
-			return rhythm;
-		} break;
-
-		// Melody Coercion (Convert a single scalar to a melody)
-		case CANE_SYMBOL_COERCE: {
-			cane_lexer_discard(lx);  // Skip `&`
-			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
-
-			return cane_ast_node_create_unary(
-				CANE_SYMBOL_COERCE, CANE_TYPE_MELODY, expr, symbol.location
-			);
-		} break;
-
-		case CANE_SYMBOL_LPAREN: {
-			cane_lexer_discard(lx);  // Skip `(`
-			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
-
-			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RPAREN)) {
-				cane_report_and_die(
-					cane_location_create(lx), CANE_REPORT_SYNTAX, "expected `)`"
-				);
+			else if (lx.discard_if_kind(SymbolKind::AnnotationString)) {
+				return TypeKind::String;
 			}
 
-			return expr;
-		} break;
-
-		case CANE_SYMBOL_LAYER: {
-			cane_lexer_discard(lx);  // Skip `[`
-			cane_ast_node_t* root = NULL;
-
-			// Need at least one expression.
-			do {
-				cane_ast_node_t* node = cane_parse_expression(lx, 0);
-
-				cane_ast_node_t* layer = cane_ast_node_create_binary(
-					CANE_SYMBOL_LAYER,
-					CANE_TYPE_NONE,
-					node,
-					root,
-					symbol.location
-				);
-
-				root = layer;
-
-				cane_lexer_discard_if_kind(lx, CANE_SYMBOL_COMMA);
-			} while (!cane_lexer_peek_is_kind(
-				lx, CANE_SYMBOL_RBRACKET, &symbol, NULL
-			));
-
-			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RBRACKET)) {
-				cane_report_and_die(
-					cane_location_create(lx), CANE_REPORT_SYNTAX, "expected `]`"
-				);
+			else if (lx.discard_if_kind(SymbolKind::AnnotationRhythm)) {
+				return TypeKind::Rhythm;
 			}
 
-			return root;
-		} break;
-
-		case CANE_SYMBOL_FUNCTION: {
-			cane_lexer_discard(lx);  // Skip `\`
-
-			// Parameter
-			cane_symbol_t ident;
-			if (!cane_lexer_take_if_kind(
-					lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
-				)) {
-				cane_report_and_die(
-					cane_location_create(lx),
-					CANE_REPORT_SYNTAX,
-					"expected an identifier"
-				);
+			else if (lx.discard_if_kind(SymbolKind::AnnotationMelody)) {
+				return TypeKind::Melody;
 			}
 
-			cane_ast_node_t* param = cane_ast_node_create(
-				CANE_SYMBOL_IDENTIFIER, CANE_TYPE_NONE, ident.location
-			);
-
-			// Parameter type
-			if (!cane_parse_type(lx, &param->type)) {
-				cane_report_and_die(
-					param->location,
-					CANE_REPORT_SYNTAX,
-					"expected a type annotation"
-				);
+			else if (lx.discard_if_kind(SymbolKind::AnnotationSequence)) {
+				return TypeKind::Sequence;
 			}
 
-			// Reset binding power and parse body
-			cane_ast_node_t* body = cane_parse_expression(lx, 0);
-
-			// Body type
-			if (!cane_parse_type(lx, &body->type)) {
-				cane_report_and_die(
-					param->location,
-					CANE_REPORT_SYNTAX,
-					"expected a type annotation"
-				);
+			else if (lx.discard_if_kind(SymbolKind::AnnotationPattern)) {
+				return TypeKind::Pattern;
 			}
 
-			cane_ast_node_t* fn = cane_ast_node_create(
-				CANE_SYMBOL_FUNCTION, body->type, ident.location
-			);
-
-			fn->lhs = param;
-			fn->rhs = body;
-
-			return fn;
-		} break;
-
-		default: break;
-	}
-
-	cane_report_and_die(
-		cane_location_create(lx),
-		CANE_REPORT_SYNTAX,
-		"expected a primary expression"
-	);
-
-	return NULL;
-}
-
-static cane_ast_node_t*
-cane_parse_prefix(cane_lexer_t* lx, cane_symbol_t symbol, size_t bp) {
-	CANE_FUNCTION_ENTER();
-
-	// We need to call this function directly instead of using something like
-	// `cane_lexer_discard_if` because we have fixed up the symbol earlier and
-	// peeking again would return the incorrect/lexical token kind instead.
-	if (!cane_parser_is_prefix(symbol.kind)) {
-		cane_report_and_die(
-			cane_location_create(lx),
-			CANE_REPORT_SYNTAX,
-			"expected a prefix operator"
-		);
-	}
-
-	cane_lexer_discard(lx);
-	cane_ast_node_t* expr = cane_parse_expression(lx, bp);
-
-	return cane_ast_node_create_unary(
-		symbol.kind, CANE_TYPE_NONE, expr, symbol.location
-	);
-}
-
-static cane_ast_node_t* cane_parse_infix(
-	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs, size_t bp
-) {
-	CANE_FUNCTION_ENTER();
-
-	if (!cane_parser_is_infix(symbol.kind)) {
-		cane_report_and_die(
-			cane_location_create(lx),
-			CANE_REPORT_SYNTAX,
-			"expected an infix operator"
-		);
-	}
-
-	cane_lexer_discard(lx);
-
-	cane_ast_node_t* rhs = cane_parse_expression(lx, bp);
-
-	return cane_ast_node_create_binary(
-		symbol.kind, CANE_TYPE_NONE, lhs, rhs, symbol.location
-	);
-}
-
-static cane_ast_node_t* cane_parse_postfix(
-	cane_lexer_t* lx, cane_symbol_t symbol, cane_ast_node_t* lhs
-) {
-	CANE_FUNCTION_ENTER();
-
-	if (!cane_parser_is_postfix(symbol.kind)) {
-		cane_report_and_die(
-			cane_location_create(lx),
-			CANE_REPORT_SYNTAX,
-			"expected a postfix operator"
-		);
-	}
-
-	cane_ast_node_t* node = cane_ast_node_create_binary(
-		symbol.kind, CANE_TYPE_NONE, lhs, NULL, symbol.location
-	);
-
-	cane_lexer_discard(lx);
-
-	// Assignment is a bit special in that it has a parameter in the form of an
-	// identifier to bind the expression's value to.
-	switch (symbol.kind) {
-		case CANE_SYMBOL_ASSIGN: {
-			cane_symbol_t ident;
-
-			if (!cane_lexer_take_if_kind(
-					lx, CANE_SYMBOL_IDENTIFIER, &ident, NULL
-				)) {
-				cane_report_and_die(
-					cane_location_create(lx),
-					CANE_REPORT_SYNTAX,
-					"expected an identifier"
-				);
-			}
-
-			node->rhs = cane_ast_node_create(
-				CANE_SYMBOL_IDENTIFIER, CANE_TYPE_NONE, ident.location
-			);
-		} break;
-
-		case CANE_SYMBOL_SEND: {
-			cane_symbol_t channel;
-
-			if (!cane_lexer_take_if_kind(
-					lx, CANE_SYMBOL_STRING, &channel, NULL
-				)) {
-				cane_report_and_die(
-					cane_location_create(lx),
-					CANE_REPORT_SYNTAX,
-					"expected a string"
-				);
-			}
-
-			node->rhs = cane_ast_node_create(
-				CANE_SYMBOL_SEND, CANE_TYPE_NONE, channel.location
-			);
-		} break;
-
-		case CANE_SYMBOL_CALL: {
-			cane_ast_node_t* expr = cane_parse_expression(lx, 0);
-
-			if (!cane_lexer_discard_if_kind(lx, CANE_SYMBOL_RPAREN)) {
-				cane_report_and_die(
-					node->location, CANE_REPORT_SYNTAX, "expecting `)`"
-				);
-			}
-
-			node->rhs = expr;
+			return std::nullopt;
 		}
 
-		default: break;
-	}
+		std::optional<TypeKind> type() {
+			if (not lx.discard_if_kind(SymbolKind::Arrow)) {
+				return std::nullopt;
+			}
 
-	return node;
-}
-
-static cane_ast_node_t* cane_parse_expression(cane_lexer_t* lx, size_t min_bp) {
-	CANE_FUNCTION_ENTER();
-
-	cane_ast_node_t* node = NULL;
-
-	cane_symbol_t symbol;
-	cane_lexer_peek(lx, &symbol, cane_fix_unary_symbol);
-
-	if (cane_parser_is_primary(symbol.kind)) {
-		node = cane_parse_primary(lx, symbol);
-	}
-
-	else if (cane_parser_is_prefix(symbol.kind)) {
-		size_t rbp = cane_parser_binding_power(symbol.kind).rbp;
-		node = cane_parse_prefix(lx, symbol, rbp);
-	}
-
-	else {
-		cane_report_and_die(
-			cane_location_create(lx),
-			CANE_REPORT_SYNTAX,
-			"expected a primary expression or a prefix operator"
-		);
-	}
-
-	// State has changed since we called prefix/primary parser functions
-	// so we need to peek again.
-	cane_lexer_peek(lx, &symbol, cane_fix_binary_symbol);
-
-	while (cane_parser_is_infix(symbol.kind) ||
-		   cane_parser_is_postfix(symbol.kind)) {
-		cane_binding_power_t binding_power =
-			cane_parser_binding_power(symbol.kind);
-
-		if (binding_power.lbp < min_bp) {
-			break;
+			return type_annotation();
 		}
 
-		if (cane_parser_is_postfix(symbol.kind)) {
-			node = cane_parse_postfix(lx, symbol, node);
+		std::shared_ptr<ASTNode> primary(Symbol symbol) {
+			switch (symbol.kind) {
+				// Literals
+				case SymbolKind::Identifier: {
+					lx.discard();
+					return std::make_shared<ASTNode>(symbol.kind, symbol.sv);
+				}
+
+				case SymbolKind::String: {
+					lx.discard();
+					return std::make_shared<ASTNode>(symbol.kind, symbol.sv);
+				}
+
+				case SymbolKind::Number: {
+					auto number = lx.take();
+
+					// TODO: Convert to integer.
+					std::shared_ptr<ASTNode> root =
+						std::make_shared<ASTNode>(symbol.kind, 0);
+
+					// TODO: Parse adjacent numbers as a melody.
+					// TODO: Create vector of melody values
+					while (lx.peek_is_kind(SymbolKind::Number)) {
+						number = lx.take();
+					}
+
+					return root;
+				}
+
+				// Literals (Implicit Concat)
+				case SymbolKind::Beat:
+				case SymbolKind::Rest: {
+					lx.discard();
+
+					std::vector<uint8_t> vec;
+					std::shared_ptr<ASTNode> rhythm = std::make_shared<ASTNode>(
+						SymbolKind::Rhythm, TypeKind::Rhythm, vec
+					);
+
+					while (
+						lx.peek_is_kind(
+							SymbolKind::Beat, cane_fix_unary_symbol
+						) or
+						lx.peek_is_kind(SymbolKind::Rest, cane_fix_unary_symbol)
+					) {
+						// TODO: Create vector of rhythm values.
+						lx.take(cane_fix_unary_symbol);
+					}
+
+					return rhythm;
+				} break;
+
+				// Melody Coercion (Convert a single scalar to a melody)
+				case SymbolKind::Coerce: {
+					lx.discard();  // Skip `&`
+
+					std::shared_ptr<ASTNode> expr = expression(0);
+
+					return std::make_shared<ASTNode>(
+						SymbolKind::Coerce, TypeKind::Melody, expr
+					);
+				} break;
+
+				case SymbolKind::LeftParen: {
+					lx.discard();  // Skip `(`
+
+					std::shared_ptr<ASTNode> expr = expression(0);
+
+					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
+						cane::die("expected `)`");
+					}
+
+					return expr;
+				} break;
+
+				case SymbolKind::Layer: {
+					lx.discard();  // Skip `[`
+					std::shared_ptr<ASTNode> root = NULL;
+
+					// Need at least one expression.
+					do {
+						std::shared_ptr<ASTNode> node = expression(0);
+
+						std::shared_ptr<ASTNode> layer =
+							std::make_shared<ASTNode>(
+								SymbolKind::Layer, TypeKind::None, node, root
+							);
+
+						root = layer;
+
+						lx.discard_if_kind(SymbolKind::Comma);
+					} while (not lx.peek_is_kind(SymbolKind::RightBracket));
+
+					if (not lx.discard_if_kind(SymbolKind::RightBracket)) {
+						cane::die("expected `]`");
+					}
+
+					return root;
+				} break;
+
+				case SymbolKind::Function: {
+					lx.discard();  // Skip `\`
+
+					// Parameter
+					// cane_symbol_t ident;
+					auto identifier =
+						lx.take_if_kind_opt(SymbolKind::Identifier);
+
+					if (not identifier.has_value()) {
+						cane::die("expected an identifier");
+					}
+
+					std::shared_ptr<ASTNode> param = std::make_shared<ASTNode>(
+						SymbolKind::Identifier, identifier.value().sv
+					);
+
+					// Parameter type
+					auto param_type = type();
+					if (not param_type.has_value()) {
+						cane::die("expected a type annotation");
+					}
+
+					// Reset binding power and parse body
+					std::shared_ptr<ASTNode> body = expression(0);
+
+					// Body type
+					auto body_type = type();
+					if (not body_type.has_value()) {
+						cane::die("expected a type annotation");
+					}
+
+					std::shared_ptr<ASTNode> fn = std::make_shared<ASTNode>(
+						SymbolKind::Function, body->type
+					);
+
+					param->type = param_type.value();
+					body->type = body_type.value();
+
+					fn->lhs = param;
+					fn->rhs = body;
+
+					return fn;
+				} break;
+
+				default: break;
+			}
+
+			cane::die("expected a primary expression");
+			return nullptr;
 		}
 
-		else if (cane_parser_is_infix(symbol.kind)) {
-			node = cane_parse_infix(lx, symbol, node, binding_power.rbp);
+		std::shared_ptr<ASTNode> prefix(Symbol symbol, size_t bp) {
+			// We need to call this function directly instead of using something
+			// like `cane_lexer_discard_if` because we have fixed up the symbol
+			// earlier and peeking again would return the incorrect/lexical
+			// token kind instead.
+			if (not is_prefix(symbol.kind)) {
+				cane::die("expected a prefix operator");
+			}
+
+			lx.discard();
+			std::shared_ptr<ASTNode> expr = expression(bp);
+
+			return std::make_shared<ASTNode>(symbol.kind, TypeKind::None, expr);
 		}
 
-		else {
-			cane_report_and_die(
-				cane_location_create(lx),
-				CANE_REPORT_SYNTAX,
-				"expected an infix or postfix operator"
+		std::shared_ptr<ASTNode>
+		infix(Symbol symbol, std::shared_ptr<ASTNode> lhs, size_t bp) {
+			if (not is_infix(symbol.kind)) {
+				cane::die("expected an infix operator");
+			}
 
+			lx.discard();
+
+			std::shared_ptr<ASTNode> rhs = expression(bp);
+
+			return std::make_shared<ASTNode>(
+				symbol.kind, TypeKind::None, lhs, rhs
 			);
 		}
 
-		cane_lexer_peek(lx, &symbol, cane_fix_binary_symbol);
-	}
+		std::shared_ptr<ASTNode>
+		postfix(Symbol symbol, std::shared_ptr<ASTNode> lhs) {
+			if (not is_postfix(symbol.kind)) {
+				cane::die("expected a postfix operator");
+			}
 
-	return node;
-}
+			std::shared_ptr<ASTNode> node = std::make_shared<ASTNode>(
+				symbol.kind, TypeKind::None, lhs, /* rhs = */ nullptr
+			);
+
+			lx.discard();
+
+			// Assignment is a bit special in that it has a parameter in the
+			// form of an identifier to bind the expression's value to.
+			switch (symbol.kind) {
+				case SymbolKind::Assign: {
+					auto identifier =
+						lx.take_if_kind_opt(SymbolKind::Identifier);
+
+					if (not identifier.has_value()) {
+						cane::die("expected an identifier");
+					}
+
+					node->rhs = std::make_shared<ASTNode>(
+						SymbolKind::Identifier, TypeKind::None
+					);
+				} break;
+
+				case SymbolKind::Send: {
+					auto channel = lx.take_if_kind_opt(SymbolKind::String);
+
+					if (not channel.has_value()) {
+						cane::die("expected a string");
+					}
+
+					node->rhs = std::make_shared<ASTNode>(
+						SymbolKind::Send, TypeKind::None
+					);
+				} break;
+
+				case SymbolKind::Call: {
+					std::shared_ptr<ASTNode> expr = expression(0);
+
+					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
+						cane::die("expecting `)`");
+					}
+
+					node->rhs = expr;
+				}
+
+				default: break;
+			}
+
+			return node;
+		}
+
+		std::shared_ptr<ASTNode> expression(size_t min_bp) {
+			std::shared_ptr<ASTNode> node = NULL;
+
+			Symbol symbol = lx.peek(cane_fix_unary_symbol);
+
+			if (is_primary(symbol.kind)) {
+				node = primary(symbol);
+			}
+
+			else if (is_prefix(symbol.kind)) {
+				auto [lbp, rbp] = binding_power(symbol.kind);
+				node = prefix(symbol, rbp);
+			}
+
+			else {
+				cane::die("expected a primary expression or a prefix operator");
+			}
+
+			// State has changed since we called prefix/primary parser functions
+			// so we need to peek again.
+			symbol = lx.peek(cane_fix_binary_symbol);
+
+			while (is_infix(symbol.kind) or is_postfix(symbol.kind)) {
+				auto [lbp, rbp] = binding_power(symbol.kind);
+
+				if (lbp < min_bp) {
+					break;
+				}
+
+				if (is_postfix(symbol.kind)) {
+					node = postfix(symbol, node);
+				}
+
+				else if (is_infix(symbol.kind)) {
+					node = infix(symbol, node, rbp);
+				}
+
+				else {
+					cane::die("expected an infix or postfix operator");
+				}
+
+				symbol = lx.peek(cane_fix_binary_symbol);
+			}
+
+			return node;
+		}
+	};
+
+}  // namespace cane
 
 #endif

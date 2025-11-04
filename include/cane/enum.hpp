@@ -73,8 +73,8 @@ namespace cane {
 	X(Tilda, "tilda `~`") \
 	X(Question, "question `?`") \
 \
-	X(Fatarrow, "fat arrow `=>`") \
-	X(Wigglearrow, "wiggle arrow `~>`") \
+	X(FatArrow, "fat arrow `=>`") \
+	X(WiggleArrow, "wiggle arrow `~>`") \
 	X(Arrow, "arrow `->`") \
 \
 	/* AST */ \
@@ -160,11 +160,11 @@ namespace cane {
 	X(MulScalarScalar, "scalar mul") \
 	X(DivScalarScalar, "scalar div") \
 \
-	X(LshiftScalarScalar, "scalar lshift") \
-	X(RshiftScalarScalar, "scalar rshift") \
+	X(LeftShiftScalarScalar, "scalar lshift") \
+	X(RightShiftScalarScalar, "scalar rshift") \
 \
-	X(LcmScalarScalar, "scalar lcm") \
-	X(GcdScalarScalar, "scalar gcd") \
+	X(LCMScalarScalar, "scalar lcm") \
+	X(GCDScalarScalar, "scalar gcd") \
 \
 	X(EuclideanScalarScalar, "scalar euclidean") \
 	X(ConcatenateScalarScalar, "scalar concatenate") \
@@ -174,8 +174,8 @@ namespace cane {
 	/* MELODY */ \
 	X(MapMelodyRhythm, "melody map") \
 \
-	X(LshiftMelodyScalar, "melody lshift") \
-	X(RshiftMelodyScalar, "melody rshift") \
+	X(LeftShiftMelodyScalar, "melody lshift") \
+	X(RightShiftMelodyScalar, "melody rshift") \
 \
 	X(AddMelodyScalar, "melody add") \
 	X(SubMelodyScalar, "melody sub") \
@@ -188,8 +188,8 @@ namespace cane {
 	/* RHYTHM */ \
 	X(MapRhythmMelody, "rhythm map") \
 \
-	X(LshiftRhythmScalar, "rhythm lshift") \
-	X(RshiftRhythmScalar, "rhythm rshift") \
+	X(LeftShiftRhythmScalar, "rhythm lshift") \
+	X(RightShiftRhythmScalar, "rhythm rshift") \
 \
 	X(RepeatRhythmScalar, "rhythm repeat") \
 	X(ConcatenateRhythmRhythm, "rhythm concatenate") \
@@ -237,16 +237,16 @@ namespace cane {
 	///////////
 
 #define CANE_TYPE_KINDS \
-	X(TypeNone, "none") \
+	X(None, "none") \
 \
-	X(TypeScalar, "scalar") \
-	X(TypeString, "string") \
+	X(Scalar, "scalar") \
+	X(String, "string") \
 \
-	X(TypeMelody, "melody") \
-	X(TypeRhythm, "rhythm") \
-	X(TypeSequence, "sequence") \
-	X(TypePattern, "pattern") \
-	X(TypeFunction, "function")
+	X(Melody, "melody") \
+	X(Rhythm, "rhythm") \
+	X(Sequence, "sequence") \
+	X(Pattern, "pattern") \
+	X(Function, "function")
 
 #define X(x, y) x,
 	enum class TypeKind {
@@ -281,14 +281,12 @@ namespace cane {
 	///////////
 
 #define CANE_OPFIX_KINDS \
-	X(OpfixPrefix, "prefix") \
-	X(OpfixInfix, "infix") \
-	X(OpfixPostfix, "postfix") \
+	X(Prefix, "prefix") \
+	X(Infix, "infix") \
+	X(Postfix, "postfix") \
 \
-	/* For use with AST passes since prefix/postfix have the same \
-	 * representation. */ \
-	X(OpfixUnary, "unary") \
-	X(OpfixBinary, "binary")
+	X(Unary, "unary") \
+	X(Binary, "binary")
 
 #define X(x, y) x,
 	enum class OpfixKind {
