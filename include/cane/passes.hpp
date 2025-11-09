@@ -81,23 +81,22 @@ namespace cane {
 		auto joiner = is_root ? " " : "─";
 		auto marker = is_leaf ? detail::SIGIL_LEAF : detail::SIGIL_BRANCH;
 
-		std::cout << joiner;
+		std::cout << joiner << marker;
 
-		std::println(
-			"{} " CANE_COLOUR_YELLOW "{}" CANE_RESET " " CANE_COLOUR_BLUE
-			"\"{}\"" CANE_RESET " " CANE_COLOUR_RED "{}" CANE_RESET,
-			marker,
-			symbol_kind_to_str_human(node->kind),
-			node->sv,
-			type_kind_to_str(node->type)
-		);
+		auto symbol_sv = symbol_kind_to_str_human(node->kind);
+		auto node_sv = node->sv;
+		auto type_sv = type_kind_to_str(node->type);
 
-		if (is_leaf) {
-			return;
+		std::print(" " CANE_COLOUR_YELLOW "{}" CANE_RESET, symbol_sv);
+		std::print(" " CANE_COLOUR_BLUE "\"{}\"" CANE_RESET, node_sv);
+		std::print(" " CANE_COLOUR_RED "{}" CANE_RESET, type_sv);
+
+		std::cout << '\n';
+
+		if (not is_leaf) {
+			detail::pass_print_indent_node_child_lhs(node, bits, depth + 1);
+			detail::pass_print_indent_node_child_rhs(node, bits, depth + 1);
 		}
-
-		detail::pass_print_indent_node_child_lhs(node, bits, depth + 1);
-		detail::pass_print_indent_node_child_rhs(node, bits, depth + 1);
 	}
 
 	//////////////////
