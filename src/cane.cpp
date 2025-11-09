@@ -6,8 +6,8 @@
 
 int main(int, const char*[]) {
 	try {
-		cane::Parser parser { CANE_CSTR("2 + 3 * 5 / 6") };
-		// cane::Parser parser { CANE_CSTR("!.!.!.!.!.") };
+		// cane::Parser parser { CANE_CSTR("2 + 3 * 5 / 6; !.!.!.!.!.") };
+		cane::Parser parser { CANE_CSTR("!.!.!.!.") };
 		auto root = parser.parse();
 
 		cane::pass_print(root);

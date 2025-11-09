@@ -152,6 +152,8 @@ namespace cane {
 
 	struct ASTNode {
 		SymbolKind kind;
+		SymbolKind op;
+
 		std::string_view sv;
 
 		TypeKind type;
@@ -160,7 +162,12 @@ namespace cane {
 		std::shared_ptr<ASTNode> rhs;
 
 		ASTNode(SymbolKind kind_, std::string_view sv_, TypeKind type_):
-				kind(kind_), sv(sv_), type(type_), lhs(nullptr), rhs(nullptr) {}
+				kind(kind_),
+				op(SymbolKind::None),
+				sv(sv_),
+				type(type_),
+				lhs(nullptr),
+				rhs(nullptr) {}
 
 		ASTNode(
 			SymbolKind kind_,
@@ -171,7 +178,12 @@ namespace cane {
 			std::shared_ptr<ASTNode> lhs_,
 			std::shared_ptr<ASTNode> rhs_
 		):
-				kind(kind_), sv(sv_), type(type_), lhs(lhs_), rhs(rhs_) {}
+				kind(kind_),
+				op(SymbolKind::None),
+				sv(sv_),
+				type(type_),
+				lhs(lhs_),
+				rhs(rhs_) {}
 	};
 
 	////////////
@@ -413,7 +425,7 @@ namespace cane {
 					lx.discard();
 
 					auto root = std::make_shared<ASTNode>(
-						symbol.kind, symbol.sv, TypeKind::None
+						symbol.kind, symbol.sv, TypeKind::Rhythm
 					);
 
 					while (
@@ -423,7 +435,7 @@ namespace cane {
 						auto beat = lx.take(fix_unary_symbol);
 
 						auto node = std::make_shared<ASTNode>(
-							beat.kind, beat.sv, TypeKind::None
+							beat.kind, beat.sv, TypeKind::Rhythm
 						);
 
 						auto concat = std::make_shared<ASTNode>(

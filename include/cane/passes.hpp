@@ -123,7 +123,7 @@ namespace cane {
 
 	// 	fprintf(
 	// 		fp,
-	// 		"  n%zu [label=\"kind = %s\nsv = `%.*s`\ntype = %s\"];\n",
+	// 		"  n%zu [label=\"kind = {}\nsv = `%.*s`\ntype = {}\"];\n",
 	// 		self,
 	// 		CANE_SYMBOL_TO_STR_HUMAN[kind],
 	// 		(int)info.length,
@@ -238,7 +238,7 @@ namespace cane {
 	// 			cane_report_and_die(
 	// 				loc,
 	// 				CANE_REPORT_GENERIC,
-	// 				"unhandled case `%s`!",
+	// 				"unhandled case `{}`!",
 	// 				CANE_SYMBOL_TO_STR[kind]
 	// 			);
 	// 		} break;
@@ -272,9 +272,6 @@ namespace cane {
 			return false;
 		}
 
-		// cane_location_t loc = node->location;
-		// cane_lineinfo_t info = cane_location_coordinates(loc);
-
 		// In the case of a UNARY remapping, rhs will match with NONE anyway so
 		// we can always just compare both types.
 		TypeKind lhs = pass_semantic_analysis_walker(node->lhs);
@@ -297,14 +294,14 @@ namespace cane {
 			// If the types don't match, it just means this overload of the
 			// operator isn't the correct one but we might have one handled
 			// later.
-			CANE_FAIL("└─ " CANE_COLOUR_RED "failed!" CANE_RESET);
+			CANE_FAIL("└► " CANE_COLOUR_RED "failed!" CANE_RESET);
 			return false;
 		}
 
-		CANE_OKAY("└─ " CANE_COLOUR_YELLOW "success!" CANE_RESET);
+		CANE_OKAY("└► " CANE_COLOUR_YELLOW "success!" CANE_RESET);
 
 		node->type = out;
-		// node->op = op;
+		node->op = op;
 
 		return true;
 	}
@@ -399,19 +396,24 @@ namespace cane {
 		// this switch where we handle them manually.
 		if (not type_remap_trivial(node)) {
 			switch (node->kind) {
+				// Literals
+				case SymbolKind::Number:
+				case SymbolKind::String:
+
+				case SymbolKind::Beat:
+				case SymbolKind::Rest:
+
+				case SymbolKind::Rhythm:
+				case SymbolKind::Melody: {
+					// These cases depend on the type being set during parsing.
+					return node->type;
+				} break;
+
 				// Assignment
 				case SymbolKind::Identifier:
 				case SymbolKind::Assign:
 				case SymbolKind::Send: {
 					CANE_UNIMPLEMENTED();
-				} break;
-
-				// Literals
-				case SymbolKind::Number:
-				case SymbolKind::String:
-				case SymbolKind::Rhythm:
-				case SymbolKind::Melody: {
-					return node->type;
 				} break;
 
 				// TODO: Fix this, not sure if this is actually correct in all
@@ -429,7 +431,7 @@ namespace cane {
 
 					if (function != argument) {
 						cane::die(
-							"incorrect argument type for function `%s`!",
+							"incorrect argument type for function `{}`!",
 							symbol_kind_to_str(node->kind)
 						);
 					}
@@ -452,7 +454,7 @@ namespace cane {
 
 				default: {
 					cane::die(
-						"unknown type mapping for `%s`!",
+						"unknown type mapping for `{}`!",
 						symbol_kind_to_str(node->kind)
 					);
 				} break;
@@ -584,7 +586,7 @@ namespace cane {
 	// 			cane_report_and_die(
 	// 				loc,
 	// 				CANE_REPORT_EVAL,
-	// 				"cannot evaluate `%s`!",
+	// 				"cannot evaluate `{}`!",
 	// 				CANE_SYMBOL_TO_STR[node->op]
 	// 			);
 	// 		} break;
