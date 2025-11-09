@@ -2,6 +2,7 @@
 #define CANE_PASSES_HPP
 
 #include <memory>
+#include <numeric>
 #include <print>
 #include <vector>
 
@@ -84,12 +85,14 @@ namespace cane {
 		std::cout << joiner << marker;
 
 		auto symbol_sv = symbol_kind_to_str_human(node->kind);
+		auto op_sv = symbol_kind_to_str_human(node->op);
 		auto node_sv = node->sv;
 		auto type_sv = type_kind_to_str(node->type);
 
-		std::print(" " CANE_COLOUR_YELLOW "{}" CANE_RESET, symbol_sv);
+		std::print(" " CANE_COLOUR_YELLOW "{}:" CANE_RESET, symbol_sv);
+		std::print(" " CANE_COLOUR_GREEN "{}" CANE_RESET, op_sv);
 		std::print(" " CANE_COLOUR_BLUE "\"{}\"" CANE_RESET, node_sv);
-		std::print(" " CANE_COLOUR_RED "{}" CANE_RESET, type_sv);
+		std::print(" " CANE_COLOUR_RED "`{}`" CANE_RESET, type_sv);
 
 		std::cout << '\n';
 
@@ -104,10 +107,9 @@ namespace cane {
 	//////////////////
 
 	// static void cane_pass_graphviz_edge(
-	// 	cane_file_t fp, cane_ast_node_t* node, size_t parent, size_t self
-	// ) {
-	// 	cane_symbol_kind_t kind = CANE_SYMBOL_NONE;
-	// 	cane_string_view_t sv = CANE_SV("NULL");
+	// 	cane_file_t fp, std::shared_ptr<ASTNode> node, size_t parent, size_t
+	// self ) { 	cane_symbol_kind_t kind = CANE_SYMBOL_NONE;
+	// cane_string_view_t sv = CANE_SV("NULL");
 
 	// 	TypeKind type = CANE_TYPE_NONE;
 
@@ -136,11 +138,11 @@ namespace cane {
 	// }
 
 	// static void cane_pass_graphviz_walker(
-	// 	cane_file_t fp, cane_ast_node_t* node, size_t* id, size_t parent
+	// 	cane_file_t fp, std::shared_ptr<ASTNode> node, size_t* id, size_t parent
 	// );
 
-	// static void cane_pass_graphviz(cane_ast_node_t* node, cane_file_t fp) {
-	// 	CANE_FUNCTION_ENTER();
+	// static void cane_pass_graphviz(std::shared_ptr<ASTNode> node, cane_file_t
+	// fp) { 	CANE_FUNCTION_ENTER();
 
 	// 	size_t id = 0;
 
@@ -153,7 +155,7 @@ namespace cane {
 	// }
 
 	// static void cane_pass_graphviz_walker(
-	// 	cane_file_t fp, cane_ast_node_t* node, size_t* id, size_t parent
+	// 	cane_file_t fp, std::shared_ptr<ASTNode> node, size_t* id, size_t parent
 	// ) {
 	// 	size_t self = (*id)++;
 
@@ -166,8 +168,8 @@ namespace cane {
 
 	// 	cane_location_t loc = node->location;
 
-	// 	cane_ast_node_t* lhs = node->lhs;
-	// 	cane_ast_node_t* rhs = node->rhs;
+	// 	std::shared_ptr<ASTNode> lhs = node->lhs;
+	// 	std::shared_ptr<ASTNode> rhs = node->rhs;
 
 	// 	switch (kind) {
 	// 		// Literals
@@ -463,136 +465,188 @@ namespace cane {
 		return node->type;
 	}
 
-	// ///////////////
-	// // Evaluator //
-	// ///////////////
+	///////////////
+	// Evaluator //
+	///////////////
 
-	// static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node);
+	///////////
+	// Value //
+	///////////
 
-	// static cane_value_t cane_pass_evaluator(cane_ast_node_t* node) {
-	// 	CANE_FUNCTION_ENTER();
-	// 	return cane_pass_evaluator_walker(node);
-	// }
+	using Timestamp = std::chrono::microseconds;
 
-	// static cane_value_t cane_pass_evaluator_walker(cane_ast_node_t* node) {
-	// 	if (node == NULL) {
-	// 		return (cane_value_t) {};
-	// 	}
+	// TODO: What do we need for an event?
+	// - Timestamp
+	// - Note/Event type
+	// - Velocity
+	// - Channel (Device)
 
-	// 	cane_location_t loc = node->location;
+	struct Event {
+		Timestamp time;
+	};
 
-	// 	// Trivial/special cases
-	// 	switch (node->kind) {
-	// 		case CANE_SYMBOL_STATEMENT: {
-	// 			cane_value_t lhs = cane_pass_evaluator_walker(node->lhs);
-	// 			cane_value_t rhs = cane_pass_evaluator_walker(node->rhs);
+	using Sequence = std::vector<Event>;
 
-	// 			CANE_UNUSED(rhs);
-	// 			return lhs;
-	// 		} break;
+	using Rhythm = std::vector<bool>;
+	using Melody = std::vector<uint8_t>;
 
-	// 		case CANE_SYMBOL_STRING:
-	// 		case CANE_SYMBOL_NUMBER:
+	using Scalar = int64_t;
+	using String = std::string_view;
 
-	// 		case CANE_SYMBOL_RHYTHM:
-	// 		case CANE_SYMBOL_MELODY: {
-	// 			return node->value;
-	// 		} break;
+	using Value = std::variant<Scalar, String, Rhythm, Melody, Sequence>;
 
-	// 		default: break;
-	// 	}
+	//////////
+	// Pass //
+	//////////
 
-	// 	cane_value_t lhs = cane_pass_evaluator_walker(node->lhs);
-	// 	cane_value_t rhs = cane_pass_evaluator_walker(node->rhs);
+	inline Value pass_evaluator_walker(std::shared_ptr<ASTNode> node);
 
-	// 	switch (node->op) {
-	// 		// Unary Scalar
-	// 		case CANE_SYMBOL_ABS_SCALAR:
-	// 			return cane_value_create_number(abs(rhs.number));
-	// 		case CANE_SYMBOL_NEG_SCALAR:
-	// 			return cane_value_create_number(-rhs.number);
+	inline Value pass_evaluator(std::shared_ptr<ASTNode> node) {
+		CANE_FUNC();
+		return pass_evaluator_walker(node);
+	}
 
-	// 		// Binary Scalar
-	// 		case CANE_SYMBOL_ADD_SCALAR_SCALAR:
-	// 			return cane_value_create_number(lhs.number + rhs.number);
-	// 		case CANE_SYMBOL_SUB_SCALAR_SCALAR:
-	// 			return cane_value_create_number(lhs.number - rhs.number);
-	// 		case CANE_SYMBOL_MUL_SCALAR_SCALAR:
-	// 			return cane_value_create_number(lhs.number * rhs.number);
-	// 		case CANE_SYMBOL_DIV_SCALAR_SCALAR:
-	// 			return cane_value_create_number(lhs.number / rhs.number);
+	inline Value pass_evaluator_walker(std::shared_ptr<ASTNode> node) {
+		if (node == nullptr) {
+			return (Value) {};
+		}
 
-	// 		case CANE_SYMBOL_LSHIFT_SCALAR_SCALAR:
-	// 			return cane_value_create_number(lhs.number << rhs.number);
-	// 		case CANE_SYMBOL_RSHIFT_SCALAR_SCALAR:
-	// 			return cane_value_create_number(lhs.number >> rhs.number);
+		// Trivial/special cases
+		switch (node->kind) {
+			case SymbolKind::Statement: {
+				Value lhs = pass_evaluator_walker(node->lhs);
+				Value rhs = pass_evaluator_walker(node->rhs);
 
-	// 		case CANE_SYMBOL_LCM_SCALAR_SCALAR:
-	// 			return cane_value_create_number(cane_lcm(lhs.number,
-	// rhs.number)); 		case CANE_SYMBOL_GCD_SCALAR_SCALAR: return
-	// cane_value_create_number(cane_gcd(lhs.number, rhs.number));
+				return lhs;
+			} break;
 
-	// 		case CANE_SYMBOL_INVERT_RHYTHM:
-	// 		case CANE_SYMBOL_REVERSE_RHYTHM:
-	// 		case CANE_SYMBOL_REVERSE_MELODY:
+			case SymbolKind::String:
+			case SymbolKind::Number: {
+				auto number_sv = node->sv;
 
-	// 		case CANE_SYMBOL_EUCLIDEAN_SCALAR_SCALAR:
-	// 		case CANE_SYMBOL_RANDOM_SCALAR_SCALAR:
+				Scalar s = 0;
 
-	// 		case CANE_SYMBOL_LSHIFT_MELODY_SCALAR:
-	// 		case CANE_SYMBOL_RSHIFT_MELODY_SCALAR:
-	// 		case CANE_SYMBOL_LSHIFT_RHYTHM_SCALAR:
-	// 		case CANE_SYMBOL_RSHIFT_RHYTHM_SCALAR: {
-	// 			// Rotate vector
-	// 		} break;
+				auto [ptr, err] = std::from_chars(
+					number_sv.data(), number_sv.data() + number_sv.size(), s
+				);
 
-	// 		case CANE_SYMBOL_ADD_MELODY_SCALAR:
-	// 		case CANE_SYMBOL_SUB_MELODY_SCALAR:
-	// 		case CANE_SYMBOL_MUL_MELODY_SCALAR:
-	// 		case CANE_SYMBOL_DIV_MELODY_SCALAR: {
-	// 			// Broadcast vector
-	// 		} break;
+				if (err != std::errc()) {
+					cane::die("cannot parse integer");
+				}
 
-	// 		case CANE_SYMBOL_MAP_RHYTHM_MELODY:
-	// 		case CANE_SYMBOL_MAP_MELODY_RHYTHM: {
-	// 			// Create sequence
-	// 		} break;
+				return s;
+			} break;
 
-	// 		case CANE_SYMBOL_REPEAT_MELODY_SCALAR:
-	// 		case CANE_SYMBOL_REPEAT_RHYTHM_SCALAR: {
-	// 			// Repeat vector
-	// 		} break;
+			case SymbolKind::Beat: {
+				return Rhythm { true };
+			} break;
 
-	// 		case CANE_SYMBOL_CONCATENATE_SCALAR_SCALAR:
-	// 		case CANE_SYMBOL_CONCATENATE_MELODY_MELODY:
-	// 		case CANE_SYMBOL_CONCATENATE_RHYTHM_RHYTHM:
-	// 		case CANE_SYMBOL_CONCATENATE_SEQUENCE_SEQUENCE: {
-	// 			// Concat vector
-	// 		} break;
+			case SymbolKind::Rest: {
+				return Rhythm { false };
+			} break;
 
-	// 		case CANE_SYMBOL_OR_RHYTHM_RHYTHM:
-	// 		case CANE_SYMBOL_XOR_RHYTHM_RHYTHM:
-	// 		case CANE_SYMBOL_AND_RHYTHM_RHYTHM: {
-	// 			// Vector broadcast
-	// 		} break;
+			default: break;
+		}
 
-	// 		case CANE_SYMBOL_MUL_SEQUENCE_SCALAR:
-	// 		case CANE_SYMBOL_DIV_SEQUENCE_SCALAR: {
-	// 			// Time div/mul on sequences
-	// 		} break;
+		Value lhs = pass_evaluator_walker(node->lhs);
+		Value rhs = pass_evaluator_walker(node->rhs);
 
-	// 		default: {
-	// 			cane_report_and_die(
-	// 				loc,
-	// 				CANE_REPORT_EVAL,
-	// 				"cannot evaluate `{}`!",
-	// 				CANE_SYMBOL_TO_STR[node->op]
-	// 			);
-	// 		} break;
-	// 	}
+		switch (node->op) {
+			// Unary Scalar
+			case SymbolKind::AbsScalar: return std::abs(std::get<Scalar>(rhs));
+			case SymbolKind::NegScalar: return -std::get<Scalar>(rhs);
 
-	// 	return (cane_value_t) {};
-	// }
+			// Binary Scalar
+			case SymbolKind::AddScalarScalar:
+				return std::get<Scalar>(lhs) + std::get<Scalar>(rhs);
+			case SymbolKind::SubScalarScalar:
+				return std::get<Scalar>(lhs) - std::get<Scalar>(rhs);
+			case SymbolKind::MulScalarScalar:
+				return std::get<Scalar>(lhs) * std::get<Scalar>(rhs);
+			case SymbolKind::DivScalarScalar:
+				return std::get<Scalar>(lhs) / std::get<Scalar>(rhs);
+
+			case SymbolKind::LeftShiftScalarScalar:
+				return std::get<Scalar>(lhs) << std::get<Scalar>(rhs);
+			case SymbolKind::RightShiftScalarScalar:
+				return std::get<Scalar>(lhs) >> std::get<Scalar>(rhs);
+
+			case SymbolKind::LCMScalarScalar:
+				return std::lcm(std::get<Scalar>(lhs), std::get<Scalar>(rhs));
+			case SymbolKind::GCDScalarScalar:
+				return std::gcd(std::get<Scalar>(lhs), std::get<Scalar>(rhs));
+
+			case SymbolKind::InvertRhythm:
+			case SymbolKind::ReverseRhythm:
+			case SymbolKind::ReverseMelody:
+
+			case SymbolKind::EuclideanScalarScalar:
+			case SymbolKind::RandomScalarScalar:
+
+			case SymbolKind::LeftShiftMelodyScalar:
+			case SymbolKind::RightShiftMelodyScalar:
+			case SymbolKind::LeftShiftRhythmScalar:
+			case SymbolKind::RightShiftRhythmScalar: {
+				// Rotate vector
+			} break;
+
+			case SymbolKind::AddMelodyScalar:
+			case SymbolKind::SubMelodyScalar:
+			case SymbolKind::MulMelodyScalar:
+			case SymbolKind::DivMelodyScalar: {
+				// Broadcast vector
+			} break;
+
+			case SymbolKind::MapRhythmMelody:
+			case SymbolKind::MapMelodyRhythm: {
+				// Create sequence
+			} break;
+
+			case SymbolKind::RepeatMelodyScalar:
+			case SymbolKind::RepeatRhythmScalar: {
+				// Repeat vector
+			} break;
+
+			case SymbolKind::ConcatenateScalarScalar:
+			case SymbolKind::ConcatenateMelodyMelody:
+			case SymbolKind::ConcatenateRhythmRhythm:
+			case SymbolKind::ConcatenateSequenceSequence: {
+				// Concat vector
+			} break;
+
+			case SymbolKind::OrRhythmRhythm:
+			case SymbolKind::XorRhythmRhythm:
+			case SymbolKind::AndRhythmRhythm: {
+				// 	switch (node->kind) {
+				// 		case SymbolKind::Statement: {
+				// 			value lhs =
+				// passevaluatorwalker(node->lhs); 			Value
+				// rhs = pass_evaluator_walker(node->rhs);
+
+				// 			CANE_UNUSED(rhs);
+				// 			return lhs;
+				// 		} break;
+
+				// 		case SymbolKind::String:
+				// 		case symbolkind::number:
+
+				// vector broadcast
+			} break;
+
+			case SymbolKind::MulSequenceScalar:
+			case SymbolKind::DivSequenceScalar: {
+				// Time div/mul on sequences
+			} break;
+
+			default: {
+				cane::die(
+					"cannot evaluate `{}`!", symbol_kind_to_str(node->op)
+				);
+			} break;
+		}
+
+		return (Value) {};
+	}
 
 }  // namespace cane
 
