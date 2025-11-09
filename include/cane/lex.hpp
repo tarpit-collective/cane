@@ -525,6 +525,8 @@ namespace cane {
 
 			lookahead = Symbol { .kind = kind, .sv = sv };
 
+			CANE_OKAY("{} -> '{}'", symbol_kind_to_str_human(kind), sv);
+
 			return out;
 		}
 
@@ -538,11 +540,15 @@ namespace cane {
 
 		// Filter out whitespace and comments.
 		std::optional<Symbol> take_opt(SymbolFixup fixup) {
-			while (peek_is_kind(SymbolKind::Whitespace) or
-				   peek_is_kind(SymbolKind::Comment)) {
-				take_any_opt(
-				);  // Can't use `discard` here because it's recursive.
-			};
+			while (true) {
+				if (not produce_whitespace()) {
+					break;
+				}
+
+				if (not produce_comment()) {
+					break;
+				}
+			}
 
 			return take_any_opt(fixup);
 		}
