@@ -77,6 +77,15 @@ namespace cane {
 		); \
 	} while (0)
 
+#define CANE_UNIMPLEMENTED() \
+	do { \
+		cane::die( \
+			cane::LogInfo { \
+				CANE_LOCATION_FILE, CANE_LOCATION_LINE, CANE_LOCATION_FUNC }, \
+			"unimplemented!" \
+		); \
+	} while (0)
+
 }  // namespace cane
 
 // Utilities

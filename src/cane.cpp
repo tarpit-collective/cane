@@ -6,28 +6,12 @@
 
 int main(int, const char*[]) {
 	try {
-		// cane::Lexer lx { CANE_CSTR("123 456") };
-
-		// do {
-		// 	auto symbol = lx.take_opt();
-
-		// 	if (symbol.has_value()) {
-		// 		auto [kind, sv] = symbol.value();
-		// 		std::println(
-		// 			stderr, "{} {}", cane::symbol_kind_to_str_human(kind), sv
-		// 		);
-		// 	}
-
-		// 	else {
-		// 		std::println(stderr, "no value");
-		// 	}
-		// } while (not lx.peek_is_kind(cane::SymbolKind::EndFile));
-		//
-
 		cane::Parser parser { CANE_CSTR("2 + 3 * 5 / 6") };
-
+		// cane::Parser parser { CANE_CSTR("!.!.!.!.!.") };
 		auto root = parser.parse();
 
+		cane::pass_print(root);
+		cane::pass_semantic_analysis(root);
 		cane::pass_print(root);
 	}
 
