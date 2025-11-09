@@ -5,6 +5,7 @@
 #include <numeric>
 #include <print>
 #include <vector>
+#include <random>
 
 #include <cane/parse.hpp>
 
@@ -576,25 +577,167 @@ namespace cane {
 			case SymbolKind::GCDScalarScalar:
 				return std::gcd(std::get<Scalar>(lhs), std::get<Scalar>(rhs));
 
-			case SymbolKind::InvertRhythm:
-			case SymbolKind::ReverseRhythm:
-			case SymbolKind::ReverseMelody:
+			case SymbolKind::InvertRhythm: {
+				auto rhythm = std::get<Rhythm>(rhs);
 
-			case SymbolKind::EuclideanScalarScalar:
-			case SymbolKind::RandomScalarScalar:
+				std::transform(
+					rhythm.begin(),
+					rhythm.end(),
+					rhythm.begin(),
+					std::logical_not<> {}
+				);
 
-			case SymbolKind::LeftShiftMelodyScalar:
-			case SymbolKind::RightShiftMelodyScalar:
-			case SymbolKind::LeftShiftRhythmScalar:
-			case SymbolKind::RightShiftRhythmScalar: {
-				// Rotate vector
+				return rhythm;
 			} break;
 
-			case SymbolKind::AddMelodyScalar:
-			case SymbolKind::SubMelodyScalar:
-			case SymbolKind::MulMelodyScalar:
+			case SymbolKind::ReverseRhythm: {
+				auto rhythm = std::get<Rhythm>(rhs);
+				std::reverse(rhythm.begin(), rhythm.end());
+				return rhythm;
+			} break;
+
+			case SymbolKind::ReverseMelody: {
+				auto melody = std::get<Melody>(rhs);
+				std::reverse(melody.begin(), melody.end());
+				return melody;
+			} break;
+
+			case SymbolKind::EuclideanScalarScalar: {
+				Rhythm rhythm;
+
+				auto beats = std::get<Scalar>(lhs);
+				auto steps = std::get<Scalar>(rhs);
+
+				if (beats > steps) {
+					cane::die("not enough steps");
+				}
+
+				for (int64_t i = 0; i != steps; ++i) {
+					rhythm.emplace_back(((i * beats) % steps) < beats);
+				}
+
+				return rhythm;
+			} break;
+
+			case SymbolKind::RandomScalarScalar: {
+				// std::random_device rd;
+				// std::mt19937_64 rng(rd());
+
+				// std::uniform_int_distribution<std::mt19937_64::result_type>
+				// 	dist(std::get<Scalar>(lhs), std::get<Scalar>(rhs));
+
+				// return dist(rng);
+
+				// TODO: Return either left hand side or right hand side
+				return lhs;
+			};
+
+			case SymbolKind::LeftShiftMelodyScalar: {
+				auto melody = std::get<Melody>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				std::rotate(
+					melody.begin(),
+					melody.begin() + (n % melody.size()),
+					melody.end()
+				);
+
+				return melody;
+			} break;
+
+			case SymbolKind::RightShiftMelodyScalar: {
+				auto melody = std::get<Melody>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				std::rotate(
+					melody.rbegin(),
+					melody.rbegin() + (n % melody.size()),
+					melody.rend()
+				);
+
+				return melody;
+			} break;
+
+			case SymbolKind::LeftShiftRhythmScalar: {
+				auto rhythm = std::get<Rhythm>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				std::rotate(
+					rhythm.begin(),
+					rhythm.begin() + (n % rhythm.size()),
+					rhythm.end()
+				);
+
+				return rhythm;
+			} break;
+
+			case SymbolKind::RightShiftRhythmScalar: {
+				auto rhythm = std::get<Rhythm>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				std::rotate(
+					rhythm.rbegin(),
+					rhythm.rbegin() + (n % rhythm.size()),
+					rhythm.rend()
+				);
+
+				return rhythm;
+			} break;
+
+			case SymbolKind::AddMelodyScalar: {
+				auto melody = std::get<Melody>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				std::transform(
+					melody.begin(),
+					melody.end(),
+					melody.begin(),
+					[&](auto& x) { return x + n; }
+				);
+
+				return melody;
+			} break;
+
+			case SymbolKind::SubMelodyScalar: {
+				auto melody = std::get<Melody>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				std::transform(
+					melody.begin(),
+					melody.end(),
+					melody.begin(),
+					[&](auto& x) { return x - n; }
+				);
+
+				return melody;
+			} break;
+
+			case SymbolKind::MulMelodyScalar: {
+				auto melody = std::get<Melody>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				std::transform(
+					melody.begin(),
+					melody.end(),
+					melody.begin(),
+					[&](auto& x) { return x * n; }
+				);
+
+				return melody;
+			} break;
+
 			case SymbolKind::DivMelodyScalar: {
-				// Broadcast vector
+				auto melody = std::get<Melody>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				std::transform(
+					melody.begin(),
+					melody.end(),
+					melody.begin(),
+					[&](auto& x) { return x / n; }
+				);
+
+				return melody;
 			} break;
 
 			case SymbolKind::MapRhythmMelody:
@@ -602,35 +745,121 @@ namespace cane {
 				// Create sequence
 			} break;
 
-			case SymbolKind::RepeatMelodyScalar:
+			case SymbolKind::RepeatMelodyScalar: {
+				auto melody = std::get<Melody>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				if (n == 0) {
+					cane::die("can't repeat zero times");
+				}
+
+				size_t count = melody.size();
+				melody.reserve(melody.capacity() + n * count);
+
+				while (--n) {
+					std::copy_n(
+						melody.begin(), count, std::back_inserter(melody)
+					);
+				}
+
+				return melody;
+			} break;
+
 			case SymbolKind::RepeatRhythmScalar: {
-				// Repeat vector
+				auto rhythm = std::get<Rhythm>(lhs);
+				auto n = std::get<Scalar>(rhs);
+
+				if (n == 0) {
+					cane::die("can't repeat zero times");
+				}
+
+				size_t count = rhythm.size();
+				rhythm.reserve(rhythm.capacity() + n * count);
+
+				while (--n) {
+					std::copy_n(
+						rhythm.begin(), count, std::back_inserter(rhythm)
+					);
+				}
+
+				return rhythm;
 			} break;
 
-			case SymbolKind::ConcatenateScalarScalar:
-			case SymbolKind::ConcatenateMelodyMelody:
-			case SymbolKind::ConcatenateRhythmRhythm:
+			case SymbolKind::ConcatenateScalarScalar: {
+				return Melody { static_cast<uint8_t>(std::get<Scalar>(lhs)),
+								static_cast<uint8_t>(std::get<Scalar>(rhs)) };
+			} break;
+
+			case SymbolKind::ConcatenateMelodyMelody: {
+				auto melody_lhs = std::get<Melody>(lhs);
+				auto melody_rhs = std::get<Melody>(rhs);
+
+				melody_lhs.insert(
+					melody_lhs.end(), melody_rhs.begin(), melody_rhs.end()
+				);
+
+				return melody_lhs;
+			} break;
+
+			case SymbolKind::ConcatenateRhythmRhythm: {
+				auto rhythm_lhs = std::get<Rhythm>(lhs);
+				auto rhythm_rhs = std::get<Rhythm>(rhs);
+
+				rhythm_lhs.insert(
+					rhythm_lhs.end(), rhythm_rhs.begin(), rhythm_rhs.end()
+				);
+
+				return rhythm_lhs;
+			} break;
+
 			case SymbolKind::ConcatenateSequenceSequence: {
-				// Concat vector
+				auto sequence_lhs = std::get<Sequence>(lhs);
+				auto sequence_rhs = std::get<Sequence>(rhs);
+
+				sequence_lhs.insert(
+					sequence_lhs.end(), sequence_rhs.begin(), sequence_rhs.end()
+				);
+
+				return sequence_lhs;
 			} break;
 
-			case SymbolKind::OrRhythmRhythm:
-			case SymbolKind::XorRhythmRhythm:
+			case SymbolKind::OrRhythmRhythm: {
+				auto rhythm_lhs = std::get<Rhythm>(lhs);
+				auto rhythm_rhs = std::get<Rhythm>(rhs);
+
+				std::transform(
+					rhythm_rhs.cbegin(),
+					rhythm_rhs.cend(),
+					rhythm_lhs.begin(),
+					rhythm_lhs.begin(),
+					std::bit_or<> {}
+				);
+			} break;
+
+			case SymbolKind::XorRhythmRhythm: {
+				auto rhythm_lhs = std::get<Rhythm>(lhs);
+				auto rhythm_rhs = std::get<Rhythm>(rhs);
+
+				std::transform(
+					rhythm_rhs.cbegin(),
+					rhythm_rhs.cend(),
+					rhythm_lhs.begin(),
+					rhythm_lhs.begin(),
+					std::bit_xor<> {}
+				);
+			} break;
+
 			case SymbolKind::AndRhythmRhythm: {
-				// 	switch (node->kind) {
-				// 		case SymbolKind::Statement: {
-				// 			value lhs =
-				// passevaluatorwalker(node->lhs); 			Value
-				// rhs = pass_evaluator_walker(node->rhs);
+				auto rhythm_lhs = std::get<Rhythm>(lhs);
+				auto rhythm_rhs = std::get<Rhythm>(rhs);
 
-				// 			CANE_UNUSED(rhs);
-				// 			return lhs;
-				// 		} break;
-
-				// 		case SymbolKind::String:
-				// 		case symbolkind::number:
-
-				// vector broadcast
+				std::transform(
+					rhythm_rhs.cbegin(),
+					rhythm_rhs.cend(),
+					rhythm_lhs.begin(),
+					rhythm_lhs.begin(),
+					std::bit_and<> {}
+				);
 			} break;
 
 			case SymbolKind::MulSequenceScalar:
