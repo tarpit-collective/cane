@@ -38,10 +38,10 @@ namespace cane {
 
 template <>
 struct std::formatter<cane::Symbol>: std::formatter<std::string_view> {
-	auto format(cane::Symbol x, format_context& ctx) const {
-		return formatter<std::string_view>::format(
-			std::format("{{ kind: {}, sv: '{}' }}", x.kind, x.sv), ctx
-		);
+	auto format(cane::Symbol s, format_context& ctx) const {
+		std::ostringstream ss;
+		ss << s;
+		return std::formatter<string_view>::format(ss.str(), ctx);
 	}
 };
 
@@ -82,8 +82,12 @@ namespace cane {
 		}
 
 		// Basic stream interaction
+		bool is_eof() {
+			return it > end;
+		}
+
 		std::optional<char> str_peek() {
-			if (it > end) {  // Check for EOF
+			if (is_eof()) {  // Check for EOF
 				return std::nullopt;
 			}
 
@@ -394,6 +398,22 @@ namespace cane {
 			});
 		}
 
+		std::optional<Symbol> produce_quoted() {
+			if (not str_take_if([](char c) { return c == '"'; })) {
+				return std::nullopt;
+			}
+
+			auto begin = it;
+			str_take_while([](char c) { return c != '"'; });
+			auto end = it;
+
+			if (not str_take_if([](char c) { return c == '"'; })) {
+				return std::nullopt;
+			}
+
+			return Symbol { .kind = SymbolKind::String, .sv = { begin, end } };
+		}
+
 		std::optional<Symbol> produce_whitespace() {
 			return produce_while(SymbolKind::Whitespace, [](char c) {
 				return static_cast<bool>(std::isspace(c));
@@ -413,20 +433,12 @@ namespace cane {
 			return Symbol { .kind = SymbolKind::Comment, .sv = { begin, end } };
 		}
 
-		std::optional<Symbol> produce_quoted() {
-			if (not str_take_if([](char c) { return c == '"'; })) {
+		std::optional<Symbol> produce_eof() {
+			if (it < end) {
 				return std::nullopt;
 			}
 
-			auto begin = it;
-			str_take_while([](char c) { return c != '"'; });
-			auto end = it;
-
-			if (not str_take_if([](char c) { return c == '"'; })) {
-				return std::nullopt;
-			}
-
-			return Symbol { .kind = SymbolKind::String, .sv = { begin, end } };
+			return Symbol { .kind = SymbolKind::EndFile, .sv = { it, it } };
 		}
 
 		////////////////
@@ -483,30 +495,23 @@ namespace cane {
 			SymbolKind kind = SymbolKind::None;
 			std::string_view sv = DEFAULT_SYMBOL_SV;
 
-			// Handle EOF
-			if (it >= end) {
-				kind = SymbolKind::EndFile;
-				sv = DEFAULT_SYMBOL_SV;
-			}
+			produce_eof()
+				.or_else([&] { return produce_whitespace(); })
+				.or_else([&] { return produce_comment(); })
+				.or_else([&] { return produce_identifier(); })
+				.or_else([&] { return produce_number(); })
+				.or_else([&] { return produce_sigil(); })
+				.or_else([&] { return produce_quoted(); })
 
-			// Handle normal tokens
-			else {
-				// TODO: Implement `try_all` style function for chaining a bunch
-				// of failable functions returning an optional. Return the one
-				// that succeeds.
-				auto next = produce_identifier()
-								.or_else([&] { return produce_whitespace(); })
-								.or_else([&] { return produce_comment(); })
-								.or_else([&] { return produce_number(); })
-								.or_else([&] { return produce_sigil(); })
-								.or_else([&] { return produce_quoted(); });
+				// Success case, we assign `kind` and `sv`.
+				.transform([&](auto x) {
+					kind = x.kind;
+					sv = x.sv;
+					return x;
+				})
 
-				if (next.has_value()) {
-					kind = next.value().kind;
-					sv = next.value().sv;
-				}
-
-				else {
+				// Error case, we die.
+				.or_else([&] {
 					char c = *it;
 
 					cane::die(
@@ -514,16 +519,16 @@ namespace cane {
 						c == '\0' ? ' ' : c,
 						static_cast<uint8_t>(c)
 					);
-				}
-			}
+
+					return std::optional<Symbol> {};
+				});
 
 			auto out =
 				Symbol { .kind = fixup(lookahead.kind), .sv = lookahead.sv };
 
 			lookahead = Symbol { .kind = kind, .sv = sv };
 
-			CANE_OKAY("{} -> '{}'", symbol_kind_to_str_human(kind), sv);
-
+			CANE_OKAY("{}", out);
 			return out;
 		}
 

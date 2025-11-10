@@ -311,11 +311,9 @@ namespace cane {
 				auto stmt = lx.peek();
 				auto node = expression();
 
-				auto concat = std::make_shared<Node>(
+				root = std::make_shared<Node>(
 					SymbolKind::Statement, stmt.sv, TypeKind::None, node, root
 				);
-
-				root = concat;
 
 				// Statements must be terminated by a semicolon unless they are
 				// EOF.
@@ -406,15 +404,13 @@ namespace cane {
 							symbol.kind, number.sv, TypeKind::Scalar
 						);
 
-						auto concat = std::make_shared<Node>(
+						root = std::make_shared<Node>(
 							SymbolKind::Concatenate,
 							number.sv,
 							TypeKind::Melody,
 							root,
 							node
 						);
-
-						root = concat;
 					}
 
 					return root;
@@ -439,15 +435,13 @@ namespace cane {
 							beat.kind, beat.sv, TypeKind::Rhythm
 						);
 
-						auto concat = std::make_shared<Node>(
+						root = std::make_shared<Node>(
 							SymbolKind::Concatenate,
 							beat.sv,
 							TypeKind::Rhythm,
 							root,
 							node
 						);
-
-						root = concat;
 					}
 
 					return root;
@@ -487,15 +481,13 @@ namespace cane {
 					do {
 						auto node = expression();
 
-						auto cons = std::make_shared<Node>(
+						root = std::make_shared<Node>(
 							SymbolKind::Layer,
 							symbol.sv,
 							TypeKind::None,
 							node,
 							root
 						);
-
-						root = cons;
 
 						lx.discard_if_kind(SymbolKind::Comma);
 					} while (not lx.peek_is_kind(SymbolKind::RightBracket));
