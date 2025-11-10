@@ -183,7 +183,10 @@ namespace cane {
 	X(DivMelodyScalar, "melody div") \
 \
 	X(RepeatMelodyScalar, "melody repeat") \
+\
 	X(ConcatenateMelodyMelody, "melody concatenate") \
+	X(ConcatenateMelodyScalar, "melody concatenate") \
+	X(ConcatenateScalarMelody, "melody concatenate") \
 \
 	/* RHYTHM */ \
 	X(MapRhythmMelody, "rhythm map") \

@@ -308,6 +308,17 @@ namespace cane {
 		std::optional<Symbol> produce_sigil() {
 			return produce_str(SymbolKind::Coerce, CANE_CSTR("&"))
 				.or_else([&] {
+					return produce_str(SymbolKind::FatArrow, CANE_CSTR("=>"));
+				})
+				.or_else([&] {
+					return produce_str(
+						SymbolKind::WiggleArrow, CANE_CSTR("~>")
+					);
+				})
+				.or_else([&] {
+					return produce_str(SymbolKind::Arrow, CANE_CSTR("->"));
+				})
+				.or_else([&] {
 					return produce_str(SymbolKind::Backslash, CANE_CSTR("\\"));
 				})
 				.or_else([&] {
@@ -339,17 +350,6 @@ namespace cane {
 				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Semicolon, CANE_CSTR(";"));
-				})
-				.or_else([&] {
-					return produce_str(SymbolKind::FatArrow, CANE_CSTR("=>"));
-				})
-				.or_else([&] {
-					return produce_str(
-						SymbolKind::WiggleArrow, CANE_CSTR("~>")
-					);
-				})
-				.or_else([&] {
-					return produce_str(SymbolKind::Arrow, CANE_CSTR("->"));
 				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Add, CANE_CSTR("+"));

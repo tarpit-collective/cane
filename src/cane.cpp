@@ -1,13 +1,11 @@
-#include <cane/util.hpp>
-#include <cane/log.hpp>
-#include <cane/lex.hpp>
-#include <cane/parse.hpp>
-#include <cane/passes.hpp>
+#include <cane/cane.hpp>
 
 int main(int, const char*[]) {
 	try {
-		cane::Parser parser { CANE_CSTR("!.!.!.!.!.; 2 + 3 * 5 / 6") };
-		// cane::Parser parser { CANE_CSTR("!.!.!.!.") };
+		// cane::Parser parser { CANE_CSTR("1 2 3 4") };
+		cane::Parser parser { CANE_CSTR("!.!.!.!.!.; 2 + 3 * 5 / 6; 1 2 3 4") };
+		// }; cane::Parser parser { CANE_CSTR("!.!.!.!.") };
+
 		auto root = parser.parse();
 
 		cane::pass_print(root);
@@ -16,7 +14,13 @@ int main(int, const char*[]) {
 
 		auto value = cane::pass_evaluator(root);
 
-		std::println("value: {}", std::get<cane::Scalar>(value));
+		// std::println("value: {}", value.get_melody());
+
+		for (auto x: value.get_melody()) {
+			std::print("{} ", x);
+		}
+
+		std::println();
 	}
 
 	catch (cane::Fatal e) {

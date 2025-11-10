@@ -7,6 +7,7 @@
 #include <cane/util.hpp>
 #include <cane/lex.hpp>
 #include <cane/parse.hpp>
+#include <cane/ops.hpp>
 #include <cane/passes.hpp>
 
 #endif
