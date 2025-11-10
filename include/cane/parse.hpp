@@ -351,27 +351,6 @@ namespace cane {
 			return type_annotation();
 		}
 
-		// Parse a number and convert it to an integer.
-		// int number() {
-		// 	if (not lx.peek_is_kind(SymbolKind::Number)) {
-		// 		cane::die("expected a number");
-		// 	}
-
-		// 	int number = 0;
-
-		// 	auto symbol = lx.take();
-		// 	auto sv = symbol.sv;
-
-		// 	auto [ptr, err] =
-		// 		std::from_chars(sv.data(), sv.data() + sv.size(), number);
-
-		// 	if (err != std::errc()) {
-		// 		cane::die("cannot parse integer");
-		// 	}
-
-		// 	return number;
-		// }
-
 		std::shared_ptr<ASTNode> primary(Symbol symbol) {
 			CANE_FUNC();
 
@@ -409,8 +388,8 @@ namespace cane {
 							SymbolKind::Concatenate,
 							number.sv,
 							TypeKind::Melody,
-							node,
-							root
+							root,
+							node
 						);
 
 						root = concat;
@@ -442,8 +421,8 @@ namespace cane {
 							SymbolKind::Concatenate,
 							beat.sv,
 							TypeKind::Rhythm,
-							node,
-							root
+							root,
+							node
 						);
 
 						root = concat;

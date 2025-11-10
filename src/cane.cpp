@@ -3,8 +3,9 @@
 int main(int, const char*[]) {
 	try {
 		// cane::Parser parser { CANE_CSTR("1 2 3 4") };
-		cane::Parser parser { CANE_CSTR("!.!.!.!.!.; 2 + 3 * 5 / 6; 1 2 3 4") };
-		// }; cane::Parser parser { CANE_CSTR("!.!.!.!.") };
+		// cane::Parser parser { CANE_CSTR("!.!.!.!.!.; 2 + 3 * 5 / 6; 1 2 3 4")
+		// };
+		cane::Parser parser { CANE_CSTR("!. .!!") };
 
 		auto root = parser.parse();
 
@@ -16,8 +17,8 @@ int main(int, const char*[]) {
 
 		// std::println("value: {}", value.get_melody());
 
-		for (auto x: value.get_melody()) {
-			std::print("{} ", x);
+		for (bool x: value.get_rhythm()) {
+			std::print("{}", x ? '1' : '0');
 		}
 
 		std::println();
