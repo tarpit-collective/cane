@@ -78,6 +78,18 @@ namespace cane {
 	inline std::ostream& operator<<(std::ostream& os, LogKind log) {
 		return (os << log_kind_to_str_human(log));
 	}
+}  // namespace cane
+
+template <>
+struct std::formatter<cane::LogKind>: std::formatter<std::string_view> {
+	auto format(cane::LogKind x, format_context& ctx) const {
+		return formatter<std::string_view>::format(
+			std::format("{}", cane::log_kind_to_str(x)), ctx
+		);
+	}
+};
+
+namespace cane {
 
 	////////////
 	// Logger //

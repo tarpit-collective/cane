@@ -16,7 +16,7 @@ namespace cane {
 	//////////////////////
 
 	inline void pass_print_walker(
-		std::shared_ptr<ASTNode> node,
+		std::shared_ptr<Node> node,
 		std::vector<bool> bits = {},
 		size_t depth = 0
 	);
@@ -40,7 +40,7 @@ namespace cane {
 		}
 
 		inline void pass_print_indent_node_child_lhs(
-			std::shared_ptr<ASTNode> node,
+			std::shared_ptr<Node> node,
 			std::vector<bool> bits = {},
 			size_t depth = 0
 		) {
@@ -52,7 +52,7 @@ namespace cane {
 		}
 
 		inline void pass_print_indent_node_child_rhs(
-			std::shared_ptr<ASTNode> node,
+			std::shared_ptr<Node> node,
 			std::vector<bool> bits = {},
 			size_t depth = 0
 		) {
@@ -64,13 +64,13 @@ namespace cane {
 		}
 	}  // namespace detail
 
-	inline void pass_print(std::shared_ptr<ASTNode> node) {
+	inline void pass_print(std::shared_ptr<Node> node) {
 		CANE_FUNC();
 		pass_print_walker(node);
 	}
 
 	inline void pass_print_walker(
-		std::shared_ptr<ASTNode> node, std::vector<bool> bits, size_t depth
+		std::shared_ptr<Node> node, std::vector<bool> bits, size_t depth
 	) {
 		if (node == nullptr) {
 			std::cout << detail::SIGIL_NULL << '\n';
@@ -254,10 +254,9 @@ namespace cane {
 	// // Type Checker //
 	// //////////////////
 
-	inline TypeKind pass_semantic_analysis_walker(std::shared_ptr<ASTNode> node
-	);
+	inline TypeKind pass_semantic_analysis_walker(std::shared_ptr<Node> node);
 
-	inline void pass_semantic_analysis(std::shared_ptr<ASTNode> node) {
+	inline void pass_semantic_analysis(std::shared_ptr<Node> node) {
 		CANE_FUNC();
 		pass_semantic_analysis_walker(node);
 	}
@@ -266,7 +265,7 @@ namespace cane {
 	// 1. We need to store assigned types
 	// 2. Function types
 	inline bool type_remapper(
-		std::shared_ptr<ASTNode> node,
+		std::shared_ptr<Node> node,
 		TypeKind lhs,
 		TypeKind rhs,
 		SymbolKind kind,
@@ -311,7 +310,7 @@ namespace cane {
 	// TODO:
 	// We need to figure out how to handle rhythms with beats/rests and how
 	// to type check them. They really need to be a unified type.
-	inline bool type_remap_trivial(std::shared_ptr<ASTNode> node) {
+	inline bool type_remap_trivial(std::shared_ptr<Node> node) {
 		// In the case of a UNARY remapping, rhs will match with NONE anyway so
 		// we can always just compare both types.
 		TypeKind lhs = pass_semantic_analysis_walker(node->lhs);
@@ -398,8 +397,7 @@ namespace cane {
 #undef CANE_TYPE_REMAP
 	}
 
-	inline TypeKind pass_semantic_analysis_walker(std::shared_ptr<ASTNode> node
-	) {
+	inline TypeKind pass_semantic_analysis_walker(std::shared_ptr<Node> node) {
 		if (node == nullptr) {
 			return TypeKind::None;
 		}
@@ -480,14 +478,14 @@ namespace cane {
 	// Evaluator //
 	///////////////
 
-	inline Value pass_evaluator_walker(std::shared_ptr<ASTNode> node);
+	inline Value pass_evaluator_walker(std::shared_ptr<Node> node);
 
-	inline Value pass_evaluator(std::shared_ptr<ASTNode> node) {
+	inline Value pass_evaluator(std::shared_ptr<Node> node) {
 		CANE_FUNC();
 		return pass_evaluator_walker(node);
 	}
 
-	inline Value pass_evaluator_walker(std::shared_ptr<ASTNode> node) {
+	inline Value pass_evaluator_walker(std::shared_ptr<Node> node) {
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
 		}

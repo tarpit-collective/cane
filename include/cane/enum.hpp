@@ -321,4 +321,40 @@ namespace cane {
 
 }  // namespace cane
 
+template <>
+struct std::formatter<cane::ReportKind>: std::formatter<std::string_view> {
+	auto format(cane::ReportKind x, format_context& ctx) const {
+		return formatter<std::string_view>::format(
+			std::format("{}", cane::report_kind_to_str(x)), ctx
+		);
+	}
+};
+
+template <>
+struct std::formatter<cane::SymbolKind>: std::formatter<std::string_view> {
+	auto format(cane::SymbolKind x, format_context& ctx) const {
+		return formatter<std::string_view>::format(
+			std::format("{}", cane::symbol_kind_to_str(x)), ctx
+		);
+	}
+};
+
+template <>
+struct std::formatter<cane::TypeKind>: std::formatter<std::string_view> {
+	auto format(cane::TypeKind x, format_context& ctx) const {
+		return formatter<std::string_view>::format(
+			std::format("{}", cane::type_kind_to_str(x)), ctx
+		);
+	}
+};
+
+template <>
+struct std::formatter<cane::OpfixKind>: std::formatter<std::string_view> {
+	auto format(cane::OpfixKind x, format_context& ctx) const {
+		return formatter<std::string_view>::format(
+			std::format("{}", cane::opfix_kind_to_str(x)), ctx
+		);
+	}
+};
+
 #endif

@@ -25,7 +25,7 @@ namespace cane {
 	using String = std::string_view;
 
 	struct Event {
-		Timestamp time;
+		Timestamp timestamp;
 	};
 
 	struct Sequence: public std::vector<Event> {
@@ -39,6 +39,94 @@ namespace cane {
 	struct Melody: public std::vector<Scalar> {
 		using std::vector<Scalar>::vector;
 	};
+
+	constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
+		return (os << "{ timestamp: " << ev.timestamp << "}");
+	}
+
+	constexpr std::ostream& operator<<(std::ostream& os, Sequence seq) {
+		if (seq.empty()) {
+			return (os << "[]");
+		}
+
+		auto it = seq.begin();
+		os << '[' << *it++;
+
+		for (; it != seq.end(); ++it) {
+			os << ", " << *it;
+		}
+
+		return (os << ']');
+	}
+
+	constexpr std::ostream& operator<<(std::ostream& os, Rhythm rhythm) {
+		if (rhythm.empty()) {
+			return (os << "[]");
+		}
+
+		auto it = rhythm.begin();
+		os << '[' << *it++;
+
+		for (; it != rhythm.end(); ++it) {
+			os << ", " << *it;
+		}
+
+		return (os << ']');
+	}
+
+	constexpr std::ostream& operator<<(std::ostream& os, Melody melody) {
+		if (melody.empty()) {
+			return (os << "[]");
+		}
+
+		auto it = melody.begin();
+		os << '[' << *it++;
+
+		for (; it != melody.end(); ++it) {
+			os << ", " << *it;
+		}
+
+		return (os << ']');
+	}
+}  // namespace cane
+
+template <>
+struct std::formatter<cane::Event>: std::formatter<std::string_view> {
+	auto format(cane::Event ev, format_context& ctx) const {
+		std::ostringstream ss;
+		ss << ev;
+		return std::formatter<string_view>::format(ss.str(), ctx);
+	}
+};
+
+template <>
+struct std::formatter<cane::Sequence>: std::formatter<std::string_view> {
+	auto format(cane::Sequence seq, format_context& ctx) const {
+		std::ostringstream ss;
+		ss << seq;
+		return std::formatter<string_view>::format(ss.str(), ctx);
+	}
+};
+
+template <>
+struct std::formatter<cane::Rhythm>: std::formatter<std::string_view> {
+	auto format(cane::Rhythm rhythm, format_context& ctx) const {
+		std::ostringstream ss;
+		ss << rhythm;
+		return std::formatter<string_view>::format(ss.str(), ctx);
+	}
+};
+
+template <>
+struct std::formatter<cane::Melody>: std::formatter<std::string_view> {
+	auto format(cane::Melody melody, format_context& ctx) const {
+		std::ostringstream ss;
+		ss << melody;
+		return std::formatter<string_view>::format(ss.str(), ctx);
+	}
+};
+
+namespace cane {
 
 	///////////
 	// Value //
@@ -368,9 +456,15 @@ namespace cane {
 		}
 	};
 
-	////////////////
-	// Operations //
-	////////////////
+	constexpr std::ostream& operator<<(std::ostream& os, cane::Value value) {
+		value |
+			cane::match {
+				[&](auto x) { os << x; },
+				[&](std::monostate) { os << "(empty)"; },
+			};
+
+		return os;
+	}
 
 	// Identifies repeating pattern in a sequence
 	// and attempts to minify it so we don't spam
@@ -402,5 +496,14 @@ namespace cane {
 	// }
 
 }  // namespace cane
+
+template <>
+struct std::formatter<cane::Value>: std::formatter<std::string_view> {
+	auto format(cane::Value value, format_context& ctx) const {
+		std::ostringstream ss;
+		ss << value;
+		return std::formatter<string_view>::format(ss.str(), ctx);
+	}
+};
 
 #endif

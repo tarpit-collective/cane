@@ -1,7 +1,6 @@
 #ifndef CANE_LEX_HPP
 #define CANE_LEX_HPP
 
-#include <functional>
 #include <optional>
 #include <string_view>
 #include <iostream>
@@ -30,23 +29,21 @@ namespace cane {
 
 	constexpr std::string_view DEFAULT_SYMBOL_SV = "(empty)";
 
-	consteval std::ostream& operator<<(std::ostream& os, Symbol s) {
-		return (os << "{\"" << s.kind << "\", " << s.sv << "}");
+	constexpr std::ostream& operator<<(std::ostream& os, Symbol s) {
+		std::print(os, "{{ kind: {}, sv: '{}' }}", s.kind, s.sv);
+		return os;
 	}
+
 }  // namespace cane
 
-// template <>
-// struct std::formatter<cane::Symbol>: std::formatter<string_view> {
-// 	auto format(const cane::Symbol& s, std::format_context& ctx) const {
-// 		std::string tmp;
-
-// 		std::format_to(
-// 			std::back_inserter(tmp), "{{ .kind = {}, .sv = '' }}", s.kind, s.sv
-// 		);
-
-// 		return std::formatter<string_view>::format(tmp, ctx);
-// 	}
-// };
+template <>
+struct std::formatter<cane::Symbol>: std::formatter<std::string_view> {
+	auto format(cane::Symbol x, format_context& ctx) const {
+		return formatter<std::string_view>::format(
+			std::format("{{ kind: {}, sv: '{}' }}", x.kind, x.sv), ctx
+		);
+	}
+};
 
 namespace cane {
 

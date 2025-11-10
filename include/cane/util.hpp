@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <optional>
 
 #include <sstream>
@@ -11,6 +12,35 @@
 
 #include <cane/macro.hpp>
 #include <cane/log.hpp>
+
+namespace cane {
+
+	template <class... Ts>
+	struct overloads: Ts... {
+		using Ts::operator()...;
+	};
+
+	template <typename... Fs>
+	struct match: Fs... {
+		using Fs::operator()...;
+	};
+
+	template <class... Ts>
+	match(Ts...) -> match<Ts...>;
+
+	template <typename... Ts, typename... Fs>
+	constexpr decltype(auto)
+	operator|(const std::variant<Ts...>& v, const match<Fs...>& match) {
+		return std::visit(match, v);
+	}
+
+	template <typename... Ts, typename... Fs>
+	constexpr decltype(auto)
+	operator|(std::variant<Ts...>& v, const match<Fs...>& match) {
+		return std::visit(match, v);
+	}
+
+}  // namespace cane
 
 // Concepts
 namespace cane {

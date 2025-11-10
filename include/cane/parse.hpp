@@ -150,7 +150,7 @@ namespace cane {
 	// AST //
 	/////////
 
-	struct ASTNode {
+	struct Node {
 		SymbolKind kind;
 		SymbolKind op;
 
@@ -158,10 +158,10 @@ namespace cane {
 
 		TypeKind type;
 
-		std::shared_ptr<ASTNode> lhs;
-		std::shared_ptr<ASTNode> rhs;
+		std::shared_ptr<Node> lhs;
+		std::shared_ptr<Node> rhs;
 
-		ASTNode(SymbolKind kind_, std::string_view sv_, TypeKind type_):
+		Node(SymbolKind kind_, std::string_view sv_, TypeKind type_):
 				kind(kind_),
 				op(SymbolKind::None),
 				sv(sv_),
@@ -169,14 +169,14 @@ namespace cane {
 				lhs(nullptr),
 				rhs(nullptr) {}
 
-		ASTNode(
+		Node(
 			SymbolKind kind_,
 			std::string_view sv_,
 
 			TypeKind type_,
 
-			std::shared_ptr<ASTNode> lhs_,
-			std::shared_ptr<ASTNode> rhs_
+			std::shared_ptr<Node> lhs_,
+			std::shared_ptr<Node> rhs_
 		):
 				kind(kind_),
 				op(SymbolKind::None),
@@ -185,6 +185,28 @@ namespace cane {
 				lhs(lhs_),
 				rhs(rhs_) {}
 	};
+}  // namespace cane
+
+template <>
+struct std::formatter<cane::Node>: std::formatter<std::string_view> {
+	auto format(cane::Node x, format_context& ctx) const {
+		return formatter<std::string_view>::format(
+			std::format(
+				"{{ kind: {}, op: {}, sv: '{}', type: {}, lhs: {}, rhs: {} }}",
+				x.kind,
+				x.op,
+				x.sv,
+				x.type,
+
+				static_cast<void*>(x.lhs.get()),
+				static_cast<void*>(x.rhs.get())
+			),
+			ctx
+		);
+	}
+};
+
+namespace cane {
 
 	////////////
 	// PARSER //
@@ -280,16 +302,16 @@ namespace cane {
 		//////////////////////
 
 		// Core parsing functions
-		std::shared_ptr<ASTNode> parse() {
+		std::shared_ptr<Node> parse() {
 			CANE_FUNC();
 
-			std::shared_ptr<ASTNode> root = nullptr;
+			std::shared_ptr<Node> root = nullptr;
 
 			while (not lx.peek_is_kind(SymbolKind::EndFile)) {
 				auto stmt = lx.peek();
 				auto node = expression();
 
-				auto concat = std::make_shared<ASTNode>(
+				auto concat = std::make_shared<Node>(
 					SymbolKind::Statement, stmt.sv, TypeKind::None, node, root
 				);
 
@@ -351,21 +373,21 @@ namespace cane {
 			return type_annotation();
 		}
 
-		std::shared_ptr<ASTNode> primary(Symbol symbol) {
+		std::shared_ptr<Node> primary(Symbol symbol) {
 			CANE_FUNC();
 
 			switch (symbol.kind) {
 				// Literals
 				case SymbolKind::Identifier: {
 					lx.discard();
-					return std::make_shared<ASTNode>(
+					return std::make_shared<Node>(
 						symbol.kind, symbol.sv, TypeKind::None
 					);
 				}
 
 				case SymbolKind::String: {
 					lx.discard();
-					return std::make_shared<ASTNode>(
+					return std::make_shared<Node>(
 						symbol.kind, symbol.sv, TypeKind::None
 					);
 				}
@@ -373,18 +395,18 @@ namespace cane {
 				case SymbolKind::Number: {
 					auto number = lx.take();
 
-					auto root = std::make_shared<ASTNode>(
+					auto root = std::make_shared<Node>(
 						symbol.kind, number.sv, TypeKind::Scalar
 					);
 
 					while (lx.peek_is_kind(SymbolKind::Number)) {
 						auto number = lx.take();
 
-						auto node = std::make_shared<ASTNode>(
+						auto node = std::make_shared<Node>(
 							symbol.kind, number.sv, TypeKind::Scalar
 						);
 
-						auto concat = std::make_shared<ASTNode>(
+						auto concat = std::make_shared<Node>(
 							SymbolKind::Concatenate,
 							number.sv,
 							TypeKind::Melody,
@@ -403,7 +425,7 @@ namespace cane {
 				case SymbolKind::Rest: {
 					lx.discard();
 
-					auto root = std::make_shared<ASTNode>(
+					auto root = std::make_shared<Node>(
 						symbol.kind, symbol.sv, TypeKind::Rhythm
 					);
 
@@ -413,11 +435,11 @@ namespace cane {
 					) {
 						auto beat = lx.take(fix_unary_symbol);
 
-						auto node = std::make_shared<ASTNode>(
+						auto node = std::make_shared<Node>(
 							beat.kind, beat.sv, TypeKind::Rhythm
 						);
 
-						auto concat = std::make_shared<ASTNode>(
+						auto concat = std::make_shared<Node>(
 							SymbolKind::Concatenate,
 							beat.sv,
 							TypeKind::Rhythm,
@@ -436,7 +458,7 @@ namespace cane {
 					lx.discard();  // Skip `&`
 					auto expr = expression();
 
-					return std::make_shared<ASTNode>(
+					return std::make_shared<Node>(
 						SymbolKind::Coerce,
 						symbol.sv,
 						TypeKind::None,
@@ -459,13 +481,13 @@ namespace cane {
 
 				case SymbolKind::Layer: {
 					lx.discard();  // Skip `[`
-					std::shared_ptr<ASTNode> root = nullptr;
+					std::shared_ptr<Node> root = nullptr;
 
 					// Need at least one expression.
 					do {
 						auto node = expression();
 
-						auto cons = std::make_shared<ASTNode>(
+						auto cons = std::make_shared<Node>(
 							SymbolKind::Layer,
 							symbol.sv,
 							TypeKind::None,
@@ -496,7 +518,7 @@ namespace cane {
 						cane::die("expected an identifier");
 					}
 
-					auto param = std::make_shared<ASTNode>(
+					auto param = std::make_shared<Node>(
 						SymbolKind::Identifier,
 						identifier.value().sv,
 						TypeKind::None
@@ -517,7 +539,7 @@ namespace cane {
 						cane::die("expected a type annotation");
 					}
 
-					auto root = std::make_shared<ASTNode>(
+					auto root = std::make_shared<Node>(
 						SymbolKind::Function, symbol.sv, body->type
 					);
 
@@ -537,7 +559,7 @@ namespace cane {
 			return nullptr;
 		}
 
-		std::shared_ptr<ASTNode> prefix(Symbol symbol, size_t bp) {
+		std::shared_ptr<Node> prefix(Symbol symbol, size_t bp) {
 			CANE_FUNC();
 
 			// We need to call this function directly instead of using something
@@ -551,13 +573,13 @@ namespace cane {
 			lx.discard();
 			auto expr = expression(bp);
 
-			return std::make_shared<ASTNode>(
+			return std::make_shared<Node>(
 				symbol.kind, symbol.sv, TypeKind::None, expr, nullptr
 			);
 		}
 
-		std::shared_ptr<ASTNode>
-		infix(Symbol symbol, std::shared_ptr<ASTNode> lhs, size_t bp) {
+		std::shared_ptr<Node>
+		infix(Symbol symbol, std::shared_ptr<Node> lhs, size_t bp) {
 			CANE_FUNC();
 
 			if (not is_infix(symbol.kind)) {
@@ -567,20 +589,20 @@ namespace cane {
 			lx.discard();
 			auto rhs = expression(bp);
 
-			return std::make_shared<ASTNode>(
+			return std::make_shared<Node>(
 				symbol.kind, symbol.sv, TypeKind::None, lhs, rhs
 			);
 		}
 
-		std::shared_ptr<ASTNode>
-		postfix(Symbol symbol, std::shared_ptr<ASTNode> lhs) {
+		std::shared_ptr<Node>
+		postfix(Symbol symbol, std::shared_ptr<Node> lhs) {
 			CANE_FUNC();
 
 			if (not is_postfix(symbol.kind)) {
 				cane::die("expected a postfix operator");
 			}
 
-			auto node = std::make_shared<ASTNode>(
+			auto node = std::make_shared<Node>(
 				symbol.kind, symbol.sv, TypeKind::None, lhs, /* rhs = */ nullptr
 			);
 
@@ -600,7 +622,7 @@ namespace cane {
 					auto [kind, sv] = identifier.value();
 
 					node->rhs =
-						std::make_shared<ASTNode>(kind, sv, TypeKind::None);
+						std::make_shared<Node>(kind, sv, TypeKind::None);
 				} break;
 
 				case SymbolKind::Send: {
@@ -612,7 +634,7 @@ namespace cane {
 
 					auto [kind, sv] = channel.value();
 
-					node->rhs = std::make_shared<ASTNode>(
+					node->rhs = std::make_shared<Node>(
 						SymbolKind::Send, sv, TypeKind::None
 					);
 				} break;
@@ -633,11 +655,11 @@ namespace cane {
 			return node;
 		}
 
-		std::shared_ptr<ASTNode> expression(size_t min_bp = 0) {
+		std::shared_ptr<Node> expression(size_t min_bp = 0) {
 			CANE_FUNC();
 
 			Symbol symbol = lx.peek(fix_unary_symbol);
-			std::shared_ptr<ASTNode> node = nullptr;
+			std::shared_ptr<Node> node = nullptr;
 
 			if (is_primary(symbol.kind)) {
 				node = primary(symbol);
