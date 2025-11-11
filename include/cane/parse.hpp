@@ -34,7 +34,7 @@ namespace cane {
 	X(OpfixKind::Prefix, SymbolKind::Backslash, SymbolKind::Function) \
 	X(OpfixKind::Prefix, SymbolKind::LeftBracket, SymbolKind::Layer) \
 \
-	X(OpfixKind::Infix, SymbolKind::DoubleSlash, SymbolKind::Euclidean) \
+	X(OpfixKind::Infix, SymbolKind::Colon, SymbolKind::Euclidean) \
 	X(OpfixKind::Infix, SymbolKind::Stars, SymbolKind::Repeat) \
 	X(OpfixKind::Infix, SymbolKind::At, SymbolKind::Map) \
 	X(OpfixKind::Infix, SymbolKind::Comma, SymbolKind::Concatenate) \
@@ -93,38 +93,38 @@ namespace cane {
 		// clang-format off
 
 #define CANE_BINDING_POWERS \
-	X(SymbolKind::Call,        1, 2) \
-	X(SymbolKind::Assign,      2, 3) \
+	X(SymbolKind::Concatenate, 1, 2) \
+	\
+	X(SymbolKind::Call,        2, 3) \
+	X(SymbolKind::Assign,      3, 4) \
 \
-	X(SymbolKind::Or,          3, 4) \
-	X(SymbolKind::And,         3, 4) \
-	X(SymbolKind::Xor,         3, 4) \
-	X(SymbolKind::Repeat,      3, 4) \
-	X(SymbolKind::LeftShift,   3, 4) \
-	X(SymbolKind::RightShift,  3, 4) \
+	X(SymbolKind::Or,          4, 5) \
+	X(SymbolKind::And,         4, 5) \
+	X(SymbolKind::Xor,         4, 5) \
+	X(SymbolKind::Repeat,      4, 5) \
+	X(SymbolKind::LeftShift,   4, 5) \
+	X(SymbolKind::RightShift,  4, 5) \
 \
-	X(SymbolKind::Map,         4, 5) \
+	X(SymbolKind::Map,         5, 6) \
 \
-	X(SymbolKind::Concatenate, 5, 6) \
+	X(SymbolKind::Invert,      7, 7) \
+	X(SymbolKind::Reverse,     7, 7) \
 \
-	X(SymbolKind::Invert,      6, 6) \
-	X(SymbolKind::Reverse,     6, 6) \
+	X(SymbolKind::Add,         8, 9) \
+	X(SymbolKind::Sub,         8, 9) \
 \
-	X(SymbolKind::Add,         7, 8) \
-	X(SymbolKind::Sub,         7, 8) \
+	X(SymbolKind::Mul,         9, 10) \
+	X(SymbolKind::Div,         9, 10) \
 \
-	X(SymbolKind::Mul,         8, 9) \
-	X(SymbolKind::Div,         8, 9) \
+	X(SymbolKind::Euclidean,   10, 11) \
 \
-	X(SymbolKind::Euclidean,   9, 10) \
+	X(SymbolKind::LCM,         11, 12) \
+	X(SymbolKind::GCD,         11, 12) \
 \
-	X(SymbolKind::LCM,         10, 11) \
-	X(SymbolKind::GCD,         10, 11) \
+	X(SymbolKind::Random,      12, 13) \
 \
-	X(SymbolKind::Random,      11, 12) \
-\
-	X(SymbolKind::Abs,         12, 12) \
-	X(SymbolKind::Neg,         12, 12)
+	X(SymbolKind::Abs,         13, 13) \
+	X(SymbolKind::Neg,         13, 13)
 
 		// clang-format on
 

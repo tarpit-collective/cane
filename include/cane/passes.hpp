@@ -481,14 +481,20 @@ namespace cane {
 	// Evaluator //
 	///////////////
 
-	inline Value pass_evaluator_walker(std::shared_ptr<Node> node);
+	inline Value
+	pass_evaluator_walker(std::mt19937_64& rng, std::shared_ptr<Node> node);
 
 	inline Value pass_evaluator(std::shared_ptr<Node> node) {
 		CANE_FUNC();
-		return pass_evaluator_walker(node);
+
+		std::random_device rd;
+		std::mt19937_64 rng(rd());
+
+		return pass_evaluator_walker(rng, node);
 	}
 
-	inline Value pass_evaluator_walker(std::shared_ptr<Node> node) {
+	inline Value
+	pass_evaluator_walker(std::mt19937_64& rng, std::shared_ptr<Node> node) {
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
 		}
@@ -496,8 +502,8 @@ namespace cane {
 		// Trivial/special cases
 		switch (node->kind) {
 			case SymbolKind::Statement: {
-				Value lhs = pass_evaluator_walker(node->lhs);
-				Value rhs = pass_evaluator_walker(node->rhs);
+				Value lhs = pass_evaluator_walker(rng, node->lhs);
+				Value rhs = pass_evaluator_walker(rng, node->rhs);
 
 				return lhs;
 			} break;
@@ -530,8 +536,8 @@ namespace cane {
 			default: break;
 		}
 
-		Value lhs = pass_evaluator_walker(node->lhs);
-		Value rhs = pass_evaluator_walker(node->rhs);
+		Value lhs = pass_evaluator_walker(rng, node->lhs);
+		Value rhs = pass_evaluator_walker(rng, node->rhs);
 
 		switch (node->op) {
 			// Unary Scalar
@@ -561,18 +567,7 @@ namespace cane {
 
 			case SymbolKind::EuclideanScalarScalar: return lhs.euclidean(rhs);
 
-			case SymbolKind::RandomScalarScalar: {
-				// std::random_device rd;
-				// std::mt19937_64 rng(rd());
-
-				// std::uniform_int_distribution<std::mt19937_64::result_type>
-				// 	dist(std::get<Scalar>(lhs), std::get<Scalar>(rhs));
-
-				// return dist(rng);
-
-				// TODO: Return either left hand side or right hand side
-				return lhs;
-			};
+			case SymbolKind::RandomScalarScalar: return lhs.choice(rng, rhs);
 
 			// Rotate vectors
 			case SymbolKind::LeftShiftMelodyScalar:

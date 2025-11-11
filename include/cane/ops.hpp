@@ -454,6 +454,31 @@ namespace cane {
 
 			return std::gcd(lhs, rhs);
 		}
+
+		decltype(auto) random(std::mt19937_64& rng, Value other) {
+			// TODO: Handle negative numbers
+			auto lhs = std::get<Scalar>(*this);
+			auto rhs = std::get<Scalar>(other);
+
+			std::uniform_int_distribution<std::mt19937_64::result_type> dist(
+				lhs, rhs
+			);
+
+			return dist(rng);
+		}
+
+		decltype(auto) choice(std::mt19937_64& rng, Value other) {
+			auto lhs = std::get<Scalar>(*this);
+			auto rhs = std::get<Scalar>(other);
+
+			std::bernoulli_distribution dist(0.5);
+
+			if (dist(rng)) {
+				return lhs;
+			}
+
+			return rhs;
+		}
 	};
 
 	constexpr std::ostream& operator<<(std::ostream& os, cane::Value value) {

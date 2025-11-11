@@ -320,12 +320,10 @@ namespace cane {
 					return produce_str(SymbolKind::Arrow, CANE_CSTR("->"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Backslash, CANE_CSTR("\\"));
+					return produce_str(SymbolKind::Question, CANE_CSTR("?"));
 				})
 				.or_else([&] {
-					return produce_str(
-						SymbolKind::DoubleSlash, CANE_CSTR("//")
-					);
+					return produce_str(SymbolKind::Backslash, CANE_CSTR("\\"));
 				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Comma, CANE_CSTR(","));
