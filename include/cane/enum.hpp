@@ -61,6 +61,7 @@ namespace cane {
 	/* Raw Symbols (later converted to operator symbols) */ \
 	X(Ampersand, "ampersand `&`") \
 	X(Backslash, "backslash `\\`") \
+	X(DoubleSlash, "double slash `//`") \
 	X(Backtick, "backtick ```") \
 	X(Comma, "comma `,`") \
 	X(Dot, "dot `.`") \
@@ -172,6 +173,8 @@ namespace cane {
 	X(RandomScalarScalar, "scalar random") \
 \
 	/* MELODY */ \
+	X(CoerceScalar, "coerce scalar") \
+	X(CoerceMelody, "coerce melody") \
 	X(MapMelodyRhythm, "melody map") \
 \
 	X(LeftShiftMelodyScalar, "melody lshift") \

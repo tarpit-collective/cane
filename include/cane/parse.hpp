@@ -3,7 +3,6 @@
 
 #include <string_view>
 #include <memory>
-#include <variant>
 
 #include <cane/macro.hpp>
 #include <cane/enum.hpp>
@@ -35,7 +34,7 @@ namespace cane {
 	X(OpfixKind::Prefix, SymbolKind::Backslash, SymbolKind::Function) \
 	X(OpfixKind::Prefix, SymbolKind::LeftBracket, SymbolKind::Layer) \
 \
-	X(OpfixKind::Infix, SymbolKind::Colon, SymbolKind::Euclidean) \
+	X(OpfixKind::Infix, SymbolKind::DoubleSlash, SymbolKind::Euclidean) \
 	X(OpfixKind::Infix, SymbolKind::Stars, SymbolKind::Repeat) \
 	X(OpfixKind::Infix, SymbolKind::At, SymbolKind::Map) \
 	X(OpfixKind::Infix, SymbolKind::Comma, SymbolKind::Concatenate) \
@@ -456,8 +455,8 @@ namespace cane {
 						SymbolKind::Coerce,
 						symbol.sv,
 						TypeKind::None,
-						expr,
-						nullptr
+						nullptr,
+						expr
 					);
 				} break;
 

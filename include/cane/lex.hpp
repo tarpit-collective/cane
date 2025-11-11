@@ -323,6 +323,11 @@ namespace cane {
 					return produce_str(SymbolKind::Backslash, CANE_CSTR("\\"));
 				})
 				.or_else([&] {
+					return produce_str(
+						SymbolKind::DoubleSlash, CANE_CSTR("//")
+					);
+				})
+				.or_else([&] {
 					return produce_str(SymbolKind::Comma, CANE_CSTR(","));
 				})
 				.or_else([&] {
