@@ -1,11 +1,27 @@
+- add two melodies together
+- head/tail operators
+
+- Make coerce prefix
+- Use same design language as lexer for the parser with monads
+- string_view of statement and other parent nodes should contain the extents of all those nodes. Basically the string view begin/end should include all expressions in the statement
+- Generate sequence events
+- Better type errors and type handling in general
+- Generate is_prefix/is_primary/is_postfix from symbol remappings
+
+
+
+
+
+
+------------------------------
+
+
+
 - location at eof should be more clear (dont print a column number)
 
-- should newline imply `;`?
 
 - rethink binding power definition, use old approach from cane where we have LAST & INCR
 
-- since the AST is a binary tree, we can probably implement it as an
-array of nodes rather than a tree of nodes to reduce memory fragmentation
 
 - how do we handle velocity? should we?
   - an accent can be applied to a sequence which is just an array of numbers like a melody
@@ -34,8 +50,6 @@ array of nodes rather than a tree of nodes to reduce memory fragmentation
 - Evaluation pass that generates a list of events we can then serialise into
 a MIDI file
 
-- Actually free memory :v)
-
 - Change operator kind in AST nodes after type checking
   - For example, scalars/melodies/rhythms share some operators but they are
   semantically different. We should probably have a SCALAR_ADD, MELODY_ADD kind
@@ -49,31 +63,3 @@ a MIDI file
   for _true_ postfix operators
 
 - Symbol remapping/binding power as part of symbol definitions
-
-- cane_vector_t functions:
-  - `at`            =>   indexing
-  - `front`         =>   first element
-  - `back`          =>   last element
-  - `begin`         =>   pointer to first element
-  - `end`           =>   pointer to last element
-  - `is_empty`      =>   boolean check if length is 0
-  - `length`        =>   return length (getter)
-  - `capacity`      =>   return capacity (getter)
-  - `cane_vec_info` =>   return buf pointer and length (cane_vector_info_t)
-  - `fit`           =>   makes _at least_ enough space according to given size
-  - `shrink`        =>   makes capacity equal to length (frees up memory)
-  - `resize`        =>   sets size of vector (grow _or_ shrink) and sets cell to given value
-  - `fill`          =>   sets all cells to given value
-  - `clear`         =>   empties vector (keeps capacity)
-  - `push`          =>   push elements to the end of the vector
-  - `pop`           =>   pop elements from the end of the vector
-  - `insert`        =>   insert at specific index and shift elements
-  - `remove`        =>   remove element at specific index and shift elements
-  - `concat`        =>   join two vectors together
-  - `rotate`        =>   shift elements around circularly
-  - `reverse`       =>   reverse elements in the vector
-  - `repeat`        =>   concat the vector with itself N times
-  - `sort`          =>   sort the elements of the vector
-  - `swap`          =>   swap two indices in the vector
-  - `broadcast`     =>   apply a given function to all elements of the vector with a given value
-  - `eq`            =>   compare two vectors for equality
