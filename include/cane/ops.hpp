@@ -1,9 +1,11 @@
 #ifndef CANE_OPS_HPP
 #define CANE_OPS_HPP
 
+#include <cstdint>
+
+#include <ranges>
 #include <chrono>
 #include <random>
-#include <cstdint>
 
 #include <cane/util.hpp>
 
@@ -13,7 +15,7 @@ namespace cane {
 	// Types //
 	///////////
 
-	using Timestamp = std::chrono::microseconds;
+	using Unit = std::chrono::microseconds;
 
 	// TODO: What do we need for an event?
 	// - Timestamp
@@ -25,15 +27,17 @@ namespace cane {
 	using String = std::string_view;
 
 	struct Event {
-		Timestamp timestamp;
+		Unit duration;
+		uint8_t note;
+		uint8_t velocity;
 	};
 
 	struct Sequence: public std::vector<Event> {
 		using std::vector<Event>::vector;
 	};
 
-	struct Rhythm: public std::vector<bool> {
-		using std::vector<bool>::vector;
+	struct Rhythm: public std::vector<uint8_t> {
+		using std::vector<uint8_t>::vector;
 	};
 
 	struct Melody: public std::vector<Scalar> {
@@ -41,7 +45,11 @@ namespace cane {
 	};
 
 	constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
-		return (os << "{ timestamp: " << ev.timestamp << "}");
+		return (
+			os << "{ duration: " << ev.duration
+			   << ", note: " << static_cast<int>(ev.note)
+			   << ", velocity: " << static_cast<int>(ev.velocity) << "}"
+		);
 	}
 
 	constexpr std::ostream& operator<<(std::ostream& os, Sequence seq) {
@@ -276,10 +284,9 @@ namespace cane {
 			auto melody = std::get<Melody>(*this);
 
 			std::transform(
-				melody.begin(),
-				melody.end(),
-				melody.begin(),
-				[&](auto x) { return x + n; }
+				melody.begin(), melody.end(), melody.begin(), [&](auto x) {
+					return x + n;
+				}
 			);
 
 			return melody;
@@ -289,10 +296,9 @@ namespace cane {
 			auto melody = std::get<Melody>(*this);
 
 			std::transform(
-				melody.begin(),
-				melody.end(),
-				melody.begin(),
-				[&](auto x) { return x - n; }
+				melody.begin(), melody.end(), melody.begin(), [&](auto x) {
+					return x - n;
+				}
 			);
 
 			return melody;
@@ -302,10 +308,9 @@ namespace cane {
 			auto melody = std::get<Melody>(*this);
 
 			std::transform(
-				melody.begin(),
-				melody.end(),
-				melody.begin(),
-				[&](auto x) { return x * n; }
+				melody.begin(), melody.end(), melody.begin(), [&](auto x) {
+					return x * n;
+				}
 			);
 
 			return melody;
@@ -315,10 +320,9 @@ namespace cane {
 			auto melody = std::get<Melody>(*this);
 
 			std::transform(
-				melody.begin(),
-				melody.end(),
-				melody.begin(),
-				[&](auto x) { return x / n; }
+				melody.begin(), melody.end(), melody.begin(), [&](auto x) {
+					return x / n;
+				}
 			);
 
 			return melody;
@@ -478,6 +482,58 @@ namespace cane {
 			}
 
 			return rhs;
+		}
+
+		template <typename X, typename Y>
+		decltype(auto) cycle(Value other) {
+			auto lhs_value = *this;
+			auto rhs_value = other;
+
+			auto lhs = std::get<X>(lhs_value);
+			auto rhs = std::get<Y>(rhs_value);
+
+			auto repeat_n = lhs.size() / rhs.size();
+			auto cycled = rhs_value.repeat<Y>(repeat_n + 1);
+
+			CANE_OKAY(
+				"melody = {}, rhythm = {}, repeat_n = {}",
+				lhs.size(),
+				rhs.size(),
+				repeat_n
+			);
+
+			// TODO: Erase extraneous elements so both are the same length
+
+			return cycled;
+		}
+
+		decltype(auto) generate_sequence(Melody melody, Rhythm rhythm) {
+			Sequence seq;
+
+			for (auto [note, beat]: std::views::zip(melody, rhythm)) {
+				CANE_OKAY("{} -> {}", note, beat);
+				seq.emplace_back(Unit { 0 }, note, 127);
+			}
+
+			return seq;
+		}
+
+		decltype(auto) map_onto_melody(Value other) {
+			CANE_FUNC();
+
+			auto melody = std::get<Melody>(*this);
+			auto rhythm = cycle<Melody, Rhythm>(other);
+
+			return generate_sequence(melody, rhythm);
+		}
+
+		decltype(auto) map_onto_rhythm(Value other) {
+			CANE_FUNC();
+
+			auto rhythm = std::get<Rhythm>(*this);
+			auto melody = cycle<Rhythm, Melody>(other);
+
+			return generate_sequence(melody, rhythm);
 		}
 	};
 

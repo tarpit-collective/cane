@@ -639,10 +639,8 @@ namespace cane {
 			case SymbolKind::AndRhythmRhythm: return lhs.bit_and(rhs);
 
 			// Mapping
-			case SymbolKind::MapRhythmMelody:
-			case SymbolKind::MapMelodyRhythm: {
-				// Create sequence
-			} break;
+			case SymbolKind::MapRhythmMelody: return lhs.map_onto_rhythm(rhs);
+			case SymbolKind::MapMelodyRhythm: return lhs.map_onto_melody(rhs);
 
 			// Time divisions
 			case SymbolKind::MulSequenceScalar:
