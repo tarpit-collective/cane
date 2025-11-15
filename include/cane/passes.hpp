@@ -481,20 +481,29 @@ namespace cane {
 	// Evaluator //
 	///////////////
 
-	inline Value
-	pass_evaluator_walker(std::mt19937_64& rng, std::shared_ptr<Node> node);
+	struct Environment {
+		size_t bpm;
+	};
+
+	inline Value pass_evaluator_walker(
+		Environment& env, std::mt19937_64& rng, std::shared_ptr<Node> node
+	);
 
 	inline Value pass_evaluator(std::shared_ptr<Node> node) {
 		CANE_FUNC();
 
+		// TODO: Take bpm from commandline args
+		Environment env = { .bpm = 120 };
+
 		std::random_device rd;
 		std::mt19937_64 rng(rd());
 
-		return pass_evaluator_walker(rng, node);
+		return pass_evaluator_walker(env, rng, node);
 	}
 
-	inline Value
-	pass_evaluator_walker(std::mt19937_64& rng, std::shared_ptr<Node> node) {
+	inline Value pass_evaluator_walker(
+		Environment& env, std::mt19937_64& rng, std::shared_ptr<Node> node
+	) {
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
 		}
@@ -502,8 +511,8 @@ namespace cane {
 		// Trivial/special cases
 		switch (node->kind) {
 			case SymbolKind::Statement: {
-				Value lhs = pass_evaluator_walker(rng, node->lhs);
-				Value rhs = pass_evaluator_walker(rng, node->rhs);
+				Value lhs = pass_evaluator_walker(env, rng, node->lhs);
+				Value rhs = pass_evaluator_walker(env, rng, node->rhs);
 
 				return lhs;
 			} break;
@@ -536,8 +545,8 @@ namespace cane {
 			default: break;
 		}
 
-		Value lhs = pass_evaluator_walker(rng, node->lhs);
-		Value rhs = pass_evaluator_walker(rng, node->rhs);
+		Value lhs = pass_evaluator_walker(env, rng, node->lhs);
+		Value rhs = pass_evaluator_walker(env, rng, node->rhs);
 
 		switch (node->op) {
 			// Unary Scalar
@@ -639,14 +648,14 @@ namespace cane {
 			case SymbolKind::AndRhythmRhythm: return lhs.bit_and(rhs);
 
 			// Mapping
-			case SymbolKind::MapRhythmMelody: return lhs.map_onto_rhythm(rhs);
-			case SymbolKind::MapMelodyRhythm: return lhs.map_onto_melody(rhs);
+			case SymbolKind::MapRhythmMelody:
+				return lhs.map_onto_rhythm(env.bpm, rhs);
+			case SymbolKind::MapMelodyRhythm:
+				return lhs.map_onto_melody(env.bpm, rhs);
 
 			// Time divisions
-			case SymbolKind::MulSequenceScalar:
-			case SymbolKind::DivSequenceScalar: {
-				// Time div/mul on sequences
-			} break;
+			case SymbolKind::MulSequenceScalar: return lhs.timemul(rhs);
+			case SymbolKind::DivSequenceScalar: return lhs.timediv(rhs);
 
 			default: {
 				cane::die(

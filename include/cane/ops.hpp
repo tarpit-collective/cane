@@ -27,7 +27,8 @@ namespace cane {
 	using String = std::string_view;
 
 	struct Event {
-		Unit duration;
+		size_t duration;
+		size_t wait;
 		uint8_t note;
 		uint8_t velocity;
 	};
@@ -46,9 +47,9 @@ namespace cane {
 
 	constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
 		return (
-			os << "{ duration: " << ev.duration
+			os << "{ duration: " << ev.duration << ", wait: " << ev.wait
 			   << ", note: " << static_cast<int>(ev.note)
-			   << ", velocity: " << static_cast<int>(ev.velocity) << "}"
+			   << ", velocity: " << static_cast<int>(ev.velocity) << " }"
 		);
 	}
 
@@ -502,38 +503,65 @@ namespace cane {
 				repeat_n
 			);
 
-			// TODO: Erase extraneous elements so both are the same length
+			cycled.erase(cycled.begin() + lhs.size(), cycled.end());
 
 			return cycled;
 		}
 
-		decltype(auto) generate_sequence(Melody melody, Rhythm rhythm) {
+		decltype(auto)
+		generate_sequence(size_t bpm, Melody melody, Rhythm rhythm) {
 			Sequence seq;
+
+			size_t ms_per_note = 60'000 / bpm;
 
 			for (auto [note, beat]: std::views::zip(melody, rhythm)) {
 				CANE_OKAY("{} -> {}", note, beat);
-				seq.emplace_back(Unit { 0 }, note, 127);
+				seq.emplace_back(ms_per_note, 0, note, 127);
 			}
 
 			return seq;
 		}
 
-		decltype(auto) map_onto_melody(Value other) {
+		decltype(auto) map_onto_melody(size_t bpm, Value other) {
+			// TODO: Map the notes to all indices, including rests
 			CANE_FUNC();
 
 			auto melody = std::get<Melody>(*this);
 			auto rhythm = cycle<Melody, Rhythm>(other);
 
-			return generate_sequence(melody, rhythm);
+			return generate_sequence(bpm, melody, rhythm);
 		}
 
-		decltype(auto) map_onto_rhythm(Value other) {
+		decltype(auto) map_onto_rhythm(size_t bpm, Value other) {
+			// TODO: Map notes only to beats, not rests.
 			CANE_FUNC();
 
 			auto rhythm = std::get<Rhythm>(*this);
 			auto melody = cycle<Rhythm, Melody>(other);
 
-			return generate_sequence(melody, rhythm);
+			return generate_sequence(bpm, melody, rhythm);
+		}
+
+		decltype(auto) timemul(Value other) {
+			auto seq = std::get<Sequence>(*this);
+			auto scalar = std::get<Scalar>(other);
+
+			for (auto& ev: seq) {
+				ev.duration *= scalar;
+			}
+
+			return seq;
+		}
+
+		decltype(auto) timediv(Value other) {
+			auto seq = std::get<Sequence>(*this);
+			auto scalar = std::get<Scalar>(other);
+
+			for (auto& ev: seq) {
+				ev.duration /= scalar;
+			}
+
+			return seq;
 		}
 	};
 
