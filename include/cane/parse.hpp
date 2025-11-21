@@ -372,16 +372,17 @@ namespace cane {
 						   lx.peek_is_kind(SymbolKind::Rest)) {
 						auto beat = lx.take();
 
-						auto node = std::make_shared<Node>(
-							beat.kind, beat.sv, TypeKind::Rhythm
-						);
-
 						root = std::make_shared<Node>(
 							SymbolKind::Concatenate,
 							beat.sv,
 							TypeKind::Rhythm,
-							root,
-							node
+
+							// Children
+							/* lhs = */ root,
+							/* rhs = */
+							std::make_shared<Node>(
+								beat.kind, beat.sv, TypeKind::Rhythm
+							)
 						);
 					}
 
@@ -492,16 +493,11 @@ namespace cane {
 					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
 						cane::die("expecting `)`");
 					}
-
-					return std::make_shared<Node>(
-						symbol.kind, symbol.sv, TypeKind::None, lhs, rhs
-					);
 				}
 
 				default: break;
 			}
 
-			// Normal case
 			return std::make_shared<Node>(
 				symbol.kind, symbol.sv, TypeKind::None, lhs, rhs
 			);

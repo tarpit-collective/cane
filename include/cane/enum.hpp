@@ -65,8 +65,6 @@ namespace cane {
 	X(Number, "number") \
 	X(String, "string") \
 	X(Identifier, "identifier") \
-	X(Rhythm, "rhythm") \
-	X(Melody, "melody") \
 	X(Beat, "beat") \
 	X(Rest, "rest") \
 \

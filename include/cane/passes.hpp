@@ -266,11 +266,15 @@ namespace cane {
 	// 2. Function types
 	inline bool type_remapper(
 		std::shared_ptr<Node> node,
+
 		TypeKind lhs,
 		TypeKind rhs,
+
 		SymbolKind kind,
+
 		TypeKind expected_lhs,
 		TypeKind expected_rhs,
+
 		TypeKind out,
 		SymbolKind op
 	) {
@@ -283,6 +287,7 @@ namespace cane {
 			" [ `{} = " CANE_COLOUR_MAGENTA "{}" CANE_RESET
 			"`, `{} = " CANE_COLOUR_MAGENTA "{}" CANE_RESET
 			"` ] -> " CANE_COLOUR_MAGENTA "{}" CANE_RESET,
+
 			symbol_kind_to_str(kind),
 			type_kind_to_str_human(expected_lhs),
 			type_kind_to_str_human(lhs),
@@ -319,11 +324,15 @@ namespace cane {
 #define CANE_TYPE_REMAP(symbol, lhs_type, rhs_type, out_type, out_symbol) \
 	type_remapper( \
 		node, \
+\
 		lhs, \
 		rhs, \
+\
 		SymbolKind::symbol, \
+\
 		TypeKind::lhs_type, \
 		TypeKind::rhs_type, \
+\
 		TypeKind::out_type, \
 		SymbolKind::out_symbol \
 	)
@@ -416,17 +425,11 @@ namespace cane {
 		if (not type_remap_trivial(node)) {
 			switch (node->kind) {
 				// Literals
-				case SymbolKind::Number:
-				case SymbolKind::String:
+				case SymbolKind::Number: return TypeKind::Scalar;
+				case SymbolKind::String: return TypeKind::String;
 
 				case SymbolKind::Beat:
-				case SymbolKind::Rest:
-
-				case SymbolKind::Rhythm:
-				case SymbolKind::Melody: {
-					// These cases depend on the type being set during parsing.
-					return node->type;
-				} break;
+				case SymbolKind::Rest: return TypeKind::Rhythm;
 
 				// Assignment
 				case SymbolKind::Identifier:
@@ -458,7 +461,6 @@ namespace cane {
 				} break;
 
 				// Statements always return the type of their last expression.
-				case SymbolKind::Layer:
 				case SymbolKind::Statement: {
 					TypeKind lhs = pass_semantic_analysis_walker(node->lhs);
 					TypeKind rhs = pass_semantic_analysis_walker(node->rhs);

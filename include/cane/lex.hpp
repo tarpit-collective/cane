@@ -327,6 +327,9 @@ namespace cane {
 					return produce_str(SymbolKind::Random, CANE_CSTR("?"));
 				})
 				.or_else([&] {
+					return produce_str(SymbolKind::Layer, CANE_CSTR("$"));
+				})
+				.or_else([&] {
 					return produce_str(SymbolKind::Function, CANE_CSTR("\\"));
 				})
 				.or_else([&] {
