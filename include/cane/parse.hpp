@@ -43,9 +43,9 @@ namespace cane {
 	X(OpfixKind::Infix, SymbolKind::LeftChevron, SymbolKind::LeftShift) \
 	X(OpfixKind::Infix, SymbolKind::RightChevron, SymbolKind::RightShift) \
 \
-	X(OpfixKind::Postfix, SymbolKind::FatArrow, SymbolKind::Assign) \
-	X(OpfixKind::Postfix, SymbolKind::WiggleArrow, SymbolKind::Send) \
-	X(OpfixKind::Postfix, SymbolKind::LeftParen, SymbolKind::Call)
+	X(OpfixKind::Infix, SymbolKind::FatArrow, SymbolKind::Assign) \
+	X(OpfixKind::Infix, SymbolKind::WiggleArrow, SymbolKind::Send) \
+	X(OpfixKind::Infix, SymbolKind::LeftParen, SymbolKind::Call)
 
 	constexpr SymbolKind fix_symbol(OpfixKind opfix, SymbolKind kind) {
 #define X(o, f, t) \
@@ -269,17 +269,17 @@ namespace cane {
 
 			// Left/Right Shift
 			SymbolKind::LeftShift,
-			SymbolKind::RightShift
-		);
-	}
+			SymbolKind::RightShift,
 
-	constexpr bool is_postfix(SymbolKind kind) {
-		return eq_any(
-			kind,
 			SymbolKind::Assign,  // Assignment
 			SymbolKind::Call,    // Function call
 			SymbolKind::Send     // Send to channel
 		);
+	}
+
+	constexpr bool is_postfix(SymbolKind kind) {
+		// return eq_any(kind, );
+		return false;
 	}
 
 	constexpr bool is_unary(SymbolKind kind) {
@@ -581,6 +581,22 @@ namespace cane {
 			lx.discard();
 			auto rhs = expression(bp);
 
+			// Special cases
+			switch (symbol.kind) {
+				case SymbolKind::Call: {
+					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
+						cane::die("expecting `)`");
+					}
+
+					return std::make_shared<Node>(
+						symbol.kind, symbol.sv, TypeKind::None, lhs, rhs
+					);
+				}
+
+				default: break;
+			}
+
+			// Normal case
 			return std::make_shared<Node>(
 				symbol.kind, symbol.sv, TypeKind::None, lhs, rhs
 			);
@@ -599,51 +615,6 @@ namespace cane {
 			);
 
 			lx.discard();
-
-			// Assignment is a bit special in that it has a parameter in the
-			// form of an identifier to bind the expression's value to.
-			switch (symbol.kind) {
-				case SymbolKind::Assign: {
-					auto identifier =
-						lx.take_if_kind_opt(SymbolKind::Identifier);
-
-					if (not identifier.has_value()) {
-						cane::die("expected an identifier");
-					}
-
-					auto [kind, sv] = identifier.value();
-
-					node->rhs =
-						std::make_shared<Node>(kind, sv, TypeKind::None);
-				} break;
-
-				case SymbolKind::Send: {
-					auto channel = lx.take_if_kind_opt(SymbolKind::String);
-
-					if (not channel.has_value()) {
-						cane::die("expected a string");
-					}
-
-					auto [kind, sv] = channel.value();
-
-					node->rhs = std::make_shared<Node>(
-						SymbolKind::String, sv, TypeKind::String
-					);
-				} break;
-
-				case SymbolKind::Call: {
-					auto expr = expression();
-
-					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
-						cane::die("expecting `)`");
-					}
-
-					node->rhs = expr;
-				}
-
-				default: break;
-			}
-
 			return node;
 		}
 
