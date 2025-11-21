@@ -118,6 +118,21 @@ namespace cane {
 				type(type_),
 				lhs(lhs_),
 				rhs(rhs_) {}
+
+		Node(
+			SymbolKind kind_,
+			std::string_view sv_,
+
+			TypeKind type_,
+
+			std::shared_ptr<Node> lhs_
+		):
+				kind(kind_),
+				op(SymbolKind::None),
+				sv(sv_),
+				type(type_),
+				lhs(lhs_),
+				rhs(nullptr) {}
 	};
 }  // namespace cane
 
@@ -298,8 +313,9 @@ namespace cane {
 			return parse_type_annotation();
 		}
 
-		std::shared_ptr<Node> parse_primary(Symbol symbol) {
+		std::optional<std::shared_ptr<Node>> parse_primary() {
 			CANE_FUNC();
+			Symbol symbol = lx.peek();
 
 			switch (symbol.kind) {
 				// Literals
@@ -372,20 +388,6 @@ namespace cane {
 					return root;
 				} break;
 
-					// Melody Coercion (Convert a single scalar to a melody)
-					// case SymbolKind::Coerce: {
-					// 	lx.discard();  // Skip `&`
-					// 	auto expr = parse_expression();
-
-					// 	return std::make_shared<Node>(
-					// 		SymbolKind::Coerce,
-					// 		symbol.sv,
-					// 		TypeKind::None,
-					// 		nullptr,
-					// 		expr
-					// 	);
-					// } break;
-
 				case SymbolKind::LeftParen: {
 					lx.discard();  // Skip `(`
 
@@ -446,39 +448,39 @@ namespace cane {
 				default: break;
 			}
 
-			cane::die("expected a primary expression");
-			return nullptr;
+			return std::nullopt;
 		}
 
-		std::shared_ptr<Node> parse_prefix(Symbol symbol, size_t bp) {
+		std::optional<std::shared_ptr<Node>> parse_prefix(size_t bp) {
 			CANE_FUNC();
+			Symbol symbol = lx.peek();
 
-			// We need to call this function directly instead of using something
-			// like `cane_lexer_discard_if` because we have fixed up the symbol
-			// earlier and peeking again would return the incorrect/lexical
-			// token kind instead.
+			// Remapping
+			switch (symbol.kind) {
+				case SymbolKind::Add: symbol.kind = SymbolKind::Abs; break;
+				case SymbolKind::Sub: symbol.kind = SymbolKind::Neg; break;
+				default: break;
+			}
+
 			if (not is_prefix(symbol.kind)) {
-				cane::die("expected a prefix operator");
+				return std::nullopt;
 			}
 
 			lx.discard();
 			auto expr = parse_expression(bp);
 
 			return std::make_shared<Node>(
-				symbol.kind,
-				symbol.sv,
-				TypeKind::None,
-				/* lhs = */ expr,
-				/* rhs = */ nullptr
+				symbol.kind, symbol.sv, TypeKind::None, expr
 			);
 		}
 
-		std::shared_ptr<Node>
-		parse_infix(Symbol symbol, std::shared_ptr<Node> lhs, size_t bp) {
+		std::optional<std::shared_ptr<Node>>
+		parse_infix(std::shared_ptr<Node> lhs, size_t bp) {
 			CANE_FUNC();
+			Symbol symbol = lx.peek();
 
 			if (not is_infix(symbol.kind)) {
-				cane::die("expected an infix operator");
+				return std::nullopt;
 			}
 
 			lx.discard();
@@ -505,67 +507,55 @@ namespace cane {
 			);
 		}
 
-		std::shared_ptr<Node>
-		parse_postfix(Symbol symbol, std::shared_ptr<Node> lhs) {
+		std::optional<std::shared_ptr<Node>>
+		parse_postfix(std::shared_ptr<Node> lhs) {
 			CANE_FUNC();
+			Symbol symbol = lx.peek();
 
 			if (not is_postfix(symbol.kind)) {
-				cane::die("expected a postfix operator");
+				return std::nullopt;
 			}
 
 			lx.discard();
 
 			return std::make_shared<Node>(
-				symbol.kind, symbol.sv, TypeKind::None, lhs, /* rhs = */ nullptr
+				symbol.kind, symbol.sv, TypeKind::None, lhs
 			);
 		}
 
 		std::shared_ptr<Node> parse_expression(size_t min_bp = 0) {
 			CANE_FUNC();
 
-			Symbol symbol = lx.peek();
-			std::shared_ptr<Node> node = nullptr;
+			std::optional<std::shared_ptr<Node>> node;
 
-			if (is_primary(symbol.kind)) {
-				node = parse_primary(symbol);
-			}
+			if (node = parse_primary().or_else([&] {
+					auto [lbp, rbp] = binding_power(lx.peek().kind);
+					return parse_prefix(rbp);
+				});
 
-			else if (is_prefix(symbol.kind)) {
-				auto [lbp, rbp] = binding_power(symbol.kind);
-				node = parse_prefix(symbol, rbp);
-			}
-
-			else {
+				not node.has_value()) {
 				cane::die("expected a primary expression or a prefix operator");
 			}
 
-			// State has changed since we called prefix/primary parser functions
-			// so we need to peek again.
-			symbol = lx.peek();
-
-			while (is_infix(symbol.kind) or is_postfix(symbol.kind)) {
-				auto [lbp, rbp] = binding_power(symbol.kind);
+			while (is_infix(lx.peek().kind) or is_postfix(lx.peek().kind)) {
+				auto [lbp, rbp] = binding_power(lx.peek().kind);
 
 				if (lbp < min_bp) {
 					break;
 				}
 
-				if (is_postfix(symbol.kind)) {
-					node = parse_postfix(symbol, node);
-				}
+				if (node = parse_postfix(node.value()).or_else([&] {
+						return parse_infix(node.value(), rbp);
+					});
 
-				else if (is_infix(symbol.kind)) {
-					node = parse_infix(symbol, node, rbp);
+					not node.has_value()) {
+					cane::die(
+						"expected a primary expression or a prefix operator"
+					);
 				}
-
-				else {
-					cane::die("expected an infix or postfix operator");
-				}
-
-				symbol = lx.peek();
 			}
 
-			return node;
+			return node.value();
 		}
 	};
 
