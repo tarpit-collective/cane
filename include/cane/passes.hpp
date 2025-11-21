@@ -392,7 +392,10 @@ namespace cane {
  		CANE_TYPE_REMAP(Concatenate, Sequence, Sequence, Sequence, ConcatenateSequenceSequence) ||
 
  		CANE_TYPE_REMAP(Mul, Sequence, Scalar, Sequence, MulSequenceScalar) ||
- 		CANE_TYPE_REMAP(Div, Sequence, Scalar, Sequence, DivSequenceScalar)
+ 		CANE_TYPE_REMAP(Div, Sequence, Scalar, Sequence, DivSequenceScalar) ||
+
+ 		/* Pattern */
+ 		CANE_TYPE_REMAP(Send, Sequence, String, Pattern, SendSequenceString)
  	;
 
 		// clang-format on
@@ -424,8 +427,7 @@ namespace cane {
 
 				// Assignment
 				case SymbolKind::Identifier:
-				case SymbolKind::Assign:
-				case SymbolKind::Send: {
+				case SymbolKind::Assign: {
 					CANE_UNIMPLEMENTED();
 				} break;
 
@@ -510,14 +512,10 @@ namespace cane {
 
 		// Trivial/special cases
 		switch (node->kind) {
-			case SymbolKind::Statement: {
-				Value lhs = pass_evaluator_walker(env, rng, node->lhs);
-				Value rhs = pass_evaluator_walker(env, rng, node->rhs);
-
-				return lhs;
+			case SymbolKind::String: {
+				return node->sv;
 			} break;
 
-			case SymbolKind::String:
 			case SymbolKind::Number: {
 				auto number_sv = node->sv;
 
@@ -540,6 +538,13 @@ namespace cane {
 
 			case SymbolKind::Rest: {
 				return Rhythm { false };
+			} break;
+
+			case SymbolKind::Statement: {
+				Value lhs = pass_evaluator_walker(env, rng, node->lhs);
+				Value rhs = pass_evaluator_walker(env, rng, node->rhs);
+
+				return lhs;
 			} break;
 
 			default: break;
@@ -656,6 +661,9 @@ namespace cane {
 			// Time divisions
 			case SymbolKind::MulSequenceScalar: return lhs.timemul(rhs);
 			case SymbolKind::DivSequenceScalar: return lhs.timediv(rhs);
+
+			// Patterns
+			case SymbolKind::SendSequenceString: return lhs.send(rhs);
 
 			default: {
 				cane::die(

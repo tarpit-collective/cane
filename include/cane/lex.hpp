@@ -151,8 +151,8 @@ namespace cane {
 		}
 
 		// Continue to consume characters while the predicate holds.
-		std::optional<std::string_view> str_take_while(CharacterPredicate pred
-		) {
+		std::optional<std::string_view>
+		str_take_while(CharacterPredicate pred) {
 			bool taken = false;
 			auto begin = it;
 

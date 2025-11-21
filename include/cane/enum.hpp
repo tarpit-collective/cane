@@ -208,7 +208,10 @@ namespace cane {
 	X(ConcatenateSequenceSequence, "sequence concatenate") \
 \
 	X(MulSequenceScalar, "sequence mul") \
-	X(DivSequenceScalar, "sequence div")
+	X(DivSequenceScalar, "sequence div") \
+\
+	/* PATTERN */ \
+	X(SendSequenceString, "sequence send")
 
 #define X(x, y) x,
 	enum class SymbolKind {
@@ -322,6 +325,42 @@ namespace cane {
 		return (os << opfix_kind_to_str_human(log));
 	}
 
+	////////////
+	// Events //
+	////////////
+
+#define CANE_EVENT_KINDS \
+	X(Beat, "beat") \
+	X(Rest, "rest")
+
+#define X(x, y) x,
+	enum class EventKind {
+		CANE_EVENT_KINDS CANE_EVENT_TOTAL
+	};
+#undef X
+
+// Maps the enum const direct to a string
+#define X(x, y) #x,
+	inline std::array EVENT_KIND_TO_STR = { CANE_EVENT_KINDS };
+#undef X
+
+// Map the enum const to a human readable string
+#define X(x, y) y,
+	inline std::array EVENT_KIND_TO_STR_HUMAN = { CANE_EVENT_KINDS };
+#undef X
+
+	constexpr std::string_view event_kind_to_str(EventKind x) {
+		return EVENT_KIND_TO_STR[static_cast<size_t>(x)];
+	}
+
+	constexpr std::string_view event_kind_to_str_human(EventKind x) {
+		return EVENT_KIND_TO_STR_HUMAN[static_cast<size_t>(x)];
+	}
+
+	inline std::ostream& operator<<(std::ostream& os, EventKind ev) {
+		return (os << event_kind_to_str_human(ev));
+	}
+
 }  // namespace cane
 
 template <>
@@ -356,6 +395,15 @@ struct std::formatter<cane::OpfixKind>: std::formatter<std::string_view> {
 	auto format(cane::OpfixKind x, format_context& ctx) const {
 		return formatter<std::string_view>::format(
 			std::format("{}", cane::opfix_kind_to_str(x)), ctx
+		);
+	}
+};
+
+template <>
+struct std::formatter<cane::EventKind>: std::formatter<std::string_view> {
+	auto format(cane::EventKind x, format_context& ctx) const {
+		return formatter<std::string_view>::format(
+			std::format("{}", cane::event_kind_to_str(x)), ctx
 		);
 	}
 };

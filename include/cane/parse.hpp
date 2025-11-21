@@ -93,38 +93,39 @@ namespace cane {
 		// clang-format off
 
 #define CANE_BINDING_POWERS \
-	X(SymbolKind::Map,         1, 2) \
+	X(SymbolKind::Send,        1, 2) \
+	X(SymbolKind::Map,         2, 3) \
 \
-	X(SymbolKind::Concatenate, 2, 3) \
+	X(SymbolKind::Concatenate, 3, 4) \
 \
-	X(SymbolKind::Call,        3, 4) \
-	X(SymbolKind::Assign,      4, 5) \
+	X(SymbolKind::Call,        4, 5) \
+	X(SymbolKind::Assign,      5, 6) \
 \
-	X(SymbolKind::Or,          5, 6) \
-	X(SymbolKind::And,         5, 6) \
-	X(SymbolKind::Xor,         5, 6) \
-	X(SymbolKind::Repeat,      5, 6) \
-	X(SymbolKind::LeftShift,   5, 6) \
-	X(SymbolKind::RightShift,  5, 6) \
+	X(SymbolKind::Or,          6, 7) \
+	X(SymbolKind::And,         6, 7) \
+	X(SymbolKind::Xor,         6, 7) \
+	X(SymbolKind::Repeat,      6, 7) \
+	X(SymbolKind::LeftShift,   6, 7) \
+	X(SymbolKind::RightShift,  6, 7) \
 \
-	X(SymbolKind::Invert,      8, 8) \
-	X(SymbolKind::Reverse,     8, 8) \
+	X(SymbolKind::Invert,      9, 9) \
+	X(SymbolKind::Reverse,     9, 9) \
 \
-	X(SymbolKind::Add,         9, 10) \
-	X(SymbolKind::Sub,         9, 10) \
+	X(SymbolKind::Add,         10, 11) \
+	X(SymbolKind::Sub,         10, 11) \
 \
-	X(SymbolKind::Mul,         10, 11) \
-	X(SymbolKind::Div,         10, 11) \
+	X(SymbolKind::Mul,         11, 12) \
+	X(SymbolKind::Div,         11, 12) \
 \
-	X(SymbolKind::Euclidean,   11, 12) \
+	X(SymbolKind::Euclidean,   12, 13) \
 \
-	X(SymbolKind::LCM,         12, 13) \
-	X(SymbolKind::GCD,         12, 13) \
+	X(SymbolKind::LCM,         13, 14) \
+	X(SymbolKind::GCD,         13, 14) \
 \
-	X(SymbolKind::Random,      13, 14) \
+	X(SymbolKind::Random,      14, 15) \
 \
-	X(SymbolKind::Abs,         14, 14) \
-	X(SymbolKind::Neg,         14, 14)
+	X(SymbolKind::Abs,         15, 15) \
+	X(SymbolKind::Neg,         15, 15)
 
 		// clang-format on
 
@@ -385,7 +386,7 @@ namespace cane {
 				case SymbolKind::String: {
 					lx.discard();
 					return std::make_shared<Node>(
-						symbol.kind, symbol.sv, TypeKind::None
+						symbol.kind, symbol.sv, TypeKind::String
 					);
 				}
 
@@ -626,7 +627,7 @@ namespace cane {
 					auto [kind, sv] = channel.value();
 
 					node->rhs = std::make_shared<Node>(
-						SymbolKind::Send, sv, TypeKind::None
+						SymbolKind::String, sv, TypeKind::String
 					);
 				} break;
 

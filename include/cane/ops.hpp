@@ -7,6 +7,7 @@
 #include <chrono>
 #include <random>
 
+#include <cane/enum.hpp>
 #include <cane/util.hpp>
 
 namespace cane {
@@ -15,7 +16,10 @@ namespace cane {
 	// Types //
 	///////////
 
-	using Unit = std::chrono::microseconds;
+	using TimeUnit = std::chrono::microseconds;
+
+	constexpr auto MINUTE =
+		std::chrono::duration_cast<TimeUnit>(std::chrono::minutes { 1 });
 
 	// TODO: What do we need for an event?
 	// - Timestamp
@@ -27,10 +31,21 @@ namespace cane {
 	using String = std::string_view;
 
 	struct Event {
-		size_t duration;
-		size_t wait;
+		// Meta
+		size_t key;
+		EventKind kind;
+
+		// Timing information
+		TimeUnit duration;
+
+		// Event information
+		uint8_t channel;
 		uint8_t note;
 		uint8_t velocity;
+	};
+
+	struct Pattern: public std::vector<Event> {
+		using std::vector<Event>::vector;
 	};
 
 	struct Sequence: public std::vector<Event> {
@@ -46,14 +61,40 @@ namespace cane {
 	};
 
 	constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
-		return (
-			os << "{ duration: " << ev.duration << ", wait: " << ev.wait
-			   << ", note: " << static_cast<int>(ev.note)
-			   << ", velocity: " << static_cast<int>(ev.velocity) << " }"
-		);
+		os << "{ ";
+		os << "key: " << ev.key << ", ";
+		os << "kind: " << ev.kind << ", ";
+		os << "duration: " << ev.duration << ", ";
+		os << "channel: " << static_cast<int>(ev.channel) << ", ";
+		os << "note: " << static_cast<int>(ev.note) << ", ";
+		os << "velocity: " << static_cast<int>(ev.velocity);
+		os << " }";
+
+		return os;
+
+		// return (
+		// 	os << "{ key: " << ev.key << ", kind: " << ev.kind << ", duration: "
+		// 	   << ev.duration << ", note: " << static_cast<int>(ev.note)
+		// 	   << ", velocity: " << static_cast<int>(ev.velocity) << " }"
+		// );
 	}
 
 	constexpr std::ostream& operator<<(std::ostream& os, Sequence seq) {
+		if (seq.empty()) {
+			return (os << "[]");
+		}
+
+		auto it = seq.begin();
+		os << '[' << *it++;
+
+		for (; it != seq.end(); ++it) {
+			os << ", " << *it;
+		}
+
+		return (os << ']');
+	}
+
+	constexpr std::ostream& operator<<(std::ostream& os, Pattern seq) {
 		if (seq.empty()) {
 			return (os << "[]");
 		}
@@ -74,10 +115,10 @@ namespace cane {
 		}
 
 		auto it = rhythm.begin();
-		os << '[' << *it++;
+		os << '[' << static_cast<int>(*it++);
 
 		for (; it != rhythm.end(); ++it) {
-			os << ", " << *it;
+			os << ", " << static_cast<int>(*it);
 		}
 
 		return (os << ']');
@@ -118,6 +159,15 @@ struct std::formatter<cane::Sequence>: std::formatter<std::string_view> {
 };
 
 template <>
+struct std::formatter<cane::Pattern>: std::formatter<std::string_view> {
+	auto format(cane::Pattern seq, format_context& ctx) const {
+		std::ostringstream ss;
+		ss << seq;
+		return std::formatter<string_view>::format(ss.str(), ctx);
+	}
+};
+
+template <>
 struct std::formatter<cane::Rhythm>: std::formatter<std::string_view> {
 	auto format(cane::Rhythm rhythm, format_context& ctx) const {
 		std::ostringstream ss;
@@ -148,10 +198,16 @@ namespace cane {
 				String,
 				Rhythm,
 				Melody,
-				Sequence> {
-		using std::
-			variant<std::monostate, Scalar, String, Rhythm, Melody, Sequence>::
-				variant;
+				Sequence,
+				Pattern> {
+		using std::variant<
+			std::monostate,
+			Scalar,
+			String,
+			Rhythm,
+			Melody,
+			Sequence,
+			Pattern>::variant;
 
 		decltype(auto) get_scalar() {
 			return std::get<Scalar>(*this);
@@ -167,6 +223,10 @@ namespace cane {
 
 		decltype(auto) get_sequence() {
 			return std::get<Sequence>(*this);
+		}
+
+		decltype(auto) get_pattern() {
+			return std::get<Pattern>(*this);
 		}
 
 		template <typename T>
@@ -512,11 +572,22 @@ namespace cane {
 		generate_sequence(size_t bpm, Melody melody, Rhythm rhythm) {
 			Sequence seq;
 
-			size_t ms_per_note = 60'000 / bpm;
+			TimeUnit duration = MINUTE / bpm;
+
+			size_t key = 0;
 
 			for (auto [note, beat]: std::views::zip(melody, rhythm)) {
 				CANE_OKAY("{} -> {}", note, beat);
-				seq.emplace_back(ms_per_note, 0, note, 127);
+
+				seq.emplace_back(
+					key,
+					beat ? EventKind::Beat : EventKind::Rest,
+					duration,
+					note,
+					127
+				);
+
+				key++;
 			}
 
 			return seq;
@@ -534,6 +605,8 @@ namespace cane {
 
 		decltype(auto) map_onto_rhythm(size_t bpm, Value other) {
 			// TODO: Map notes only to beats, not rests.
+			// - Set up the notes array here by interspersing 0s in places where
+			// we have rests
 			CANE_FUNC();
 
 			auto rhythm = std::get<Rhythm>(*this);
@@ -562,6 +635,24 @@ namespace cane {
 			}
 
 			return seq;
+		}
+
+		decltype(auto) send(Value other) {
+			auto seq = std::get<Sequence>(*this);
+			auto string = std::get<String>(other);
+
+			Pattern pat;
+
+			CANE_OKAY("send: {}", string);
+
+			for (auto x: seq) {
+				// TODO: Look up environment using string and set channel
+				// appropriately.
+				x.channel = 6;  // FIX: Temporary value for testing.
+				pat.emplace_back(x);
+			}
+
+			return pat;
 		}
 	};
 
