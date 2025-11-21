@@ -3,8 +3,86 @@
 
 #include <array>
 #include <ostream>
+#include <sstream>
 
 namespace cane {
+
+	////////////////
+	// Precedence //
+	////////////////
+
+#define CANE_PRECEDENCE_KINDS \
+	X(None, "None", 0) \
+	X(Last, "Last", 0) \
+	X(Incr, "Incr", 1)
+
+#define X(x, y, z) x = z,
+	enum class PrecedenceKind {
+		CANE_PRECEDENCE_KINDS CANE_PRECEDENCE_TOTAL
+	};
+#undef X
+
+// Maps the enum const direct to a string
+#define X(x, y, z) #x,
+	inline std::array PRECEDENCE_KIND_TO_STR = { CANE_PRECEDENCE_KINDS };
+#undef X
+
+// Map the enum const to a human readable string
+#define X(x, y, z) y,
+	inline std::array PRECEDENCE_KIND_TO_STR_HUMAN = { CANE_PRECEDENCE_KINDS };
+#undef X
+
+	constexpr std::string_view precedence_kind_to_str(PrecedenceKind p) {
+		return PRECEDENCE_KIND_TO_STR[static_cast<size_t>(p)];
+	}
+
+	constexpr std::string_view precedence_kind_to_str_human(PrecedenceKind p) {
+		return PRECEDENCE_KIND_TO_STR_HUMAN[static_cast<size_t>(p)];
+	}
+
+	inline std::ostream& operator<<(std::ostream& os, PrecedenceKind p) {
+		return (os << precedence_kind_to_str_human(p));
+	}
+
+	///////////////////
+	// Associativity //
+	///////////////////
+
+#define CANE_ASSOCIATIVITY_KINDS \
+	X(None, "None", 0) \
+	X(Left, "Left", 1) \
+	X(Right, "Right", 0)
+
+#define X(x, y, z) x = z,
+	enum class AssociativityKind {
+		CANE_ASSOCIATIVITY_KINDS CANE_ASSOCIATIVITY_TOTAL
+	};
+#undef X
+
+// Maps the enum const direct to a string
+#define X(x, y, z) #x,
+	inline std::array ASSOCIATIVITY_KIND_TO_STR = { CANE_ASSOCIATIVITY_KINDS };
+#undef X
+
+// Map the enum const to a human readable string
+#define X(x, y, z) y,
+	inline std::array ASSOCIATIVITY_KIND_TO_STR_HUMAN = {
+		CANE_ASSOCIATIVITY_KINDS
+	};
+#undef X
+
+	constexpr std::string_view precedence_kind_to_str(AssociativityKind p) {
+		return ASSOCIATIVITY_KIND_TO_STR[static_cast<size_t>(p)];
+	}
+
+	constexpr std::string_view
+	precedence_kind_to_str_human(AssociativityKind p) {
+		return ASSOCIATIVITY_KIND_TO_STR_HUMAN[static_cast<size_t>(p)];
+	}
+
+	inline std::ostream& operator<<(std::ostream& os, AssociativityKind p) {
+		return (os << precedence_kind_to_str_human(p));
+	}
 
 	/////////////
 	// Reports //
@@ -50,167 +128,170 @@ namespace cane {
 	// Symbols //
 	/////////////
 
+	// Fields: Name, String, Precedence, Associativity
+
 #define CANE_SYMBOL_KINDS \
-	X(None, "none") \
-\
 	/* Misc. */ \
-	X(EndFile, "end of file") \
-	X(Whitespace, "whitespace") \
-	X(Comment, "comment") \
+	X(None, "none", None, None) \
+	X(EndFile, "end of file", None, None) \
+	X(Whitespace, "whitespace", None, None) \
+	X(Comment, "comment", None, None) \
 \
-	/* Cons Lists */ \
-	X(Statement, "statement") \
+	X(Statement, "statement", None, None) \
+	X(Function, "function", None, None) \
+	X(Arrow, "->", None, None) \
+	X(Semicolon, ";", None, None) \
 \
-	/* Atoms */ \
-	X(Number, "number") \
-	X(String, "string") \
-	X(Identifier, "identifier") \
-	X(Beat, "beat") \
-	X(Rest, "rest") \
+	X(Number, "number", None, None) \
+	X(String, "string", None, None) \
+	X(Identifier, "identifier", None, None) \
+	X(Beat, "!", None, None) \
+	X(Rest, ".", None, None) \
 \
-	X(Arrow, "arrow") \
-	X(Semicolon, "semicolon") \
-\
-	X(Coerce, "coerce") \
-	X(Concatenate, "concatenate") \
-	X(Layer, "layer") \
-	X(Call, "call") \
-	X(Assign, "assign") \
-	X(Send, "send") \
-	X(Function, "function") \
-	X(Repeat, "repeat") \
-	X(Map, "map") \
-	X(Invert, "invert") \
-	X(Reverse, "reverse") \
-	X(Euclidean, "euclidean") \
-\
-	X(Abs, "abs") \
-	X(Neg, "neg") \
-\
-	X(LeftShift, "lshift") \
-	X(RightShift, "rshift") \
+	X(LeftParen, "(", None, None) \
+	X(RightParen, ")", None, None) \
+	X(LeftBrace, "{", None, None) \
+	X(RightBrace, "}", None, None) \
+	X(LeftBracket, "[", None, None) \
+	X(RightBracket, "]", None, None) \
 \
 	/* Operators */ \
-	X(LCM, "lcm") \
-	X(GCD, "gcd") \
+	X(Send, "~>", Incr, Left) \
+	X(Map, "@", Incr, Left) \
 \
-	X(Random, "random") \
+	X(Concatenate, ",", Incr, Left) \
+	X(Layer, "$", Last, Left) \
 \
-	X(Or, "or") \
-	X(Xor, "xor") \
-	X(And, "and") \
+	X(Call, "call", Incr, Left) \
 \
-	X(Add, "add `+`") \
-	X(Sub, "sub `-`") \
-	X(Mul, "mul `*`") \
-	X(Div, "div `/`") \
+	X(Assign, "=>", Incr, Left) \
 \
-	X(Incr, "incr `++`") \
-	X(Decr, "decr `--`") \
+	X(Or, "or", Incr, Left) \
+	X(Xor, "xor", Last, Left) \
+	X(And, "and", Last, Left) \
 \
-	/* Grouping */ \
-	X(LeftParen, "lparen `(`") \
-	X(RightParen, "rparen `)`") \
+	X(Repeat, "**", Incr, Left) \
 \
-	X(LeftBrace, "lbrace `{`") \
-	X(RightBrace, "rbrace `}`") \
+	X(LeftShift, "<<", Incr, Left) \
+	X(RightShift, ">>", Last, Left) \
 \
-	X(LeftBracket, "lbracket `[`") \
-	X(RightBracket, "rbracket `]`") \
+	X(Invert, "~", Incr, Left) \
+	X(Reverse, "'", Last, Left) \
 \
-	/* Annotations */ \
-	X(AnnotationNumber, "number (type)") \
-	X(AnnotationString, "string (type)") \
-	X(AnnotationRhythm, "rhythm (type)") \
-	X(AnnotationMelody, "melody (type)") \
-	X(AnnotationSequence, "sequence (type)") \
-	X(AnnotationPattern, "pattern (type)") \
+	X(Add, "+", Incr, Left) \
+	X(Sub, "-", Last, Left) \
+\
+	X(Mul, "*", Incr, Left) \
+	X(Div, "/", Last, Left) \
+\
+	X(Euclidean, ":", Incr, Left) \
+\
+	X(LCM, "lcm", Incr, Left) \
+	X(GCD, "gcd", Last, Left) \
+\
+	X(Random, "?", Incr, Left) \
+\
+	X(Abs, "+", Incr, Right) \
+	X(Neg, "-", Last, Right) \
+\
+	X(Incr, "++", Incr, Left) \
+	X(Decr, "--", Last, Left) \
+\
+	X(Coerce, "&", Incr, Right) \
+\
+	/* Type Annotations */ \
+	X(AnnotationNumber, "number type", None, None) \
+	X(AnnotationString, "string type", None, None) \
+	X(AnnotationRhythm, "rhythm type", None, None) \
+	X(AnnotationMelody, "melody type", None, None) \
+	X(AnnotationSequence, "sequence type", None, None) \
+	X(AnnotationPattern, "pattern type", None, None) \
 \
 	/* === Type Specific Symbols (Assigned during typechecking) === */ \
 \
 	/* PREFIX/UNARY */ \
-	X(AbsScalar, "scalar abs") \
-	X(NegScalar, "scalar neg") \
+	X(AbsScalar, "scalar abs", None, None) \
+	X(NegScalar, "scalar neg", None, None) \
 \
-	X(InvertRhythm, "rhythm invert") \
-	X(ReverseRhythm, "rhythm reverse") \
+	X(InvertRhythm, "rhythm invert", None, None) \
+	X(ReverseRhythm, "rhythm reverse", None, None) \
 \
-	X(ReverseMelody, "melody reverse") \
+	X(ReverseMelody, "melody reverse", None, None) \
 \
-	X(IncrScalar, "scalar incr") \
-	X(DecrScalar, "scalar decr") \
+	X(IncrScalar, "scalar incr", None, None) \
+	X(DecrScalar, "scalar decr", None, None) \
 \
 	/* SCALAR */ \
-	X(AddScalarScalar, "scalar add") \
-	X(SubScalarScalar, "scalar sub") \
-	X(MulScalarScalar, "scalar mul") \
-	X(DivScalarScalar, "scalar div") \
+	X(AddScalarScalar, "scalar add", None, None) \
+	X(SubScalarScalar, "scalar sub", None, None) \
+	X(MulScalarScalar, "scalar mul", None, None) \
+	X(DivScalarScalar, "scalar div", None, None) \
 \
-	X(LeftShiftScalarScalar, "scalar lshift") \
-	X(RightShiftScalarScalar, "scalar rshift") \
+	X(LeftShiftScalarScalar, "scalar lshift", None, None) \
+	X(RightShiftScalarScalar, "scalar rshift", None, None) \
 \
-	X(LCMScalarScalar, "scalar lcm") \
-	X(GCDScalarScalar, "scalar gcd") \
+	X(LCMScalarScalar, "scalar lcm", None, None) \
+	X(GCDScalarScalar, "scalar gcd", None, None) \
 \
-	X(EuclideanScalarScalar, "scalar euclidean") \
-	X(ConcatenateScalarScalar, "scalar concatenate") \
+	X(EuclideanScalarScalar, "scalar euclidean", None, None) \
+	X(ConcatenateScalarScalar, "scalar concatenate", None, None) \
 \
-	X(RandomScalarScalar, "scalar random") \
+	X(RandomScalarScalar, "scalar random", None, None) \
 \
 	/* MELODY */ \
-	X(CoerceScalar, "coerce scalar") \
-	X(CoerceMelody, "coerce melody") \
-	X(MapMelodyRhythm, "melody map") \
+	X(CoerceScalar, "coerce scalar", None, None) \
+	X(CoerceMelody, "coerce melody", None, None) \
+	X(MapMelodyRhythm, "melody map", None, None) \
 \
-	X(LeftShiftMelodyScalar, "melody lshift") \
-	X(RightShiftMelodyScalar, "melody rshift") \
+	X(LeftShiftMelodyScalar, "melody lshift", None, None) \
+	X(RightShiftMelodyScalar, "melody rshift", None, None) \
 \
-	X(AddMelodyScalar, "melody add") \
-	X(SubMelodyScalar, "melody sub") \
-	X(MulMelodyScalar, "melody mul") \
-	X(DivMelodyScalar, "melody div") \
+	X(AddMelodyScalar, "melody add", None, None) \
+	X(SubMelodyScalar, "melody sub", None, None) \
+	X(MulMelodyScalar, "melody mul", None, None) \
+	X(DivMelodyScalar, "melody div", None, None) \
 \
-	X(RepeatMelodyScalar, "melody repeat") \
+	X(RepeatMelodyScalar, "melody repeat", None, None) \
 \
-	X(ConcatenateMelodyMelody, "melody concatenate") \
-	X(ConcatenateMelodyScalar, "melody concatenate") \
-	X(ConcatenateScalarMelody, "melody concatenate") \
+	X(ConcatenateMelodyMelody, "melody concatenate", None, None) \
+	X(ConcatenateMelodyScalar, "melody concatenate", None, None) \
+	X(ConcatenateScalarMelody, "melody concatenate", None, None) \
 \
 	/* RHYTHM */ \
-	X(MapRhythmMelody, "rhythm map") \
+	X(MapRhythmMelody, "rhythm map", None, None) \
 \
-	X(LeftShiftRhythmScalar, "rhythm lshift") \
-	X(RightShiftRhythmScalar, "rhythm rshift") \
+	X(LeftShiftRhythmScalar, "rhythm lshift", None, None) \
+	X(RightShiftRhythmScalar, "rhythm rshift", None, None) \
 \
-	X(RepeatRhythmScalar, "rhythm repeat") \
-	X(ConcatenateRhythmRhythm, "rhythm concatenate") \
+	X(RepeatRhythmScalar, "rhythm repeat", None, None) \
+	X(ConcatenateRhythmRhythm, "rhythm concatenate", None, None) \
 \
-	X(OrRhythmRhythm, "rhythm or") \
-	X(XorRhythmRhythm, "rhythm xor") \
-	X(AndRhythmRhythm, "rhythm and") \
+	X(OrRhythmRhythm, "rhythm or", None, None) \
+	X(XorRhythmRhythm, "rhythm xor", None, None) \
+	X(AndRhythmRhythm, "rhythm and", None, None) \
 \
 	/* SEQUENCE */ \
-	X(ConcatenateSequenceSequence, "sequence concatenate") \
+	X(ConcatenateSequenceSequence, "sequence concatenate", None, None) \
 \
-	X(MulSequenceScalar, "sequence mul") \
-	X(DivSequenceScalar, "sequence div") \
+	X(MulSequenceScalar, "sequence mul", None, None) \
+	X(DivSequenceScalar, "sequence div", None, None) \
 \
 	/* PATTERN */ \
-	X(SendSequenceString, "sequence send")
+	X(SendSequenceString, "sequence send", None, None)
 
-#define X(x, y) x,
+#define X(x, y, z, w) x,
 	enum class SymbolKind {
 		CANE_SYMBOL_KINDS CANE_SYMBOL_TOTAL
 	};
 #undef X
 
 // Maps the enum const direct to a string
-#define X(x, y) #x,
+#define X(x, y, z, w) #x,
 	inline std::array SYMBOL_KIND_TO_STR = { CANE_SYMBOL_KINDS };
 #undef X
 
 // Map the enum const to a human readable string
-#define X(x, y) y,
+#define X(x, y, z, w) y,
 	inline std::array SYMBOL_KIND_TO_STR_HUMAN = { CANE_SYMBOL_KINDS };
 #undef X
 
@@ -224,6 +305,48 @@ namespace cane {
 
 	inline std::ostream& operator<<(std::ostream& os, SymbolKind log) {
 		return (os << symbol_kind_to_str_human(log));
+	}
+
+	namespace detail {
+#define X(symbol, str, prec, ass) \
+	handle_op(SymbolKind::symbol, PrecedenceKind::prec, AssociativityKind::ass);
+
+		constexpr decltype(auto) generate_binding_power_table() {
+			std::array<
+				std::pair<size_t, size_t>,
+				static_cast<size_t>(SymbolKind::CANE_SYMBOL_TOTAL)>
+				table;
+			size_t current_precedence_level = 0;
+
+			auto handle_op = [&](SymbolKind sym,
+								 PrecedenceKind prec,
+								 AssociativityKind ass) {
+				current_precedence_level += static_cast<size_t>(prec);
+
+				size_t op_prec =
+					prec == PrecedenceKind::None ? 0 : current_precedence_level;
+
+				size_t op_ass = ass == AssociativityKind::None ?
+					0 :
+					static_cast<size_t>(ass);
+
+				table.at(static_cast<size_t>(sym)) = {
+					op_prec,
+					op_prec + op_ass,
+				};
+			};
+
+			CANE_SYMBOL_KINDS
+
+			return table;
+		}
+
+#undef X
+	}  // namespace detail
+
+	constexpr std::pair<size_t, size_t> binding_power(SymbolKind kind) {
+		constexpr auto table = detail::generate_binding_power_table();
+		return table.at(static_cast<size_t>(kind));
 	}
 
 	///////////
@@ -270,46 +393,6 @@ namespace cane {
 		return (os << type_kind_to_str_human(log));
 	}
 
-	///////////
-	// Opfix //
-	///////////
-
-#define CANE_OPFIX_KINDS \
-	X(Prefix, "prefix") \
-	X(Infix, "infix") \
-	X(Postfix, "postfix") \
-\
-	X(Unary, "unary") \
-	X(Binary, "binary")
-
-#define X(x, y) x,
-	enum class OpfixKind {
-		CANE_OPFIX_KINDS CANE_OPFIX_TOTAL
-	};
-#undef X
-
-// Maps the enum const direct to a string
-#define X(x, y) #x,
-	inline std::array OPFIX_KIND_TO_STR = { CANE_OPFIX_KINDS };
-#undef X
-
-// Map the enum const to a human readable string
-#define X(x, y) y,
-	inline std::array OPFIX_KIND_TO_STR_HUMAN = { CANE_OPFIX_KINDS };
-#undef X
-
-	constexpr std::string_view opfix_kind_to_str(OpfixKind x) {
-		return OPFIX_KIND_TO_STR[static_cast<size_t>(x)];
-	}
-
-	constexpr std::string_view opfix_kind_to_str_human(OpfixKind x) {
-		return OPFIX_KIND_TO_STR_HUMAN[static_cast<size_t>(x)];
-	}
-
-	inline std::ostream& operator<<(std::ostream& os, OpfixKind log) {
-		return (os << opfix_kind_to_str_human(log));
-	}
-
 	////////////
 	// Events //
 	////////////
@@ -348,49 +431,21 @@ namespace cane {
 
 }  // namespace cane
 
-template <>
-struct std::formatter<cane::ReportKind>: std::formatter<std::string_view> {
-	auto format(cane::ReportKind x, format_context& ctx) const {
-		return formatter<std::string_view>::format(
-			std::format("{}", cane::report_kind_to_str(x)), ctx
-		);
-	}
-};
+#define CANE_FORMATTER_DEF(type) \
+	template <> \
+	struct std::formatter<type>: std::formatter<std::string_view> { \
+		auto format(type x, format_context& ctx) const { \
+			std::ostringstream ss; \
+			ss << x; \
+			return std::formatter<string_view>::format(ss.str(), ctx); \
+		} \
+	};
 
-template <>
-struct std::formatter<cane::SymbolKind>: std::formatter<std::string_view> {
-	auto format(cane::SymbolKind x, format_context& ctx) const {
-		return formatter<std::string_view>::format(
-			std::format("{}", cane::symbol_kind_to_str(x)), ctx
-		);
-	}
-};
-
-template <>
-struct std::formatter<cane::TypeKind>: std::formatter<std::string_view> {
-	auto format(cane::TypeKind x, format_context& ctx) const {
-		return formatter<std::string_view>::format(
-			std::format("{}", cane::type_kind_to_str(x)), ctx
-		);
-	}
-};
-
-template <>
-struct std::formatter<cane::OpfixKind>: std::formatter<std::string_view> {
-	auto format(cane::OpfixKind x, format_context& ctx) const {
-		return formatter<std::string_view>::format(
-			std::format("{}", cane::opfix_kind_to_str(x)), ctx
-		);
-	}
-};
-
-template <>
-struct std::formatter<cane::EventKind>: std::formatter<std::string_view> {
-	auto format(cane::EventKind x, format_context& ctx) const {
-		return formatter<std::string_view>::format(
-			std::format("{}", cane::event_kind_to_str(x)), ctx
-		);
-	}
-};
+CANE_FORMATTER_DEF(cane::PrecedenceKind);
+CANE_FORMATTER_DEF(cane::AssociativityKind);
+CANE_FORMATTER_DEF(cane::ReportKind);
+CANE_FORMATTER_DEF(cane::SymbolKind);
+CANE_FORMATTER_DEF(cane::TypeKind);
+CANE_FORMATTER_DEF(cane::EventKind);
 
 #endif

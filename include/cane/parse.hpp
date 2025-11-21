@@ -11,74 +11,6 @@
 #include <cane/lex.hpp>
 
 namespace cane {
-	/////////////////////////////////////////
-	// Binding Power / Operator Precedence //
-	/////////////////////////////////////////
-
-	constexpr std::pair<size_t, size_t> binding_power(SymbolKind kind) {
-		// TODO: Combine this with symbol definition X macros aswell as
-		// remapping macros
-
-		// clang-format off
-
-#define CANE_BINDING_POWERS \
-	X(SymbolKind::Send,        1, 2) \
-	X(SymbolKind::Map,         2, 3) \
-\
-	X(SymbolKind::Concatenate, 3, 4) \
-\
-	X(SymbolKind::Call,        4, 5) \
-	X(SymbolKind::Assign,      5, 6) \
-\
-	X(SymbolKind::Or,          6, 7) \
-	X(SymbolKind::And,         6, 7) \
-	X(SymbolKind::Xor,         6, 7) \
-	X(SymbolKind::Repeat,      6, 7) \
-	X(SymbolKind::LeftShift,   6, 7) \
-	X(SymbolKind::RightShift,  6, 7) \
-\
-	X(SymbolKind::Invert,      9, 9) \
-	X(SymbolKind::Reverse,     9, 9) \
-\
-	X(SymbolKind::Add,         10, 11) \
-	X(SymbolKind::Sub,         10, 11) \
-\
-	X(SymbolKind::Mul,         11, 12) \
-	X(SymbolKind::Div,         11, 12) \
-\
-	X(SymbolKind::Euclidean,   12, 13) \
-\
-	X(SymbolKind::LCM,         13, 14) \
-	X(SymbolKind::GCD,         13, 14) \
-\
-	X(SymbolKind::Random,      14, 15) \
-\
-	X(SymbolKind::Abs,         15, 15) \
-	X(SymbolKind::Neg,         15, 15) \
-\
-	X(SymbolKind::Incr,        16, 16) \
-	X(SymbolKind::Decr,        16, 16) \
-\
-	X(SymbolKind::Coerce,      17, 17)
-
-		// clang-format on
-
-#define X(symbol, lbp, rbp) \
-	case symbol: return { lbp, rbp }; break;
-
-		switch (kind) {
-			CANE_BINDING_POWERS;
-
-			default: {
-				CANE_UNREACHABLE();
-			} break;
-		}
-
-		return { 0, 0 };
-
-#undef X
-#undef CANE_BINDING_POWERS
-	}
 
 	/////////
 	// AST //
@@ -254,7 +186,7 @@ namespace cane {
 				auto node = parse_expression();
 
 				root = std::make_shared<Node>(
-					SymbolKind::Statement, stmt.sv, TypeKind::None, node, root
+					SymbolKind::Statement, stmt.sv, TypeKind::None, root, node
 				);
 
 				// Statements must be terminated by a semicolon unless they are

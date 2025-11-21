@@ -107,152 +107,8 @@ namespace cane {
 	}
 
 	//////////////////
-	// AST GraphViz //
+	// Type Checker //
 	//////////////////
-
-	// static void cane_pass_graphviz_edge(
-	// 	cane_file_t fp, std::shared_ptr<ASTNode> node, size_t parent, size_t
-	// self ) { 	cane_symbol_kind_t kind = CANE_SYMBOL_NONE;
-	// cane_string_view_t sv = CANE_SV("NULL");
-
-	// 	TypeKind type = CANE_TYPE_NONE;
-
-	// 	if (node != NULL) {
-	// 		kind = node->kind;
-	// 		sv = node->location.symbol;
-
-	// 		type = node->type;
-	// 	}
-
-	// 	cane_string_view_info_t info = cane_string_view_info(sv);
-
-	// 	fprintf(
-	// 		fp,
-	// 		"  n%zu [label=\"kind = {}\nsv = `%.*s`\ntype = {}\"];\n",
-	// 		self,
-	// 		CANE_SYMBOL_TO_STR_HUMAN[kind],
-	// 		(int)info.length,
-	// 		info.ptr,
-	// 		CANE_TYPE_KIND_TO_STR_HUMAN[type]
-	// 	);
-
-	// 	if (parent != self) {
-	// 		fprintf(fp, "  n%zu -> n%zu;\n", parent, self);
-	// 	}
-	// }
-
-	// static void cane_pass_graphviz_walker(
-	// 	cane_file_t fp, std::shared_ptr<ASTNode> node, size_t* id, size_t parent
-	// );
-
-	// static void cane_pass_graphviz(std::shared_ptr<ASTNode> node, cane_file_t
-	// fp) { 	CANE_FUNCTION_ENTER();
-
-	// 	size_t id = 0;
-
-	// 	fprintf(fp, "digraph {\n");
-	// 	fprintf(fp, "  node [shape=box style=filled fillcolor=\"#bfbfbf\"];\n");
-
-	// 	cane_pass_graphviz_walker(fp, node, &id, 0);
-
-	// 	fprintf(fp, "}\n");
-	// }
-
-	// static void cane_pass_graphviz_walker(
-	// 	cane_file_t fp, std::shared_ptr<ASTNode> node, size_t* id, size_t parent
-	// ) {
-	// 	size_t self = (*id)++;
-
-	// 	if (node == NULL) {
-	// 		cane_pass_graphviz_edge(fp, node, parent, self);
-	// 		return;
-	// 	}
-
-	// 	cane_symbol_kind_t kind = node->kind;
-
-	// 	cane_location_t loc = node->location;
-
-	// 	std::shared_ptr<ASTNode> lhs = node->lhs;
-	// 	std::shared_ptr<ASTNode> rhs = node->rhs;
-
-	// 	switch (kind) {
-	// 		// Literals
-	// 		case CANE_SYMBOL_BEAT:
-	// 		case CANE_SYMBOL_REST:
-
-	// 		case CANE_SYMBOL_RHYTHM:
-	// 		case CANE_SYMBOL_MELODY:
-
-	// 		case CANE_SYMBOL_IDENTIFIER:
-	// 		case CANE_SYMBOL_STRING:
-	// 		case CANE_SYMBOL_NUMBER: {
-	// 			cane_pass_graphviz_edge(fp, node, parent, self);
-	// 		} break;
-
-	// 		// Unary
-	// 		case CANE_SYMBOL_ABS:
-	// 		case CANE_SYMBOL_NEG:
-
-	// 		case CANE_SYMBOL_INVERT:
-	// 		case CANE_SYMBOL_REVERSE: {
-	// 			cane_pass_graphviz_edge(fp, node, parent, self);
-	// 			cane_pass_graphviz_walker(fp, rhs, id, self);
-	// 		} break;
-
-	// 		// Binary
-	// 		case CANE_SYMBOL_ADD:
-	// 		case CANE_SYMBOL_SUB:
-	// 		case CANE_SYMBOL_MUL:
-	// 		case CANE_SYMBOL_DIV:
-
-	// 		case CANE_SYMBOL_LCM:
-	// 		case CANE_SYMBOL_GCD:
-
-	// 		case CANE_SYMBOL_EUCLIDEAN:
-	// 		case CANE_SYMBOL_MAP:
-	// 		case CANE_SYMBOL_REPEAT:
-
-	// 		case CANE_SYMBOL_LSHIFT:
-	// 		case CANE_SYMBOL_RSHIFT:
-
-	// 		case CANE_SYMBOL_OR:
-	// 		case CANE_SYMBOL_XOR:
-	// 		case CANE_SYMBOL_AND:
-
-	// 		case CANE_SYMBOL_CALL:
-	// 		case CANE_SYMBOL_CONCATENATE:
-	// 		case CANE_SYMBOL_RANDOM:
-
-	// 		case CANE_SYMBOL_ASSIGN:
-	// 		case CANE_SYMBOL_SEND:
-	// 		case CANE_SYMBOL_FUNCTION: {
-	// 			cane_pass_graphviz_edge(fp, node, parent, self);
-	// 			cane_pass_graphviz_walker(fp, lhs, id, self);
-	// 			cane_pass_graphviz_walker(fp, rhs, id, self);
-	// 		} break;
-
-	// 		// Lists
-	// 		case CANE_SYMBOL_LAYER:
-	// 		case CANE_SYMBOL_STATEMENT: {
-	// 			cane_pass_graphviz_edge(fp, node, parent, self);
-	// 			cane_pass_graphviz_walker(fp, lhs, id, self);
-	// 			cane_pass_graphviz_walker(fp, rhs, id, self);
-	// 		} break;
-
-	// 		default: {
-	// 			cane_report_and_die(
-	// 				loc,
-	// 				CANE_REPORT_GENERIC,
-	// 				"unhandled case `{}`!",
-	// 				CANE_SYMBOL_TO_STR[kind]
-	// 			);
-	// 		} break;
-	// 	}
-	// }
-
-	// //////////////////
-	// // Type Checker //
-	// //////////////////
 
 	inline TypeKind pass_semantic_analysis_walker(std::shared_ptr<Node> node);
 
@@ -315,12 +171,8 @@ namespace cane {
 	// TODO:
 	// We need to figure out how to handle rhythms with beats/rests and how
 	// to type check them. They really need to be a unified type.
-	inline bool type_remap_trivial(std::shared_ptr<Node> node) {
-		// In the case of a UNARY remapping, rhs will match with NONE anyway so
-		// we can always just compare both types.
-		TypeKind lhs = pass_semantic_analysis_walker(node->lhs);
-		TypeKind rhs = pass_semantic_analysis_walker(node->rhs);
-
+	inline bool
+	type_remap_trivial(TypeKind lhs, TypeKind rhs, std::shared_ptr<Node> node) {
 #define CANE_TYPE_REMAP(symbol, lhs_type, rhs_type, out_type, out_symbol) \
 	type_remapper( \
 		node, \
@@ -420,9 +272,14 @@ namespace cane {
 			return TypeKind::None;
 		}
 
+		// In the case of a UNARY remapping, rhs will match with NONE anyway so
+		// we can always just compare both types.
+		TypeKind lhs = pass_semantic_analysis_walker(node->lhs);
+		TypeKind rhs = pass_semantic_analysis_walker(node->rhs);
+
 		// Handle trivial cases for remapping first but otherwise fallback to
 		// this switch where we handle them manually.
-		if (not type_remap_trivial(node)) {
+		if (not type_remap_trivial(lhs, rhs, node)) {
 			switch (node->kind) {
 				// Literals
 				case SymbolKind::Number: return TypeKind::Scalar;
@@ -453,7 +310,7 @@ namespace cane {
 					if (function != argument) {
 						cane::die(
 							"incorrect argument type for function `{}`!",
-							symbol_kind_to_str(node->kind)
+							node->kind
 						);
 					}
 
@@ -461,21 +318,27 @@ namespace cane {
 				} break;
 
 				// Statements always return the type of their last expression.
+				// TODO: We might be able to implement this as a trivial type
+				// remapping once we have proper support for "patterns" since a
+				// cane program should evaluate to a fully mapped list of
+				// events.
 				case SymbolKind::Statement: {
-					TypeKind lhs = pass_semantic_analysis_walker(node->lhs);
-					TypeKind rhs = pass_semantic_analysis_walker(node->rhs);
+					pass_semantic_analysis_walker(node->lhs);
 
-					CANE_UNUSED(rhs);  // Always discard right hand type since
-									   // we return the last expression's type.
+					TypeKind trailing =
+						pass_semantic_analysis_walker(node->rhs);
 
-					node->type = lhs;
-					return lhs;
+					// we return the last expression's type.
+					node->type = trailing;
+					return trailing;
 				} break;
 
 				default: {
 					cane::die(
-						"unknown type mapping for `{}`!",
-						symbol_kind_to_str(node->kind)
+						"type error: no mapping for `{}` {} `{}`",
+						lhs,
+						node->kind,
+						rhs
 					);
 				} break;
 			}
@@ -546,10 +409,8 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Statement: {
-				Value lhs = pass_evaluator_walker(env, rng, node->lhs);
-				Value rhs = pass_evaluator_walker(env, rng, node->rhs);
-
-				return lhs;
+				pass_evaluator_walker(env, rng, node->lhs);
+				return pass_evaluator_walker(env, rng, node->rhs);
 			} break;
 
 			default: break;

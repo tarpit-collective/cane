@@ -6,6 +6,7 @@
 #include <ranges>
 #include <chrono>
 #include <random>
+#include <ostream>
 
 #include <cane/enum.hpp>
 #include <cane/util.hpp>
@@ -71,119 +72,48 @@ namespace cane {
 		os << " }";
 
 		return os;
-
-		// return (
-		// 	os << "{ key: " << ev.key << ", kind: " << ev.kind << ", duration: "
-		// 	   << ev.duration << ", note: " << static_cast<int>(ev.note)
-		// 	   << ", velocity: " << static_cast<int>(ev.velocity) << " }"
-		// );
 	}
 
+	namespace detail {
+		template <typename T>
+		constexpr std::ostream& format_container(std::ostream& os, T x) {
+			if (x.empty()) {
+				return (os << "[]");
+			}
+
+			auto it = x.begin();
+			os << '[' << *it++;
+
+			for (; it != x.end(); ++it) {
+				os << ", " << *it;
+			}
+
+			return (os << ']');
+		}
+	}  // namespace detail
+
 	constexpr std::ostream& operator<<(std::ostream& os, Sequence seq) {
-		if (seq.empty()) {
-			return (os << "[]");
-		}
-
-		auto it = seq.begin();
-		os << '[' << *it++;
-
-		for (; it != seq.end(); ++it) {
-			os << ", " << *it;
-		}
-
-		return (os << ']');
+		return detail::format_container(os, seq);
 	}
 
 	constexpr std::ostream& operator<<(std::ostream& os, Pattern seq) {
-		if (seq.empty()) {
-			return (os << "[]");
-		}
-
-		auto it = seq.begin();
-		os << '[' << *it++;
-
-		for (; it != seq.end(); ++it) {
-			os << ", " << *it;
-		}
-
-		return (os << ']');
+		return detail::format_container(os, seq);
 	}
 
 	constexpr std::ostream& operator<<(std::ostream& os, Rhythm rhythm) {
-		if (rhythm.empty()) {
-			return (os << "[]");
-		}
-
-		auto it = rhythm.begin();
-		os << '[' << static_cast<int>(*it++);
-
-		for (; it != rhythm.end(); ++it) {
-			os << ", " << static_cast<int>(*it);
-		}
-
-		return (os << ']');
+		return detail::format_container(os, rhythm);
 	}
 
 	constexpr std::ostream& operator<<(std::ostream& os, Melody melody) {
-		if (melody.empty()) {
-			return (os << "[]");
-		}
-
-		auto it = melody.begin();
-		os << '[' << *it++;
-
-		for (; it != melody.end(); ++it) {
-			os << ", " << *it;
-		}
-
-		return (os << ']');
+		return detail::format_container(os, melody);
 	}
 }  // namespace cane
 
-template <>
-struct std::formatter<cane::Event>: std::formatter<std::string_view> {
-	auto format(cane::Event ev, format_context& ctx) const {
-		std::ostringstream ss;
-		ss << ev;
-		return std::formatter<string_view>::format(ss.str(), ctx);
-	}
-};
-
-template <>
-struct std::formatter<cane::Sequence>: std::formatter<std::string_view> {
-	auto format(cane::Sequence seq, format_context& ctx) const {
-		std::ostringstream ss;
-		ss << seq;
-		return std::formatter<string_view>::format(ss.str(), ctx);
-	}
-};
-
-template <>
-struct std::formatter<cane::Pattern>: std::formatter<std::string_view> {
-	auto format(cane::Pattern seq, format_context& ctx) const {
-		std::ostringstream ss;
-		ss << seq;
-		return std::formatter<string_view>::format(ss.str(), ctx);
-	}
-};
-
-template <>
-struct std::formatter<cane::Rhythm>: std::formatter<std::string_view> {
-	auto format(cane::Rhythm rhythm, format_context& ctx) const {
-		std::ostringstream ss;
-		ss << rhythm;
-		return std::formatter<string_view>::format(ss.str(), ctx);
-	}
-};
-
-template <>
-struct std::formatter<cane::Melody>: std::formatter<std::string_view> {
-	auto format(cane::Melody melody, format_context& ctx) const {
-		std::ostringstream ss;
-		ss << melody;
-		return std::formatter<string_view>::format(ss.str(), ctx);
-	}
-};
+CANE_FORMATTER_DEF(cane::Event);
+CANE_FORMATTER_DEF(cane::Sequence);
+CANE_FORMATTER_DEF(cane::Pattern);
+CANE_FORMATTER_DEF(cane::Rhythm);
+CANE_FORMATTER_DEF(cane::Melody);
 
 namespace cane {
 
