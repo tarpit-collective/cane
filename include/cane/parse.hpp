@@ -11,77 +11,6 @@
 #include <cane/lex.hpp>
 
 namespace cane {
-	//////////////////////
-	// Symbol Remapping //
-	//////////////////////
-
-	// Remap symbols based on their position.
-	// Makes it easier to reason about operator kinds during parsing and when
-	// constructing the AST.
-
-#define CANE_SYMBOL_OPFIX \
-	X(OpfixKind::Prefix, SymbolKind::Ampersand, SymbolKind::Coerce) \
-\
-	X(OpfixKind::Prefix, SymbolKind::Dot, SymbolKind::Rest) \
-	X(OpfixKind::Prefix, SymbolKind::Exclaim, SymbolKind::Beat) \
-\
-	X(OpfixKind::Prefix, SymbolKind::Tilda, SymbolKind::Invert) \
-	X(OpfixKind::Prefix, SymbolKind::Quote, SymbolKind::Reverse) \
-\
-	X(OpfixKind::Prefix, SymbolKind::Add, SymbolKind::Abs) \
-	X(OpfixKind::Prefix, SymbolKind::Sub, SymbolKind::Neg) \
-\
-	X(OpfixKind::Prefix, SymbolKind::Backslash, SymbolKind::Function) \
-	X(OpfixKind::Prefix, SymbolKind::LeftBracket, SymbolKind::Layer) \
-\
-	X(OpfixKind::Infix, SymbolKind::Colon, SymbolKind::Euclidean) \
-	X(OpfixKind::Infix, SymbolKind::Stars, SymbolKind::Repeat) \
-	X(OpfixKind::Infix, SymbolKind::At, SymbolKind::Map) \
-	X(OpfixKind::Infix, SymbolKind::Comma, SymbolKind::Concatenate) \
-	X(OpfixKind::Infix, SymbolKind::Question, SymbolKind::Random) \
-\
-	X(OpfixKind::Infix, SymbolKind::LeftChevron, SymbolKind::LeftShift) \
-	X(OpfixKind::Infix, SymbolKind::RightChevron, SymbolKind::RightShift) \
-\
-	X(OpfixKind::Infix, SymbolKind::FatArrow, SymbolKind::Assign) \
-	X(OpfixKind::Infix, SymbolKind::WiggleArrow, SymbolKind::Send) \
-	X(OpfixKind::Infix, SymbolKind::LeftParen, SymbolKind::Call)
-
-	constexpr SymbolKind fix_symbol(OpfixKind opfix, SymbolKind kind) {
-#define X(o, f, t) \
-	if (o == opfix && f == kind) { \
-		return t; \
-	}
-
-		CANE_SYMBOL_OPFIX;
-		return kind;
-#undef X
-	}
-
-	// Wrappers so we can pass them directly to various lexer utility functions.
-	constexpr SymbolKind fix_prefix_symbol(SymbolKind kind) {
-		return fix_symbol(OpfixKind::Prefix, kind);
-	}
-
-	constexpr SymbolKind fix_infix_symbol(SymbolKind kind) {
-		return fix_symbol(OpfixKind::Infix, kind);
-	}
-
-	constexpr SymbolKind fix_postfix_symbol(SymbolKind kind) {
-		return fix_symbol(OpfixKind::Postfix, kind);
-	}
-
-	constexpr SymbolKind fix_unary_symbol(SymbolKind kind) {
-		return fix_symbol(OpfixKind::Prefix, kind);
-	}
-
-	constexpr SymbolKind fix_binary_symbol(SymbolKind kind) {
-		kind = fix_symbol(OpfixKind::Infix, kind);
-		kind = fix_symbol(OpfixKind::Postfix, kind);
-
-		return kind;
-	}
-
 	/////////////////////////////////////////
 	// Binding Power / Operator Precedence //
 	/////////////////////////////////////////
@@ -128,7 +57,9 @@ namespace cane {
 	X(SymbolKind::Neg,         15, 15) \
 \
 	X(SymbolKind::Incr,        16, 16) \
-	X(SymbolKind::Decr,        16, 16)
+	X(SymbolKind::Decr,        16, 16) \
+\
+	X(SymbolKind::Coerce,      17, 17)
 
 		// clang-format on
 
@@ -229,11 +160,9 @@ namespace cane {
 	constexpr bool is_primary(SymbolKind kind) {
 		return is_literal(kind) or
 			eq_any(kind,
-				   SymbolKind::Coerce,
 				   SymbolKind::Function,
 				   SymbolKind::Identifier,
-				   SymbolKind::LeftParen,
-				   SymbolKind::Layer);
+				   SymbolKind::LeftParen);
 	}
 
 	constexpr bool is_prefix(SymbolKind kind) {
@@ -241,8 +170,11 @@ namespace cane {
 			kind,
 			SymbolKind::Abs,
 			SymbolKind::Neg,
+
 			SymbolKind::Invert,
-			SymbolKind::Reverse
+			SymbolKind::Reverse,
+
+			SymbolKind::Coerce
 		);
 	}
 
@@ -259,11 +191,12 @@ namespace cane {
 			SymbolKind::GCD,
 
 			// Misc.
-			SymbolKind::Euclidean,    // Euclide
-			SymbolKind::Repeat,       // Repeat
-			SymbolKind::Map,          // Map
-			SymbolKind::Concatenate,  // Concatenate
-			SymbolKind::Random,       // Random
+			SymbolKind::Euclidean,
+			SymbolKind::Repeat,
+			SymbolKind::Map,
+			SymbolKind::Concatenate,
+			SymbolKind::Layer,
+			SymbolKind::Random,
 
 			// Logic
 			SymbolKind::Or,
@@ -274,22 +207,14 @@ namespace cane {
 			SymbolKind::LeftShift,
 			SymbolKind::RightShift,
 
-			SymbolKind::Assign,  // Assignment
-			SymbolKind::Call,    // Function call
-			SymbolKind::Send     // Send to channel
+			SymbolKind::Assign,
+			SymbolKind::Call,
+			SymbolKind::Send
 		);
 	}
 
 	constexpr bool is_postfix(SymbolKind kind) {
 		return eq_any(kind, SymbolKind::Incr, SymbolKind::Decr);
-	}
-
-	constexpr bool is_unary(SymbolKind kind) {
-		return is_prefix(kind);
-	}
-
-	constexpr bool is_binary(SymbolKind kind) {
-		return is_infix(kind) or is_postfix(kind);
 	}
 
 	class Parser {
@@ -427,11 +352,9 @@ namespace cane {
 						symbol.kind, symbol.sv, TypeKind::Rhythm
 					);
 
-					while (
-						lx.peek_is_kind(SymbolKind::Beat, fix_unary_symbol) or
-						lx.peek_is_kind(SymbolKind::Rest, fix_unary_symbol)
-					) {
-						auto beat = lx.take(fix_unary_symbol);
+					while (lx.peek_is_kind(SymbolKind::Beat) or
+						   lx.peek_is_kind(SymbolKind::Rest)) {
+						auto beat = lx.take();
 
 						auto node = std::make_shared<Node>(
 							beat.kind, beat.sv, TypeKind::Rhythm
@@ -449,19 +372,19 @@ namespace cane {
 					return root;
 				} break;
 
-				// Melody Coercion (Convert a single scalar to a melody)
-				case SymbolKind::Coerce: {
-					lx.discard();  // Skip `&`
-					auto expr = parse_expression();
+					// Melody Coercion (Convert a single scalar to a melody)
+					// case SymbolKind::Coerce: {
+					// 	lx.discard();  // Skip `&`
+					// 	auto expr = parse_expression();
 
-					return std::make_shared<Node>(
-						SymbolKind::Coerce,
-						symbol.sv,
-						TypeKind::None,
-						nullptr,
-						expr
-					);
-				} break;
+					// 	return std::make_shared<Node>(
+					// 		SymbolKind::Coerce,
+					// 		symbol.sv,
+					// 		TypeKind::None,
+					// 		nullptr,
+					// 		expr
+					// 	);
+					// } break;
 
 				case SymbolKind::LeftParen: {
 					lx.discard();  // Skip `(`
@@ -473,32 +396,6 @@ namespace cane {
 					}
 
 					return expr;
-				} break;
-
-				case SymbolKind::Layer: {
-					lx.discard();  // Skip `[`
-					std::shared_ptr<Node> root = nullptr;
-
-					// Need at least one expression.
-					do {
-						auto node = parse_expression();
-
-						root = std::make_shared<Node>(
-							SymbolKind::Layer,
-							symbol.sv,
-							TypeKind::None,
-							node,
-							root
-						);
-
-						lx.discard_if_kind(SymbolKind::Comma);
-					} while (not lx.peek_is_kind(SymbolKind::RightBracket));
-
-					if (not lx.discard_if_kind(SymbolKind::RightBracket)) {
-						cane::die("expected `]`");
-					}
-
-					return root;
 				} break;
 
 				case SymbolKind::Function: {
@@ -626,7 +523,7 @@ namespace cane {
 		std::shared_ptr<Node> parse_expression(size_t min_bp = 0) {
 			CANE_FUNC();
 
-			Symbol symbol = lx.peek(fix_unary_symbol);
+			Symbol symbol = lx.peek();
 			std::shared_ptr<Node> node = nullptr;
 
 			if (is_primary(symbol.kind)) {
@@ -644,7 +541,7 @@ namespace cane {
 
 			// State has changed since we called prefix/primary parser functions
 			// so we need to peek again.
-			symbol = lx.peek(fix_binary_symbol);
+			symbol = lx.peek();
 
 			while (is_infix(symbol.kind) or is_postfix(symbol.kind)) {
 				auto [lbp, rbp] = binding_power(symbol.kind);
@@ -665,7 +562,7 @@ namespace cane {
 					cane::die("expected an infix or postfix operator");
 				}
 
-				symbol = lx.peek(fix_binary_symbol);
+				symbol = lx.peek();
 			}
 
 			return node;

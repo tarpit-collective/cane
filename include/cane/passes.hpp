@@ -342,6 +342,9 @@ namespace cane {
  		CANE_TYPE_REMAP(Incr, Scalar, None, Scalar, IncrScalar) ||
  		CANE_TYPE_REMAP(Decr, Scalar, None, Scalar, DecrScalar) ||
 
+ 		CANE_TYPE_REMAP(Coerce, Scalar, None, Melody, CoerceScalar) ||
+ 		CANE_TYPE_REMAP(Coerce, Melody, None, Melody, CoerceMelody) ||
+
  		/* Scalar */
  		CANE_TYPE_REMAP(Add, Scalar, Scalar, Scalar, AddScalarScalar) ||
  		CANE_TYPE_REMAP(Sub, Scalar, Scalar, Scalar, SubScalarScalar) ||
@@ -359,9 +362,6 @@ namespace cane {
 		CANE_TYPE_REMAP(Random, Scalar, Scalar, Scalar, RandomScalarScalar) ||
 
  		/* Melody */
- 		CANE_TYPE_REMAP(Coerce, None, Scalar, Melody, CoerceScalar) ||
- 		CANE_TYPE_REMAP(Coerce, None, Melody, Melody, CoerceMelody) ||
-
  		CANE_TYPE_REMAP(Map, Melody, Rhythm, Sequence, MapMelodyRhythm) ||
 
  		CANE_TYPE_REMAP(LeftShift, Melody, Scalar, Melody, LeftShiftMelodyScalar) ||
@@ -578,8 +578,8 @@ namespace cane {
 			case SymbolKind::GCDScalarScalar: return lhs.gcd(rhs);
 
 			// Unary vectors
-			case SymbolKind::CoerceScalar: return Melody { rhs.get_scalar() };
-			case SymbolKind::CoerceMelody: return rhs;
+			case SymbolKind::CoerceScalar: return Melody { lhs.get_scalar() };
+			case SymbolKind::CoerceMelody: return lhs;
 
 			case SymbolKind::InvertRhythm: return rhs.invert<Rhythm>();
 			case SymbolKind::ReverseRhythm: return rhs.reverse<Rhythm>();

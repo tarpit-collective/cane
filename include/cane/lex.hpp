@@ -309,12 +309,10 @@ namespace cane {
 		std::optional<Symbol> produce_sigil() {
 			return produce_str(SymbolKind::Coerce, CANE_CSTR("&"))
 				.or_else([&] {
-					return produce_str(SymbolKind::FatArrow, CANE_CSTR("=>"));
+					return produce_str(SymbolKind::Assign, CANE_CSTR("=>"));
 				})
 				.or_else([&] {
-					return produce_str(
-						SymbolKind::WiggleArrow, CANE_CSTR("~>")
-					);
+					return produce_str(SymbolKind::Send, CANE_CSTR("~>"));
 				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Arrow, CANE_CSTR("->"));
@@ -326,37 +324,34 @@ namespace cane {
 					return produce_str(SymbolKind::Decr, CANE_CSTR("--"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Question, CANE_CSTR("?"));
+					return produce_str(SymbolKind::Random, CANE_CSTR("?"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Backslash, CANE_CSTR("\\"));
+					return produce_str(SymbolKind::Function, CANE_CSTR("\\"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Comma, CANE_CSTR(","));
+					return produce_str(SymbolKind::Concatenate, CANE_CSTR(","));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Backtick, CANE_CSTR("`"));
+					return produce_str(SymbolKind::Reverse, CANE_CSTR("'"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Quote, CANE_CSTR("'"));
+					return produce_str(SymbolKind::Map, CANE_CSTR("@"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::At, CANE_CSTR("@"));
+					return produce_str(SymbolKind::Repeat, CANE_CSTR("**"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Stars, CANE_CSTR("**"));
+					return produce_str(SymbolKind::Invert, CANE_CSTR("~"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Tilda, CANE_CSTR("~"));
+					return produce_str(SymbolKind::Rest, CANE_CSTR("."));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Dot, CANE_CSTR("."));
+					return produce_str(SymbolKind::Beat, CANE_CSTR("!"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Exclaim, CANE_CSTR("!"));
-				})
-				.or_else([&] {
-					return produce_str(SymbolKind::Colon, CANE_CSTR(":"));
+					return produce_str(SymbolKind::Euclidean, CANE_CSTR(":"));
 				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Semicolon, CANE_CSTR(";"));

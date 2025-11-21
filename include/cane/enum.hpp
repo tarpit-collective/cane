@@ -58,29 +58,24 @@ namespace cane {
 	X(Whitespace, "whitespace") \
 	X(Comment, "comment") \
 \
-	/* Raw Symbols (later converted to operator symbols) */ \
-	X(Ampersand, "ampersand `&`") \
-	X(Backslash, "backslash `\\`") \
-	X(DoubleSlash, "double slash `//`") \
-	X(Backtick, "backtick ```") \
-	X(Comma, "comma `,`") \
-	X(Dot, "dot `.`") \
-	X(Exclaim, "exclaim `!`") \
-	X(Colon, "colon `:`") \
-	X(Semicolon, "semicolon `;`") \
-	X(Quote, "quote `'`") \
-	X(At, "at `@`") \
-	X(Stars, "stars `**`") \
-	X(Tilda, "tilda `~`") \
-	X(Question, "question `?`") \
+	/* Cons Lists */ \
+	X(Statement, "statement") \
 \
-	X(FatArrow, "fat arrow `=>`") \
-	X(WiggleArrow, "wiggle arrow `~>`") \
-	X(Arrow, "arrow `->`") \
+	/* Atoms */ \
+	X(Number, "number") \
+	X(String, "string") \
+	X(Identifier, "identifier") \
+	X(Rhythm, "rhythm") \
+	X(Melody, "melody") \
+	X(Beat, "beat") \
+	X(Rest, "rest") \
 \
-	/* AST */ \
+	X(Arrow, "arrow") \
+	X(Semicolon, "semicolon") \
+\
 	X(Coerce, "coerce") \
 	X(Concatenate, "concatenate") \
+	X(Layer, "layer") \
 	X(Call, "call") \
 	X(Assign, "assign") \
 	X(Send, "send") \
@@ -96,9 +91,6 @@ namespace cane {
 \
 	X(LeftShift, "lshift") \
 	X(RightShift, "rshift") \
-\
-	X(LeftChevron, "lchevron `<`") \
-	X(RightChevron, "rchevron `>`") \
 \
 	/* Operators */ \
 	X(LCM, "lcm") \
@@ -121,23 +113,12 @@ namespace cane {
 	/* Grouping */ \
 	X(LeftParen, "lparen `(`") \
 	X(RightParen, "rparen `)`") \
+\
 	X(LeftBrace, "lbrace `{`") \
 	X(RightBrace, "rbrace `}`") \
+\
 	X(LeftBracket, "lbracket `[`") \
 	X(RightBracket, "rbracket `]`") \
-\
-	/* Cons Lists */ \
-	X(Statement, "statement") \
-	X(Layer, "layer") \
-\
-	/* Atoms */ \
-	X(Number, "number") \
-	X(String, "string") \
-	X(Identifier, "identifier") \
-	X(Rhythm, "rhythm") \
-	X(Melody, "melody") \
-	X(Beat, "beat") \
-	X(Rest, "rest") \
 \
 	/* Annotations */ \
 	X(AnnotationNumber, "number (type)") \
