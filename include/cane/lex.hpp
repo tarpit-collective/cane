@@ -535,7 +535,7 @@ namespace cane {
 
 			lookahead = Symbol { .kind = kind, .sv = sv };
 
-			CANE_OKAY("{}", out);
+			// CANE_OKAY("{}", out);
 			return out;
 		}
 

@@ -137,29 +137,29 @@ namespace cane {
 			return false;
 		}
 
-		CANE_INFO(
-			"attempt " CANE_COLOUR_BLUE "`{}`" CANE_RESET
-			" [ `{} = " CANE_COLOUR_MAGENTA "{}" CANE_RESET
-			"`, `{} = " CANE_COLOUR_MAGENTA "{}" CANE_RESET
-			"` ] -> " CANE_COLOUR_MAGENTA "{}" CANE_RESET,
+		// CANE_INFO(
+		// 	"attempt " CANE_COLOUR_BLUE "`{}`" CANE_RESET
+		// 	" [ `{} = " CANE_COLOUR_MAGENTA "{}" CANE_RESET
+		// 	"`, `{} = " CANE_COLOUR_MAGENTA "{}" CANE_RESET
+		// 	"` ] -> " CANE_COLOUR_MAGENTA "{}" CANE_RESET,
 
-			symbol_kind_to_str(kind),
-			expected_lhs,
-			lhs,
-			expected_rhs,
-			rhs,
-			out
-		);
+		// 	symbol_kind_to_str(kind),
+		// 	expected_lhs,
+		// 	lhs,
+		// 	expected_rhs,
+		// 	rhs,
+		// 	out
+		// );
 
 		if (lhs != expected_lhs || rhs != expected_rhs) {
 			// If the types don't match, it just means this overload of the
 			// operator isn't the correct one but we might have one handled
 			// later.
-			CANE_FAIL("└► " CANE_COLOUR_RED "failed!" CANE_RESET);
+			// CANE_FAIL("└► " CANE_COLOUR_RED "failed!" CANE_RESET);
 			return false;
 		}
 
-		CANE_OKAY("└► " CANE_COLOUR_YELLOW "success!" CANE_RESET);
+		// CANE_OKAY("└► " CANE_COLOUR_YELLOW "success!" CANE_RESET);
 
 		node->type = out;
 		node->op = op;
