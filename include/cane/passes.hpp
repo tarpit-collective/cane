@@ -331,13 +331,16 @@ namespace cane {
 		// clang-format off
  	return
  		/* Prefix/Unary */
- 		CANE_TYPE_REMAP(Abs, None, Scalar, Scalar, AbsScalar) ||
- 		CANE_TYPE_REMAP(Neg, None, Scalar, Scalar, NegScalar) ||
+ 		CANE_TYPE_REMAP(Abs, Scalar, None, Scalar, AbsScalar) ||
+ 		CANE_TYPE_REMAP(Neg, Scalar, None, Scalar, NegScalar) ||
 
- 		CANE_TYPE_REMAP(Invert, None, Rhythm, Rhythm, InvertRhythm) ||
- 		CANE_TYPE_REMAP(Reverse, None, Rhythm, Rhythm, ReverseRhythm) ||
+ 		CANE_TYPE_REMAP(Invert, Rhythm, None, Rhythm, InvertRhythm) ||
+ 		CANE_TYPE_REMAP(Reverse, Rhythm, None, Rhythm, ReverseRhythm) ||
 
- 		CANE_TYPE_REMAP(Reverse, None, Melody, Melody, ReverseMelody) ||
+ 		CANE_TYPE_REMAP(Reverse, Melody, None, Melody, ReverseMelody) ||
+
+ 		CANE_TYPE_REMAP(Incr, Scalar, None, Scalar, IncrScalar) ||
+ 		CANE_TYPE_REMAP(Decr, Scalar, None, Scalar, DecrScalar) ||
 
  		/* Scalar */
  		CANE_TYPE_REMAP(Add, Scalar, Scalar, Scalar, AddScalarScalar) ||
@@ -555,8 +558,11 @@ namespace cane {
 
 		switch (node->op) {
 			// Unary Scalar
-			case SymbolKind::AbsScalar: return rhs.absolute();
-			case SymbolKind::NegScalar: return rhs.negate();
+			case SymbolKind::AbsScalar: return lhs.absolute();
+			case SymbolKind::NegScalar: return lhs.negate();
+
+			case SymbolKind::IncrScalar: return lhs.get_scalar() + 1;
+			case SymbolKind::DecrScalar: return lhs.get_scalar() - 1;
 
 			// Binary Scalar
 			case SymbolKind::AddScalarScalar: return lhs.add(rhs);

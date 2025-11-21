@@ -320,6 +320,12 @@ namespace cane {
 					return produce_str(SymbolKind::Arrow, CANE_CSTR("->"));
 				})
 				.or_else([&] {
+					return produce_str(SymbolKind::Incr, CANE_CSTR("++"));
+				})
+				.or_else([&] {
+					return produce_str(SymbolKind::Decr, CANE_CSTR("--"));
+				})
+				.or_else([&] {
 					return produce_str(SymbolKind::Question, CANE_CSTR("?"));
 				})
 				.or_else([&] {

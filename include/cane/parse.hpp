@@ -125,7 +125,10 @@ namespace cane {
 	X(SymbolKind::Random,      14, 15) \
 \
 	X(SymbolKind::Abs,         15, 15) \
-	X(SymbolKind::Neg,         15, 15)
+	X(SymbolKind::Neg,         15, 15) \
+\
+	X(SymbolKind::Incr,        16, 16) \
+	X(SymbolKind::Decr,        16, 16)
 
 		// clang-format on
 
@@ -278,8 +281,7 @@ namespace cane {
 	}
 
 	constexpr bool is_postfix(SymbolKind kind) {
-		// return eq_any(kind, );
-		return false;
+		return eq_any(kind, SymbolKind::Incr, SymbolKind::Decr);
 	}
 
 	constexpr bool is_unary(SymbolKind kind) {
@@ -309,7 +311,7 @@ namespace cane {
 
 			while (not lx.peek_is_kind(SymbolKind::EndFile)) {
 				auto stmt = lx.peek();
-				auto node = expression();
+				auto node = parse_expression();
 
 				root = std::make_shared<Node>(
 					SymbolKind::Statement, stmt.sv, TypeKind::None, node, root
@@ -331,7 +333,7 @@ namespace cane {
 		}
 
 		// Expression parsing
-		std::optional<TypeKind> type_annotation() {
+		std::optional<TypeKind> parse_type_annotation() {
 			CANE_FUNC();
 
 			if (lx.discard_if_kind(SymbolKind::AnnotationNumber)) {
@@ -361,17 +363,17 @@ namespace cane {
 			return std::nullopt;
 		}
 
-		std::optional<TypeKind> type() {
+		std::optional<TypeKind> parse_type() {
 			CANE_FUNC();
 
 			if (not lx.discard_if_kind(SymbolKind::Arrow)) {
 				return std::nullopt;
 			}
 
-			return type_annotation();
+			return parse_type_annotation();
 		}
 
-		std::shared_ptr<Node> primary(Symbol symbol) {
+		std::shared_ptr<Node> parse_primary(Symbol symbol) {
 			CANE_FUNC();
 
 			switch (symbol.kind) {
@@ -450,7 +452,7 @@ namespace cane {
 				// Melody Coercion (Convert a single scalar to a melody)
 				case SymbolKind::Coerce: {
 					lx.discard();  // Skip `&`
-					auto expr = expression();
+					auto expr = parse_expression();
 
 					return std::make_shared<Node>(
 						SymbolKind::Coerce,
@@ -464,7 +466,7 @@ namespace cane {
 				case SymbolKind::LeftParen: {
 					lx.discard();  // Skip `(`
 
-					auto expr = expression();
+					auto expr = parse_expression();
 
 					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
 						cane::die("expected `)`");
@@ -479,7 +481,7 @@ namespace cane {
 
 					// Need at least one expression.
 					do {
-						auto node = expression();
+						auto node = parse_expression();
 
 						root = std::make_shared<Node>(
 							SymbolKind::Layer,
@@ -517,16 +519,16 @@ namespace cane {
 					);
 
 					// Parameter type
-					auto param_type = type();
+					auto param_type = parse_type();
 					if (not param_type.has_value()) {
 						cane::die("expected a type annotation");
 					}
 
 					// Reset binding power and parse body
-					auto body = expression();
+					auto body = parse_expression();
 
 					// Body type
-					auto body_type = type();
+					auto body_type = parse_type();
 					if (not body_type.has_value()) {
 						cane::die("expected a type annotation");
 					}
@@ -551,7 +553,7 @@ namespace cane {
 			return nullptr;
 		}
 
-		std::shared_ptr<Node> prefix(Symbol symbol, size_t bp) {
+		std::shared_ptr<Node> parse_prefix(Symbol symbol, size_t bp) {
 			CANE_FUNC();
 
 			// We need to call this function directly instead of using something
@@ -563,15 +565,19 @@ namespace cane {
 			}
 
 			lx.discard();
-			auto expr = expression(bp);
+			auto expr = parse_expression(bp);
 
 			return std::make_shared<Node>(
-				symbol.kind, symbol.sv, TypeKind::None, expr, nullptr
+				symbol.kind,
+				symbol.sv,
+				TypeKind::None,
+				/* lhs = */ expr,
+				/* rhs = */ nullptr
 			);
 		}
 
 		std::shared_ptr<Node>
-		infix(Symbol symbol, std::shared_ptr<Node> lhs, size_t bp) {
+		parse_infix(Symbol symbol, std::shared_ptr<Node> lhs, size_t bp) {
 			CANE_FUNC();
 
 			if (not is_infix(symbol.kind)) {
@@ -579,7 +585,7 @@ namespace cane {
 			}
 
 			lx.discard();
-			auto rhs = expression(bp);
+			auto rhs = parse_expression(bp);
 
 			// Special cases
 			switch (symbol.kind) {
@@ -603,34 +609,33 @@ namespace cane {
 		}
 
 		std::shared_ptr<Node>
-		postfix(Symbol symbol, std::shared_ptr<Node> lhs) {
+		parse_postfix(Symbol symbol, std::shared_ptr<Node> lhs) {
 			CANE_FUNC();
 
 			if (not is_postfix(symbol.kind)) {
 				cane::die("expected a postfix operator");
 			}
 
-			auto node = std::make_shared<Node>(
+			lx.discard();
+
+			return std::make_shared<Node>(
 				symbol.kind, symbol.sv, TypeKind::None, lhs, /* rhs = */ nullptr
 			);
-
-			lx.discard();
-			return node;
 		}
 
-		std::shared_ptr<Node> expression(size_t min_bp = 0) {
+		std::shared_ptr<Node> parse_expression(size_t min_bp = 0) {
 			CANE_FUNC();
 
 			Symbol symbol = lx.peek(fix_unary_symbol);
 			std::shared_ptr<Node> node = nullptr;
 
 			if (is_primary(symbol.kind)) {
-				node = primary(symbol);
+				node = parse_primary(symbol);
 			}
 
 			else if (is_prefix(symbol.kind)) {
 				auto [lbp, rbp] = binding_power(symbol.kind);
-				node = prefix(symbol, rbp);
+				node = parse_prefix(symbol, rbp);
 			}
 
 			else {
@@ -649,11 +654,11 @@ namespace cane {
 				}
 
 				if (is_postfix(symbol.kind)) {
-					node = postfix(symbol, node);
+					node = parse_postfix(symbol, node);
 				}
 
 				else if (is_infix(symbol.kind)) {
-					node = infix(symbol, node, rbp);
+					node = parse_infix(symbol, node, rbp);
 				}
 
 				else {

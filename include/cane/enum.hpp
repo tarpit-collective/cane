@@ -115,6 +115,9 @@ namespace cane {
 	X(Mul, "mul `*`") \
 	X(Div, "div `/`") \
 \
+	X(Incr, "incr `++`") \
+	X(Decr, "decr `--`") \
+\
 	/* Grouping */ \
 	X(LeftParen, "lparen `(`") \
 	X(RightParen, "rparen `)`") \
@@ -146,7 +149,7 @@ namespace cane {
 \
 	/* === Type Specific Symbols (Assigned during typechecking) === */ \
 \
-	/* PREFIX */ \
+	/* PREFIX/UNARY */ \
 	X(AbsScalar, "scalar abs") \
 	X(NegScalar, "scalar neg") \
 \
@@ -154,6 +157,9 @@ namespace cane {
 	X(ReverseRhythm, "rhythm reverse") \
 \
 	X(ReverseMelody, "melody reverse") \
+\
+	X(IncrScalar, "scalar incr") \
+	X(DecrScalar, "scalar decr") \
 \
 	/* SCALAR */ \
 	X(AddScalarScalar, "scalar add") \
