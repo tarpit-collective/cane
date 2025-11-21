@@ -1,8 +1,7 @@
 #ifndef CANE_HPP
 #define CANE_HPP
 
-#include <cane/enum.hpp>
-#include <cane/macro.hpp>
+#include <cane/def.hpp>
 #include <cane/log.hpp>
 #include <cane/util.hpp>
 #include <cane/lex.hpp>

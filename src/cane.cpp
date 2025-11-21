@@ -2,9 +2,8 @@
 
 int main(int, const char* argv[]) {
 	try {
-		// cane::Parser parser { CANE_CSTR("1 2 3 4") };
-		// cane::Parser parser { CANE_CSTR("!.!.!.!.!.; 2 + 3 * 5 / 6; 1 2 3 4")
-		// }; cane::Parser parser { CANE_CSTR("!. .!!") };
+		// TODO: Take bpm from commandline args
+		cane::Environment env = { .bpm = 120 };
 
 		cane::Parser parser { argv[1] };
 
@@ -16,7 +15,7 @@ int main(int, const char* argv[]) {
 
 		CANE_OKAY("valid!");
 
-		auto value = cane::pass_evaluator(root);
+		auto value = cane::pass_evaluator(env, root);
 		std::println("{}", value);
 
 		CANE_OKAY("done!");

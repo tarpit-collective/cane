@@ -5,8 +5,7 @@
 #include <string_view>
 #include <iostream>
 
-#include <cane/macro.hpp>
-#include <cane/enum.hpp>
+#include <cane/def.hpp>
 #include <cane/log.hpp>
 #include <cane/util.hpp>
 
@@ -521,7 +520,8 @@ namespace cane {
 				.or_else([&] {
 					char c = *it;
 
-					cane::die(
+					cane::report(
+						ReportKind::Lexical,
 						"unknown character '{}'({})!",
 						c == '\0' ? ' ' : c,
 						static_cast<uint8_t>(c)

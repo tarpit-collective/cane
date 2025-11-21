@@ -2,7 +2,6 @@
 #define CANE_PASSES_HPP
 
 #include <memory>
-#include <numeric>
 #include <print>
 #include <vector>
 
@@ -85,8 +84,8 @@ namespace cane {
 
 		std::cout << joiner << marker;
 
-		auto symbol_sv = symbol_kind_to_str_human(node->kind);
-		auto op_sv = symbol_kind_to_str_human(node->op);
+		auto symbol_sv = symbol_kind_to_str(node->kind);
+		auto op_sv = symbol_kind_to_str(node->op);
 		auto node_sv = node->sv;
 		auto type_sv = type_kind_to_str(node->type);
 
@@ -145,11 +144,11 @@ namespace cane {
 			"` ] -> " CANE_COLOUR_MAGENTA "{}" CANE_RESET,
 
 			symbol_kind_to_str(kind),
-			type_kind_to_str_human(expected_lhs),
-			type_kind_to_str_human(lhs),
-			type_kind_to_str_human(expected_rhs),
-			type_kind_to_str_human(rhs),
-			type_kind_to_str_human(out)
+			expected_lhs,
+			lhs,
+			expected_rhs,
+			rhs,
+			out
 		);
 
 		if (lhs != expected_lhs || rhs != expected_rhs) {
@@ -308,8 +307,9 @@ namespace cane {
 						pass_semantic_analysis_walker(node->rhs);
 
 					if (function != argument) {
-						cane::die(
-							"incorrect argument type for function `{}`!",
+						cane::report(
+							ReportKind::Type,
+							"mismatched type `{}`!",
 							node->kind
 						);
 					}
@@ -334,8 +334,9 @@ namespace cane {
 				} break;
 
 				default: {
-					cane::die(
-						"type error: no mapping for `{}` {} `{}`",
+					cane::report(
+						ReportKind::Type,
+						"no mapping for `{}` {} `{}`!",
 						lhs,
 						node->kind,
 						rhs
@@ -359,11 +360,8 @@ namespace cane {
 		Environment& env, std::mt19937_64& rng, std::shared_ptr<Node> node
 	);
 
-	inline Value pass_evaluator(std::shared_ptr<Node> node) {
+	inline Value pass_evaluator(Environment env, std::shared_ptr<Node> node) {
 		CANE_FUNC();
-
-		// TODO: Take bpm from commandline args
-		Environment env = { .bpm = 120 };
 
 		std::random_device rd;
 		std::mt19937_64 rng(rd());
@@ -385,27 +383,30 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Number: {
-				auto number_sv = node->sv;
-
 				Scalar s = 0;
 
+				auto number_sv = node->sv;
 				auto [ptr, err] = std::from_chars(
 					number_sv.data(), number_sv.data() + number_sv.size(), s
 				);
 
 				if (err != std::errc()) {
-					cane::die("cannot parse integer");
+					cane::report(
+						ReportKind::Eval,
+						"unable to parse integer `{}`!",
+						number_sv
+					);
 				}
 
 				return s;
 			} break;
 
 			case SymbolKind::Beat: {
-				return Rhythm { true };
+				return Rhythm { EventKind::Beat };
 			} break;
 
 			case SymbolKind::Rest: {
-				return Rhythm { false };
+				return Rhythm { EventKind::Rest };
 			} break;
 
 			case SymbolKind::Statement: {
@@ -444,9 +445,9 @@ namespace cane {
 			case SymbolKind::CoerceScalar: return Melody { lhs.get_scalar() };
 			case SymbolKind::CoerceMelody: return lhs;
 
-			case SymbolKind::InvertRhythm: return rhs.invert<Rhythm>();
-			case SymbolKind::ReverseRhythm: return rhs.reverse<Rhythm>();
-			case SymbolKind::ReverseMelody: return rhs.reverse<Melody>();
+			case SymbolKind::InvertRhythm: return lhs.invert<Rhythm>();
+			case SymbolKind::ReverseRhythm: return lhs.reverse<Rhythm>();
+			case SymbolKind::ReverseMelody: return lhs.reverse<Melody>();
 
 			case SymbolKind::EuclideanScalarScalar: return lhs.euclidean(rhs);
 
@@ -535,8 +536,8 @@ namespace cane {
 			case SymbolKind::SendSequenceString: return lhs.send(rhs);
 
 			default: {
-				cane::die(
-					"cannot evaluate `{}`!", symbol_kind_to_str(node->op)
+				cane::report(
+					ReportKind::Eval, "unable to evaluate `{}`!", node->op
 				);
 			} break;
 		}

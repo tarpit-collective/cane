@@ -8,7 +8,7 @@
 #include <random>
 #include <ostream>
 
-#include <cane/enum.hpp>
+#include <cane/def.hpp>
 #include <cane/util.hpp>
 
 namespace cane {
@@ -53,8 +53,8 @@ namespace cane {
 		using std::vector<Event>::vector;
 	};
 
-	struct Rhythm: public std::vector<uint8_t> {
-		using std::vector<uint8_t>::vector;
+	struct Rhythm: public std::vector<EventKind> {
+		using std::vector<EventKind>::vector;
 	};
 
 	struct Melody: public std::vector<Scalar> {
@@ -219,9 +219,9 @@ namespace cane {
 		decltype(auto) invert() {
 			auto seq = std::get<T>(*this);
 
-			std::transform(
-				seq.cbegin(), seq.cend(), seq.begin(), std::logical_not<> {}
-			);
+			std::transform(seq.cbegin(), seq.cend(), seq.begin(), [](auto x) {
+				return x == EventKind::Beat ? EventKind::Rest : EventKind::Beat;
+			});
 
 			return seq;
 		}
@@ -235,7 +235,12 @@ namespace cane {
 				rhs.cend(),
 				lhs.begin(),
 				lhs.begin(),
-				std::bit_or<> {}
+				[](auto lhs, auto rhs) {
+					return (static_cast<uint8_t>(lhs) |
+							static_cast<uint8_t>(rhs)) ?
+						EventKind::Beat :
+						EventKind::Rest;
+				}
 			);
 
 			return lhs;
@@ -250,7 +255,12 @@ namespace cane {
 				rhs.cend(),
 				lhs.begin(),
 				lhs.begin(),
-				std::bit_and<> {}
+				[](auto lhs, auto rhs) {
+					return (static_cast<uint8_t>(lhs) &
+							static_cast<uint8_t>(rhs)) ?
+						EventKind::Beat :
+						EventKind::Rest;
+				}
 			);
 
 			return lhs;
@@ -265,7 +275,12 @@ namespace cane {
 				rhs.cend(),
 				lhs.begin(),
 				lhs.begin(),
-				std::bit_xor<> {}
+				[](auto lhs, auto rhs) {
+					return (static_cast<uint8_t>(lhs) ^
+							static_cast<uint8_t>(rhs)) ?
+						EventKind::Beat :
+						EventKind::Rest;
+				}
 			);
 
 			return lhs;
@@ -355,7 +370,7 @@ namespace cane {
 			auto rhythm = std::get<Rhythm>(*this);
 
 			return std::count_if(rhythm.begin(), rhythm.end(), [](auto x) {
-				return x;
+				return x == EventKind::Beat;
 			});
 		}
 
@@ -363,7 +378,7 @@ namespace cane {
 			auto rhythm = std::get<Rhythm>(*this);
 
 			return std::count_if(rhythm.begin(), rhythm.end(), [](auto x) {
-				return not x;
+				return x == EventKind::Rest;
 			});
 		}
 
@@ -374,11 +389,17 @@ namespace cane {
 			Rhythm rhythm;
 
 			if (beats > steps) {
-				cane::die("not enough steps");
+				cane::report(
+					ReportKind::Eval,
+					"more beats({}) than steps({})",
+					beats,
+					steps
+				);
 			}
 
 			for (int64_t i = 0; i != steps; ++i) {
-				rhythm.emplace_back(((i * beats) % steps) < beats);
+				int64_t val = ((i * beats) % steps) < beats;
+				rhythm.emplace_back(val ? EventKind::Beat : EventKind::Rest);
 			}
 
 			return rhythm;
@@ -509,14 +530,7 @@ namespace cane {
 			for (auto [note, beat]: std::views::zip(melody, rhythm)) {
 				CANE_OKAY("{} -> {}", note, beat);
 
-				seq.emplace_back(
-					key,
-					beat ? EventKind::Beat : EventKind::Rest,
-					duration,
-					note,
-					127
-				);
-
+				seq.emplace_back(key, beat, duration, note, 127);
 				key++;
 			}
 

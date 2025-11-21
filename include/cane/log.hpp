@@ -1,93 +1,13 @@
 #ifndef CANE_LOG_HPP
 #define CANE_LOG_HPP
 
-#include <cstddef>
-
+#include <stdexcept>
 #include <iostream>
 #include <print>
 #include <filesystem>
-
-#include <array>
 #include <string_view>
 
-#include <cane/macro.hpp>
-
-namespace cane {
-
-// ANSI Colours
-#define CANE_RESET "\x1b[0m"
-#define CANE_BOLD  "\x1b[1m"
-
-#define CANE_COLOUR_BLACK   "\x1b[30m"
-#define CANE_COLOUR_RED     "\x1b[31m"
-#define CANE_COLOUR_GREEN   "\x1b[32m"
-#define CANE_COLOUR_YELLOW  "\x1b[33m"
-#define CANE_COLOUR_BLUE    "\x1b[34m"
-#define CANE_COLOUR_MAGENTA "\x1b[35m"
-#define CANE_COLOUR_CYAN    "\x1b[36m"
-#define CANE_COLOUR_WHITE   "\x1b[37m"
-
-#define CANE_COLOUR_INFO CANE_COLOUR_WHITE
-#define CANE_COLOUR_WARN CANE_COLOUR_BLUE
-#define CANE_COLOUR_FAIL CANE_COLOUR_RED
-#define CANE_COLOUR_OKAY CANE_COLOUR_GREEN
-#define CANE_COLOUR_EXPR CANE_COLOUR_MAGENTA
-#define CANE_COLOUR_FUNC CANE_COLOUR_BLUE
-#define CANE_COLOUR_HERE CANE_COLOUR_YELLOW
-
-// Logging
-#define CANE_LOG_KINDS \
-	X(Info, ".", "INFO", CANE_COLOUR_INFO) \
-	X(Warn, "*", "WARN", CANE_COLOUR_WARN) \
-	X(Fail, "!", "FAIL", CANE_COLOUR_FAIL) \
-	X(Okay, "^", "OKAY", CANE_COLOUR_OKAY) \
-	X(Expr, "=", "EXPR", CANE_COLOUR_EXPR) \
-	X(Func, ">", "FUNC", CANE_COLOUR_FUNC) \
-	X(Here, "/", "HERE", CANE_COLOUR_HERE)
-
-#define X(x, y, z, w) x,
-	enum class LogKind {
-		CANE_LOG_KINDS
-	};
-#undef X
-
-#define X(x, y, z, w) CANE_CSTR(y),
-	inline std::array LOG_KIND_TO_STR = { CANE_LOG_KINDS };
-#undef X
-
-#define X(x, y, z, w) CANE_CSTR(z),
-	inline std::array LOG_KIND_TO_STR_HUMAN = { CANE_LOG_KINDS };
-#undef X
-
-#define X(x, y, z, w) CANE_CSTR(w),
-	inline std::array LOG_KIND_TO_STR_COLOUR = { CANE_LOG_KINDS };
-#undef X
-
-	constexpr std::string_view log_kind_to_str(LogKind x) {
-		return LOG_KIND_TO_STR[static_cast<size_t>(x)];
-	}
-
-	constexpr std::string_view log_kind_to_str_human(LogKind x) {
-		return LOG_KIND_TO_STR_HUMAN[static_cast<size_t>(x)];
-	}
-
-	constexpr std::string_view log_kind_to_str_colour(LogKind x) {
-		return LOG_KIND_TO_STR_COLOUR[static_cast<size_t>(x)];
-	}
-
-	inline std::ostream& operator<<(std::ostream& os, LogKind log) {
-		return (os << log_kind_to_str_human(log));
-	}
-}  // namespace cane
-
-template <>
-struct std::formatter<cane::LogKind>: std::formatter<std::string_view> {
-	auto format(cane::LogKind x, format_context& ctx) const {
-		return formatter<std::string_view>::format(
-			std::format("{}", cane::log_kind_to_str(x)), ctx
-		);
-	}
-};
+#include <cane/def.hpp>
 
 namespace cane {
 
@@ -199,7 +119,7 @@ namespace cane {
 #define CANE_LOG(...) \
 	do { \
 		[CANE_VAR(func) = CANE_LOCATION_FUNC]<typename... CANE_VAR(Ts)>( \
-			cane::LogKind CANE_VAR(kind), CANE_VAR(Ts)&&... CANE_VAR(args) \
+			cane::LogKind CANE_VAR(kind), CANE_VAR(Ts) &&... CANE_VAR(args) \
 		) { \
 			cane::log( \
 				std::cerr, \
@@ -263,6 +183,70 @@ namespace cane {
 			" " CANE_COLOUR_GREEN "A" CANE_COLOUR_BLUE "R" CANE_COLOUR_MAGENTA \
 			"E" CANE_RESET " " CANE_COLOUR_MAGENTA "H" CANE_COLOUR_RED \
 			"E" CANE_COLOUR_RED "R" CANE_COLOUR_YELLOW "E" CANE_RESET \
+		); \
+	} while (0)
+
+	////////////
+	// Report //
+	////////////
+
+	class Fatal: public std::runtime_error {  // Fatal error type that is caught
+											  // at the highest level.
+		using runtime_error::runtime_error;
+	};
+
+	template <typename... Ts>
+	[[noreturn]] inline void report(ReportKind kind, Ts&&... args) {
+		std::stringstream ss;
+
+		std::print(
+			ss,
+			CANE_BOLD CANE_COLOUR_FAIL "[{}] {} error: " CANE_RESET,
+			log_kind_to_str(LogKind::Fail),
+			kind
+		);
+
+		detail::log_fmt(ss, std::forward<Ts>(args)...);
+		std::print(ss, "\n");
+
+		throw Fatal { ss.str() };
+	}
+
+	template <typename... Ts>
+	[[noreturn]] inline void die(LogInfo info, Ts&&... args) {
+		std::stringstream ss;
+		cane::log(ss, LogKind::Fail, info, std::forward<Ts>(args)...);
+		throw Fatal { ss.str() };
+	}
+
+// DIE macro includes location information whereas direct call does not.
+#define CANE_DIE(...) \
+	do { \
+		[CANE_VAR(func) = \
+			 CANE_LOCATION_FUNC]<typename... Ts>(Ts&&... CANE_VAR(args)) { \
+			cane::die( \
+				cane::LogInfo { \
+					CANE_LOCATION_FILE, CANE_LOCATION_LINE, CANE_VAR(func) }, \
+				std::forward<Ts>(CANE_VAR(args))... \
+			); \
+		}(__VA_ARGS__); \
+	} while (0)
+
+#define CANE_UNREACHABLE() \
+	do { \
+		cane::die( \
+			cane::LogInfo { \
+				CANE_LOCATION_FILE, CANE_LOCATION_LINE, CANE_LOCATION_FUNC }, \
+			"unreachable!" \
+		); \
+	} while (0)
+
+#define CANE_UNIMPLEMENTED() \
+	do { \
+		cane::die( \
+			cane::LogInfo { \
+				CANE_LOCATION_FILE, CANE_LOCATION_LINE, CANE_LOCATION_FUNC }, \
+			"unimplemented!" \
 		); \
 	} while (0)
 

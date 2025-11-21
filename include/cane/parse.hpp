@@ -4,8 +4,7 @@
 #include <string_view>
 #include <memory>
 
-#include <cane/macro.hpp>
-#include <cane/enum.hpp>
+#include <cane/def.hpp>
 #include <cane/log.hpp>
 #include <cane/util.hpp>
 #include <cane/lex.hpp>
@@ -122,12 +121,14 @@ namespace cane {
 				// EOF.
 				if (not lx.discard_if_kind(SymbolKind::Semicolon) and
 					not lx.discard_if_kind(SymbolKind::EndFile)) {
-					cane::die("expected `;`");
+					cane::report(
+						ReportKind::Syntactical, "expected `;` or end of file"
+					);
 				}
 			}
 
 			if (not lx.discard_if_kind(SymbolKind::EndFile)) {
-				cane::die("expected end of file");
+				cane::report(ReportKind::Syntactical, "expected end of file");
 			}
 
 			return root;
@@ -256,7 +257,7 @@ namespace cane {
 					auto expr = parse_expression();
 
 					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
-						cane::die("expected `)`");
+						cane::report(ReportKind::Syntactical, "expected `)`");
 					}
 
 					return expr;
@@ -270,7 +271,9 @@ namespace cane {
 						lx.take_if_kind_opt(SymbolKind::Identifier);
 
 					if (not identifier.has_value()) {
-						cane::die("expected an identifier");
+						cane::report(
+							ReportKind::Syntactical, "expected an identifier"
+						);
 					}
 
 					auto param = std::make_shared<Node>(
@@ -282,7 +285,10 @@ namespace cane {
 					// Parameter type
 					auto param_type = parse_type();
 					if (not param_type.has_value()) {
-						cane::die("expected a type annotation");
+						cane::report(
+							ReportKind::Syntactical,
+							"expected a type annotation"
+						);
 					}
 
 					// Reset binding power and parse body
@@ -291,7 +297,10 @@ namespace cane {
 					// Body type
 					auto body_type = parse_type();
 					if (not body_type.has_value()) {
-						cane::die("expected a type annotation");
+						cane::report(
+							ReportKind::Syntactical,
+							"expected a type annotation"
+						);
 					}
 
 					auto root = std::make_shared<Node>(
@@ -352,7 +361,7 @@ namespace cane {
 			switch (symbol.kind) {
 				case SymbolKind::Call: {
 					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
-						cane::die("expecting `)`");
+						cane::report(ReportKind::Syntactical, "expected `)`");
 					}
 				}
 
@@ -391,7 +400,10 @@ namespace cane {
 				});
 
 				not node.has_value()) {
-				cane::die("expected a primary expression or a prefix operator");
+				cane::report(
+					ReportKind::Syntactical,
+					"expected a primary expression or a prefix operator"
+				);
 			}
 
 			while (is_infix(lx.peek().kind) or is_postfix(lx.peek().kind)) {
@@ -406,8 +418,9 @@ namespace cane {
 					});
 
 					not node.has_value()) {
-					cane::die(
-						"expected a primary expression or a prefix operator"
+					cane::report(
+						ReportKind::Syntactical,
+						"expected an infix or postfix operator"
 					);
 				}
 			}

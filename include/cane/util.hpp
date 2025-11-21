@@ -1,16 +1,13 @@
 #ifndef CANE_UTIL_HPP
 #define CANE_UTIL_HPP
 
-#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <variant>
-#include <optional>
 
 #include <sstream>
 #include <fstream>
 
-#include <cane/macro.hpp>
 #include <cane/log.hpp>
 
 namespace cane {
@@ -55,68 +52,6 @@ namespace cane {
 		return b > a ? b - a : a - b;
 	}
 }
-
-// Fatal errors
-namespace cane {
-	class Fatal: public std::runtime_error {  // Fatal error type that is caught
-											  // at the highest level.
-		using runtime_error::runtime_error;
-	};
-
-	template <typename T, typename... Ts>
-	[[noreturn]] inline void die(T&& arg, Ts&&... args) {
-		std::stringstream ss;
-
-		// Contains location information
-		if constexpr (std::is_same_v<T, LogInfo>) {
-			cane::log(ss, LogKind::Fail, arg, std::forward<Ts>(args)...);
-		}
-
-		else {
-			cane::log(
-				ss,
-				LogKind::Fail,
-				std::nullopt,
-				std::forward<T>(arg),
-				std::forward<Ts>(args)...
-			);
-		}
-
-		throw Fatal { ss.str() };
-	}
-
-// DIE macro includes location information whereas direct call does not.
-#define CANE_DIE(...) \
-	do { \
-		[CANE_VAR(func) = \
-			 CANE_LOCATION_FUNC]<typename... Ts>(Ts&&... CANE_VAR(args)) { \
-			cane::die( \
-				cane::LogInfo { \
-					CANE_LOCATION_FILE, CANE_LOCATION_LINE, CANE_VAR(func) }, \
-				std::forward<Ts>(CANE_VAR(args))... \
-			); \
-		}(__VA_ARGS__); \
-	} while (0)
-
-#define CANE_UNREACHABLE() \
-	do { \
-		cane::die( \
-			cane::LogInfo { \
-				CANE_LOCATION_FILE, CANE_LOCATION_LINE, CANE_LOCATION_FUNC }, \
-			"unreachable!" \
-		); \
-	} while (0)
-
-#define CANE_UNIMPLEMENTED() \
-	do { \
-		cane::die( \
-			cane::LogInfo { \
-				CANE_LOCATION_FILE, CANE_LOCATION_LINE, CANE_LOCATION_FUNC }, \
-			"unimplemented!" \
-		); \
-	} while (0)
-
-}  // namespace cane
 
 // Utilities
 namespace cane {
@@ -179,7 +114,11 @@ namespace cane {
 				std::filesystem::path tmp = std::filesystem::read_symlink(cur);
 
 				if (tmp == cur) {
-					die("symlink '{}' resolves to itself", path.string());
+					cane::report(
+						ReportKind::Generic,
+						"symlink '{}' resolves to itself",
+						path.string()
+					);
 				}
 
 				cur = tmp;
@@ -187,17 +126,23 @@ namespace cane {
 
 			if (std::filesystem::is_directory(cur) or
 				std::filesystem::is_other(cur)) {
-				die("'{}' is not a file", path.string());
+				cane::report(
+					ReportKind::Generic, "'{}' is not a file", path.string()
+				);
 			}
 
 			if (not std::filesystem::exists(cur)) {
-				die("file '{}' not found", path.string());
+				cane::report(
+					ReportKind::Generic, "file '{}' not found", path.string()
+				);
 			}
 
 			std::ifstream is(cur);
 
 			if (not is.is_open()) {
-				die("cannot read '{}'", path.string());
+				cane::report(
+					ReportKind::Generic, "cannot read '{}'", path.string()
+				);
 			}
 
 			std::stringstream ss;
@@ -207,10 +152,16 @@ namespace cane {
 		}
 
 		catch (const std::filesystem::filesystem_error&) {
-			die("cannot read '{}'", path.string());
+			cane::report(
+				ReportKind::Generic, "cannot read '{}'", path.string()
+			);
 		}
 
-		die("unknown error when trying to read '{}'", path.string());
+		cane::report(
+			ReportKind::Generic,
+			"unknown error when trying to read '{}'",
+			path.string()
+		);
 	}
 }  // namespace cane
 

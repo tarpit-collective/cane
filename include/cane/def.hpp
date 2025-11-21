@@ -2,8 +2,54 @@
 #define CANE_ENUM_HPP
 
 #include <array>
+
 #include <ostream>
 #include <sstream>
+
+// Mark as unused.
+#define CANE_IMPL_UNUSED0()
+#define CANE_IMPL_UNUSED1(a)          (void)(a)
+#define CANE_IMPL_UNUSED2(a, b)       (void)(a), CANE_IMPL_UNUSED1(b)
+#define CANE_IMPL_UNUSED3(a, b, c)    (void)(a), CANE_IMPL_UNUSED2(b, c)
+#define CANE_IMPL_UNUSED4(a, b, c, d) (void)(a), CANE_IMPL_UNUSED3(b, c, d)
+#define CANE_IMPL_UNUSED5(a, b, c, d, e) \
+	(void)(a), CANE_IMPL_UNUSED4(b, c, d, e)
+
+#define CANE_VA_NUM_ARGS_IMPL(_0, _1, _2, _3, _4, _5, N, ...) N
+#define CANE_VA_NUM_ARGS(...) \
+	CANE_VA_NUM_ARGS_IMPL(100, ##__VA_ARGS__, 5, 4, 3, 2, 1, 0)
+
+#define CANE_UNUSED_IMPL_(nargs) CANE_IMPL_UNUSED##nargs
+#define CANE_UNUSED_IMPL(nargs)  CANE_UNUSED_IMPL_(nargs)
+#define CANE_UNUSED(...) \
+	CANE_UNUSED_IMPL(CANE_VA_NUM_ARGS(__VA_ARGS__))(__VA_ARGS__)
+
+// String macros
+#define CANE_CSTR( \
+	s \
+) /* Convert c-string into a string_view before decaying to pointer. */ \
+	std::string_view { \
+		s, ((const char*)s) + (sizeof(s) - 1) \
+	}
+
+#define CANE_STR_IMPL_(x) #x
+#define CANE_STR(x)       CANE_STR_IMPL_(x)
+
+#define CANE_CAT_IMPL_(x, y) x##y
+#define CANE_CAT(x, y)       CANE_CAT_IMPL_(x, y)
+
+#define CANE_VAR(x) CANE_CAT(var_, CANE_CAT(x, CANE_CAT(__LINE__, _)))
+
+// Location info
+#define CANE_LINEINFO "[" __FILE__ ":" CANE_STR(__LINE__) "]"
+
+#define CANE_LOCATION_FILE __FILE__
+#define CANE_LOCATION_LINE CANE_STR(__LINE__)
+#define CANE_LOCATION_FUNC __func__
+
+// Utils
+#define CANE_MAX(a, b) ((a > b) ? a : b)
+#define CANE_MIN(a, b) ((a < b) ? a : b)
 
 namespace cane {
 
@@ -28,12 +74,12 @@ namespace cane {
 #undef X
 
 	// Maps the enum const direct to a string
-#define X(x, y) #x,
+#define X(x, y) CANE_CSTR(#x),
 	inline std::array OPFIX_KIND_TO_STR = { CANE_OPFIX_KINDS };
 #undef X
 
 	// Map the enum const to a human readable string
-#define X(x, y) y,
+#define X(x, y) CANE_CSTR(y),
 	inline std::array OPFIX_KIND_TO_STR_HUMAN = { CANE_OPFIX_KINDS };
 #undef X
 
@@ -66,12 +112,12 @@ namespace cane {
 #undef X
 
 // Maps the enum const direct to a string
-#define X(x, y, z) #x,
+#define X(x, y, z) CANE_CSTR(#x),
 	inline std::array PRECEDENCE_KIND_TO_STR = { CANE_PRECEDENCE_KINDS };
 #undef X
 
 // Map the enum const to a human readable string
-#define X(x, y, z) y,
+#define X(x, y, z) CANE_CSTR(y),
 	inline std::array PRECEDENCE_KIND_TO_STR_HUMAN = { CANE_PRECEDENCE_KINDS };
 #undef X
 
@@ -104,12 +150,12 @@ namespace cane {
 #undef X
 
 // Maps the enum const direct to a string
-#define X(x, y, z) #x,
+#define X(x, y, z) CANE_CSTR(#x),
 	inline std::array ASSOCIATIVITY_KIND_TO_STR = { CANE_ASSOCIATIVITY_KINDS };
 #undef X
 
 // Map the enum const to a human readable string
-#define X(x, y, z) y,
+#define X(x, y, z) CANE_CSTR(y),
 	inline std::array ASSOCIATIVITY_KIND_TO_STR_HUMAN = {
 		CANE_ASSOCIATIVITY_KINDS
 	};
@@ -291,12 +337,12 @@ namespace cane {
 #undef X
 
 // Maps the enum const direct to a string
-#define X(a, b, c, d, e) #a,
+#define X(a, b, c, d, e) CANE_CSTR(#a),
 	inline std::array SYMBOL_KIND_TO_STR = { CANE_SYMBOL_KINDS };
 #undef X
 
 // Map the enum const to a human readable string
-#define X(a, b, c, d, e) b,
+#define X(a, b, c, d, e) CANE_CSTR(b),
 	inline std::array SYMBOL_KIND_TO_STR_HUMAN = { CANE_SYMBOL_KINDS };
 #undef X
 
@@ -421,12 +467,12 @@ namespace cane {
 #undef X
 
 // Maps the enum const direct to a string
-#define X(x, y) #x,
+#define X(x, y) CANE_CSTR(#x),
 	inline std::array TYPE_KIND_TO_STR = { CANE_TYPE_KINDS };
 #undef X
 
 // Map the enum const to a human readable string
-#define X(x, y) y,
+#define X(x, y) CANE_CSTR(y),
 	inline std::array TYPE_KIND_TO_STR_HUMAN = { CANE_TYPE_KINDS };
 #undef X
 
@@ -447,22 +493,22 @@ namespace cane {
 	////////////
 
 #define CANE_EVENT_KINDS \
-	X(Beat, "beat") \
-	X(Rest, "rest")
+	X(Rest, "rest", 0) \
+	X(Beat, "beat", 1)
 
-#define X(x, y) x,
+#define X(x, y, z) x = z,
 	enum class EventKind {
 		CANE_EVENT_KINDS Total
 	};
 #undef X
 
 // Maps the enum const direct to a string
-#define X(x, y) #x,
+#define X(x, y, z) CANE_CSTR(#x),
 	inline std::array EVENT_KIND_TO_STR = { CANE_EVENT_KINDS };
 #undef X
 
 // Map the enum const to a human readable string
-#define X(x, y) y,
+#define X(x, y, z) CANE_CSTR(y),
 	inline std::array EVENT_KIND_TO_STR_HUMAN = { CANE_EVENT_KINDS };
 #undef X
 
@@ -483,9 +529,10 @@ namespace cane {
 	/////////////
 
 #define CANE_REPORT_KINDS \
+	X(Internal, "internal") \
 	X(Generic, "generic") \
 	X(Lexical, "lexical") \
-	X(Syntax, "syntax") \
+	X(Syntactical, "syntax") \
 	X(Semantic, "semantic") \
 	X(Type, "type") \
 	X(Eval, "eval")
@@ -497,12 +544,12 @@ namespace cane {
 #undef X
 
 // Maps the enum const direct to a string
-#define X(x, y) #x,
+#define X(x, y) CANE_CSTR(#x),
 	inline std::array REPORT_KIND_TO_STR = { CANE_REPORT_KINDS };
 #undef X
 
 // Map the enum const to a human readable string
-#define X(x, y) y,
+#define X(x, y) CANE_CSTR(y),
 	inline std::array REPORT_KIND_TO_STR_HUMAN = { CANE_REPORT_KINDS };
 #undef X
 
@@ -516,6 +563,73 @@ namespace cane {
 
 	inline std::ostream& operator<<(std::ostream& os, ReportKind log) {
 		return (os << report_kind_to_str_human(log));
+	}
+
+	/////////////
+	// Logging //
+	/////////////
+
+#define CANE_RESET "\x1b[0m"
+#define CANE_BOLD  "\x1b[1m"
+
+#define CANE_COLOUR_BLACK   "\x1b[30m"
+#define CANE_COLOUR_RED     "\x1b[31m"
+#define CANE_COLOUR_GREEN   "\x1b[32m"
+#define CANE_COLOUR_YELLOW  "\x1b[33m"
+#define CANE_COLOUR_BLUE    "\x1b[34m"
+#define CANE_COLOUR_MAGENTA "\x1b[35m"
+#define CANE_COLOUR_CYAN    "\x1b[36m"
+#define CANE_COLOUR_WHITE   "\x1b[37m"
+
+#define CANE_COLOUR_INFO CANE_COLOUR_WHITE
+#define CANE_COLOUR_WARN CANE_COLOUR_BLUE
+#define CANE_COLOUR_FAIL CANE_COLOUR_RED
+#define CANE_COLOUR_OKAY CANE_COLOUR_GREEN
+#define CANE_COLOUR_EXPR CANE_COLOUR_MAGENTA
+#define CANE_COLOUR_FUNC CANE_COLOUR_BLUE
+#define CANE_COLOUR_HERE CANE_COLOUR_YELLOW
+
+#define CANE_LOG_KINDS \
+	X(Info, ".", "info", CANE_COLOUR_INFO) \
+	X(Warn, "*", "warn", CANE_COLOUR_WARN) \
+	X(Fail, "!", "fail", CANE_COLOUR_FAIL) \
+	X(Okay, "^", "okay", CANE_COLOUR_OKAY) \
+	X(Expr, "=", "expr", CANE_COLOUR_EXPR) \
+	X(Func, ">", "func", CANE_COLOUR_FUNC) \
+	X(Here, "/", "here", CANE_COLOUR_HERE)
+
+#define X(x, y, z, w) x,
+	enum class LogKind {
+		CANE_LOG_KINDS
+	};
+#undef X
+
+#define X(x, y, z, w) CANE_CSTR(y),
+	inline std::array LOG_KIND_TO_STR = { CANE_LOG_KINDS };
+#undef X
+
+#define X(x, y, z, w) CANE_CSTR(z),
+	inline std::array LOG_KIND_TO_STR_HUMAN = { CANE_LOG_KINDS };
+#undef X
+
+#define X(x, y, z, w) CANE_CSTR(w),
+	inline std::array LOG_KIND_TO_STR_COLOUR = { CANE_LOG_KINDS };
+#undef X
+
+	constexpr std::string_view log_kind_to_str(LogKind x) {
+		return LOG_KIND_TO_STR[static_cast<size_t>(x)];
+	}
+
+	constexpr std::string_view log_kind_to_str_human(LogKind x) {
+		return LOG_KIND_TO_STR_HUMAN[static_cast<size_t>(x)];
+	}
+
+	constexpr std::string_view log_kind_to_str_colour(LogKind x) {
+		return LOG_KIND_TO_STR_COLOUR[static_cast<size_t>(x)];
+	}
+
+	inline std::ostream& operator<<(std::ostream& os, LogKind log) {
+		return (os << log_kind_to_str_human(log));
 	}
 
 }  // namespace cane
@@ -537,5 +651,6 @@ CANE_FORMATTER_DEF(cane::SymbolKind);
 CANE_FORMATTER_DEF(cane::TypeKind);
 CANE_FORMATTER_DEF(cane::EventKind);
 CANE_FORMATTER_DEF(cane::ReportKind);
+CANE_FORMATTER_DEF(cane::LogKind);
 
 #endif
