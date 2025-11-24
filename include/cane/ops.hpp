@@ -22,12 +22,6 @@ namespace cane {
 	constexpr auto MINUTE =
 		std::chrono::duration_cast<TimeUnit>(std::chrono::minutes { 1 });
 
-	// TODO: What do we need for an event?
-	// - Timestamp
-	// - Note/Event type
-	// - Velocity
-	// - Channel (Device)
-
 	using Scalar = int64_t;
 	using String = std::string_view;
 
@@ -62,10 +56,12 @@ namespace cane {
 	};
 
 	constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
-		os << "{ ";
+		os << "Event { ";
 		os << "key: " << ev.key << ", ";
 		os << "kind: " << ev.kind << ", ";
-		os << "duration: " << ev.duration << ", ";
+		os << "duration: "
+		   << std::chrono::duration_cast<std::chrono::milliseconds>(ev.duration)
+		   << ", ";
 		os << "channel: " << static_cast<int>(ev.channel) << ", ";
 		os << "note: " << static_cast<int>(ev.note) << ", ";
 		os << "velocity: " << static_cast<int>(ev.velocity);
@@ -93,18 +89,22 @@ namespace cane {
 	}  // namespace detail
 
 	constexpr std::ostream& operator<<(std::ostream& os, Sequence seq) {
+		os << "Sequence ";
 		return detail::format_container(os, seq);
 	}
 
-	constexpr std::ostream& operator<<(std::ostream& os, Pattern seq) {
-		return detail::format_container(os, seq);
+	constexpr std::ostream& operator<<(std::ostream& os, Pattern pat) {
+		os << "Pattern ";
+		return detail::format_container(os, pat);
 	}
 
 	constexpr std::ostream& operator<<(std::ostream& os, Rhythm rhythm) {
+		os << "Rhythm ";
 		return detail::format_container(os, rhythm);
 	}
 
 	constexpr std::ostream& operator<<(std::ostream& os, Melody melody) {
+		os << "Melody ";
 		return detail::format_container(os, melody);
 	}
 }  // namespace cane
@@ -530,7 +530,7 @@ namespace cane {
 			for (auto [note, beat]: std::views::zip(melody, rhythm)) {
 				CANE_OKAY("{} -> {}", note, beat);
 
-				seq.emplace_back(key, beat, duration, note, 127);
+				seq.emplace_back(key, beat, duration, 0, note, 127);
 				key++;
 			}
 
@@ -595,6 +595,8 @@ namespace cane {
 				x.channel = 6;  // FIX: Temporary value for testing.
 				pat.emplace_back(x);
 			}
+
+			// TODO: Optimise sequence by joining neighbouring rests
 
 			return pat;
 		}

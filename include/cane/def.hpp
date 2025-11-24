@@ -2,6 +2,7 @@
 #define CANE_ENUM_HPP
 
 #include <array>
+#include <optional>
 
 #include <ostream>
 #include <sstream>
@@ -187,6 +188,10 @@ namespace cane {
 	X(Whitespace, "whitespace", None, None, None) \
 	X(Comment, "comment", None, None, None) \
 \
+	X(Binding, "binding", Literal, None, None) \
+	X(Parameter, "parameter", Literal, None, None) \
+	X(Reference, "reference", Literal, None, None) \
+\
 	X(Statement, "statement", None, None, None) \
 	X(Arrow, "->", None, None, None) \
 	X(Semicolon, ";", None, None, None) \
@@ -197,9 +202,9 @@ namespace cane {
 	X(Rest, ".", Literal, None, None) \
 \
 	X(Function, "function", Primary, None, None) \
-	X(Identifier, "identifier", Primary, None, None) \
+	X(Identifier, "identifier", Literal, None, None) \
 \
-	X(LeftParen, "(", Primary, None, None) \
+	X(LeftParen, "(", None, None, None) \
 	X(RightParen, ")", None, None, None) \
 	X(LeftBrace, "{", None, None, None) \
 	X(RightBrace, "}", None, None, None) \
@@ -213,7 +218,7 @@ namespace cane {
 	X(Concatenate, ",", Infix, Incr, Left) \
 	X(Layer, "$", Infix, Last, Left) \
 \
-	X(Call, "call", Infix, Incr, Left) \
+	X(Call, "_", Infix, Incr, Left) \
 \
 	X(Assign, "=>", Infix, Incr, Left) \
 \
@@ -358,6 +363,11 @@ namespace cane {
 		return (os << symbol_kind_to_str_human(log));
 	}
 
+	struct BindingPower {
+		size_t left;
+		size_t right;
+	};
+
 	namespace detail {
 #define X(symbol, str, opfix, prec, ass) \
 	handle_op(SymbolKind::symbol, PrecedenceKind::prec, AssociativityKind::ass);
@@ -365,9 +375,7 @@ namespace cane {
 		// Generates a mapping from symbol to binding power which determines
 		// operator precedence and associativity.
 		constexpr decltype(auto) generate_binding_power_table() {
-			std::array<
-				std::pair<size_t, size_t>,
-				static_cast<size_t>(SymbolKind::Total)>
+			std::array<BindingPower, static_cast<size_t>(SymbolKind::Total)>
 				table;
 
 			size_t current_precedence_level = 0;
@@ -390,9 +398,14 @@ namespace cane {
 #undef X
 	}  // namespace detail
 
-	constexpr std::pair<size_t, size_t> binding_power(SymbolKind kind) {
+	constexpr std::optional<BindingPower> binding_power(SymbolKind kind) {
 		constexpr auto table = detail::generate_binding_power_table();
-		return table.at(static_cast<size_t>(kind));
+
+		if (size_t i = static_cast<size_t>(kind); i < table.size()) {
+			return table.at(i);
+		}
+
+		return std::nullopt;
 	}
 
 	/////////////////

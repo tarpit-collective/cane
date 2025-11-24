@@ -213,6 +213,13 @@ namespace cane {
 	}
 
 	template <typename... Ts>
+	inline void report_if(bool cond, ReportKind kind, Ts&&... args) {
+		if (cond) {
+			report(kind, std::forward<Ts>(args)...);
+		}
+	}
+
+	template <typename... Ts>
 	[[noreturn]] inline void die(LogInfo info, Ts&&... args) {
 		std::stringstream ss;
 		cane::log(ss, LogKind::Fail, info, std::forward<Ts>(args)...);

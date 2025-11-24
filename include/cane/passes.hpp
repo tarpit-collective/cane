@@ -4,9 +4,24 @@
 #include <memory>
 #include <print>
 #include <vector>
+#include <unordered_map>
 
 #include <cane/parse.hpp>
 #include <cane/ops.hpp>
+
+////////////
+// Config //
+////////////
+
+namespace cane {
+	struct Configuration {
+		size_t bpm;
+	};
+}
+
+////////////
+// Passes //
+////////////
 
 namespace cane {
 
@@ -109,17 +124,24 @@ namespace cane {
 	// Type Checker //
 	//////////////////
 
-	inline TypeKind pass_semantic_analysis_walker(std::shared_ptr<Node> node);
+	struct TypeEnvironment {
+		Configuration config;
+		std::unordered_map<std::string_view, TypeKind> bindings;
+	};
 
-	inline void pass_semantic_analysis(std::shared_ptr<Node> node) {
+	[[nodiscard]] inline TypeKind pass_semantic_analysis_walker(
+		TypeEnvironment& env, std::shared_ptr<Node> node
+	);
+
+	[[nodiscard]] inline TypeKind
+	pass_semantic_analysis(Configuration config, std::shared_ptr<Node> node) {
 		CANE_FUNC();
-		pass_semantic_analysis_walker(node);
+
+		TypeEnvironment env { .config = config };
+		return pass_semantic_analysis_walker(env, node);
 	}
 
-	// TODO:
-	// 1. We need to store assigned types
-	// 2. Function types
-	inline bool type_remapper(
+	[[nodiscard]] inline bool type_remapper(
 		std::shared_ptr<Node> node,
 
 		TypeKind lhs,
@@ -167,10 +189,7 @@ namespace cane {
 		return true;
 	}
 
-	// TODO:
-	// We need to figure out how to handle rhythms with beats/rests and how
-	// to type check them. They really need to be a unified type.
-	inline bool
+	[[nodiscard]] inline bool
 	type_remap_trivial(TypeKind lhs, TypeKind rhs, std::shared_ptr<Node> node) {
 #define CANE_TYPE_REMAP(symbol, lhs_type, rhs_type, out_type, out_symbol) \
 	type_remapper( \
@@ -266,83 +285,137 @@ namespace cane {
 #undef CANE_TYPE_REMAP
 	}
 
-	inline TypeKind pass_semantic_analysis_walker(std::shared_ptr<Node> node) {
+	[[nodiscard]] inline TypeKind pass_semantic_analysis_walker(
+		TypeEnvironment& env, std::shared_ptr<Node> node
+	) {
 		if (node == nullptr) {
 			return TypeKind::None;
 		}
 
-		// In the case of a UNARY remapping, rhs will match with NONE anyway so
-		// we can always just compare both types.
-		TypeKind lhs = pass_semantic_analysis_walker(node->lhs);
-		TypeKind rhs = pass_semantic_analysis_walker(node->rhs);
+		switch (node->kind) {
+			// Literals
+			case SymbolKind::Number: return TypeKind::Scalar;
+			case SymbolKind::String: return TypeKind::String;
 
-		// Handle trivial cases for remapping first but otherwise fallback to
-		// this switch where we handle them manually.
-		if (not type_remap_trivial(lhs, rhs, node)) {
-			switch (node->kind) {
-				// Literals
-				case SymbolKind::Number: return TypeKind::Scalar;
-				case SymbolKind::String: return TypeKind::String;
+			case SymbolKind::Beat:
+			case SymbolKind::Rest: return TypeKind::Rhythm;
 
-				case SymbolKind::Beat:
-				case SymbolKind::Rest: return TypeKind::Rhythm;
+			// Assignment
+			case SymbolKind::Identifier: {
+				// TODO: We need to look up the identifier in the
+				// environment to find it's corresponding AST node. We then
+				// need to walk the given AST root to find its type. This
+				// can also contain further references to bindings.
 
-				// Assignment
-				case SymbolKind::Identifier:
-				case SymbolKind::Assign: {
-					CANE_UNIMPLEMENTED();
-				} break;
+				if (auto it = env.bindings.find(node->sv);
+					it != env.bindings.end()) {
+					node->type = it->second;
+					return it->second;
+				}
 
-				// TODO: Fix this, not sure if this is actually correct in all
-				// cases.
-				case SymbolKind::Function: {
-					return node->rhs->type;
-				} break;
+				cane::report(
+					ReportKind::Semantic, "unknown binding `{}`", node->sv
+				);
+			} break;
 
-				case SymbolKind::Call: {
-					TypeKind function =
-						pass_semantic_analysis_walker(node->lhs);
+			case SymbolKind::Assign: {
+				// TODO: Store the binding in the environment, mapping a
+				// string_view to an AST node.
+				TypeKind expr = pass_semantic_analysis_walker(env, node->lhs);
 
-					TypeKind argument =
-						pass_semantic_analysis_walker(node->rhs);
+				auto binding = node->rhs;
 
-					if (function != argument) {
-						cane::report(
-							ReportKind::Type,
-							"mismatched type `{}`!",
-							node->kind
-						);
-					}
+				auto binding_kind = binding->kind;
+				auto binding_sv = binding->sv;
 
-					return function;
-				} break;
+				cane::report_if(
+					binding_kind != SymbolKind::Identifier,
+					ReportKind::Syntactical,
+					"expected an identifier"
+				);
 
-				// Statements always return the type of their last expression.
-				// TODO: We might be able to implement this as a trivial type
-				// remapping once we have proper support for "patterns" since a
-				// cane program should evaluate to a fully mapped list of
-				// events.
-				case SymbolKind::Statement: {
-					pass_semantic_analysis_walker(node->lhs);
+				auto [it, succ] = env.bindings.try_emplace(binding_sv, expr);
 
-					TypeKind trailing =
-						pass_semantic_analysis_walker(node->rhs);
+				if (not succ) {
+					cane::report(
+						ReportKind::Semantic,
+						"attempting to rebind `{}`",
+						binding_sv
+					);
+				}
 
-					// we return the last expression's type.
-					node->type = trailing;
-					return trailing;
-				} break;
+				node->type = expr;
+				binding->type = expr;
 
-				default: {
+				return expr;
+			} break;
+
+			case SymbolKind::Function: {
+				// TODO: Fix this, not sure if this is actually correct in
+				// all cases.
+
+				// Should give the type of the return value of
+				// the function.
+
+				// Should assert that the `rhs` is valid.
+				// Do we just visit the rhs?
+				return node->rhs->type;
+			} break;
+
+			case SymbolKind::Call: {
+				// TODO: We need to check if the argument on the right
+				// matches the type of the function parameter.
+
+				// TODO: Get parameter type of function.
+				// Also need to assert that the node on the left _is_ a
+				// function.
+
+				// FIXME: This is broken and doesn't align with what we
+				// expect.
+
+				// TypeKind function = lhs;
+				// TypeKind argument = rhs;
+
+				// if (function != argument) {
+				// 	cane::report(
+				// 		ReportKind::Type, "mismatched type `{}`", node->kind
+				// 	);
+				// }
+
+				// return function;
+			} break;
+
+			// Statements always return the type of their last expression.
+			// TODO: We might be able to implement this as a trivial type
+			// remapping once we have proper support for "patterns" since a
+			// cane program should evaluate to a fully mapped list of
+			// events.
+			case SymbolKind::Statement: {
+				CANE_UNUSED(pass_semantic_analysis_walker(env, node->lhs));
+
+				TypeKind trailing =
+					pass_semantic_analysis_walker(env, node->rhs);
+
+				// We return the last expression's type.
+				node->type = trailing;
+				return trailing;
+			} break;
+
+			default: {
+				// Attempt trivial cases.
+				TypeKind lhs = pass_semantic_analysis_walker(env, node->lhs);
+				TypeKind rhs = pass_semantic_analysis_walker(env, node->rhs);
+
+				if (not type_remap_trivial(lhs, rhs, node)) {
 					cane::report(
 						ReportKind::Type,
-						"no mapping for `{}` {} `{}`!",
+						"no mapping for `{}` {} `{}`",
 						lhs,
 						node->kind,
 						rhs
 					);
-				} break;
-			}
+				}
+			} break;
 		}
 
 		return node->type;
@@ -352,16 +425,19 @@ namespace cane {
 	// Evaluator //
 	///////////////
 
-	struct Environment {
-		size_t bpm;
+	struct EvalEnvironment {
+		Configuration config;
 	};
 
-	inline Value pass_evaluator_walker(
-		Environment& env, std::mt19937_64& rng, std::shared_ptr<Node> node
+	[[nodiscard]] inline Value pass_evaluator_walker(
+		EvalEnvironment env, std::mt19937_64& rng, std::shared_ptr<Node> node
 	);
 
-	inline Value pass_evaluator(Environment env, std::shared_ptr<Node> node) {
+	[[nodiscard]] inline Value
+	pass_evaluator(Configuration config, std::shared_ptr<Node> node) {
 		CANE_FUNC();
+
+		EvalEnvironment env { .config = config };
 
 		std::random_device rd;
 		std::mt19937_64 rng(rd());
@@ -369,8 +445,8 @@ namespace cane {
 		return pass_evaluator_walker(env, rng, node);
 	}
 
-	inline Value pass_evaluator_walker(
-		Environment& env, std::mt19937_64& rng, std::shared_ptr<Node> node
+	[[nodiscard]] inline Value pass_evaluator_walker(
+		EvalEnvironment env, std::mt19937_64& rng, std::shared_ptr<Node> node
 	) {
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
@@ -393,7 +469,7 @@ namespace cane {
 				if (err != std::errc()) {
 					cane::report(
 						ReportKind::Eval,
-						"unable to parse integer `{}`!",
+						"unable to parse integer `{}`",
 						number_sv
 					);
 				}
@@ -409,8 +485,14 @@ namespace cane {
 				return Rhythm { EventKind::Rest };
 			} break;
 
+			// TODO: Need to handle calls seperately since the type can be
+			// anything and we don't have a static node->op to switch on.
+			case SymbolKind::Call: {
+				CANE_UNIMPLEMENTED();
+			} break;
+
 			case SymbolKind::Statement: {
-				pass_evaluator_walker(env, rng, node->lhs);
+				CANE_UNUSED(pass_evaluator_walker(env, rng, node->lhs));
 				return pass_evaluator_walker(env, rng, node->rhs);
 			} break;
 
@@ -524,9 +606,9 @@ namespace cane {
 
 			// Mapping
 			case SymbolKind::MapRhythmMelody:
-				return lhs.map_onto_rhythm(env.bpm, rhs);
+				return lhs.map_onto_rhythm(env.config.bpm, rhs);
 			case SymbolKind::MapMelodyRhythm:
-				return lhs.map_onto_melody(env.bpm, rhs);
+				return lhs.map_onto_melody(env.config.bpm, rhs);
 
 			// Time divisions
 			case SymbolKind::MulSequenceScalar: return lhs.timemul(rhs);
@@ -537,7 +619,7 @@ namespace cane {
 
 			default: {
 				cane::report(
-					ReportKind::Eval, "unable to evaluate `{}`!", node->op
+					ReportKind::Eval, "unable to evaluate `{}`", node->kind
 				);
 			} break;
 		}
