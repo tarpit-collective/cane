@@ -1,12 +1,21 @@
+- add cmdline parsing for channels and bpm
+- add channel lookup map in environment
+- working function eval
+- assignments and lookups
+- layering operator
+  - concat needs to fix up keys in rhs
+  - layering doesnt need to fix up keys
+- patterns support concat and layering
+- mapping
+- add token for newlines specifically so we can have them be valid break points for statements, can be skipped like any other token with `take`
+- call discard_whitespace in every parser function
+
 - add two melodies together
 - head/tail operators
 
-- Make coerce prefix
-- Use same design language as lexer for the parser with monads
+- print/debug operator to view sequences
+
 - string_view of statement and other parent nodes should contain the extents of all those nodes. Basically the string view begin/end should include all expressions in the statement
-- Generate sequence events
-- Better type errors and type handling in general
-- Generate is_prefix/is_primary/is_postfix from symbol remappings
 
 
 
@@ -19,8 +28,6 @@
 
 - location at eof should be more clear (dont print a column number)
 
-
-- rethink binding power definition, use old approach from cane where we have LAST & INCR
 
 
 - how do we handle velocity? should we?
@@ -42,24 +49,5 @@
   rotates around every bar
   - Maybe "choice" should do this instead of randomness
 
-- Update passes to take newly created type-specific node kinds
-  - Maybe needs to be re-designed a bit because it adds a _tonne_ of cases.
-
-- Add handling for functions, layers, choice, patterns and sequences to parser/typechecker
-
 - Evaluation pass that generates a list of events we can then serialise into
 a MIDI file
-
-- Change operator kind in AST nodes after type checking
-  - For example, scalars/melodies/rhythms share some operators but they are
-  semantically different. We should probably have a SCALAR_ADD, MELODY_ADD kind
-  - Logic already exists for doing this, just need to work out when to use it.
-
-- LSHIFT/RSHIFT vs LROTATE/RROTATE
-  - Scalars can be bit-shifted while melodies/rhythms can be rotated element-wise
-
-- Should assignment be made into an infix expression?
-  - `is_binary` being an infix _or_ postfix operator doesn't really make sense
-  for _true_ postfix operators
-
-- Symbol remapping/binding power as part of symbol definitions
