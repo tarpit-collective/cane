@@ -8,10 +8,21 @@
 #include <random>
 #include <ostream>
 
+#include <unordered_map>
+
 #include <cane/def.hpp>
 #include <cane/util.hpp>
 
 namespace cane {
+
+	////////////
+	// Config //
+	////////////
+
+	struct Configuration {
+		size_t bpm;
+		std::unordered_map<std::string_view, uint8_t> channel_bindings;
+	};
 
 	///////////
 	// Types //
@@ -520,10 +531,10 @@ namespace cane {
 		}
 
 		decltype(auto)
-		generate_sequence(size_t bpm, Melody melody, Rhythm rhythm) {
+		generate_sequence(Configuration cfg, Melody melody, Rhythm rhythm) {
 			Sequence seq;
 
-			TimeUnit duration = MINUTE / bpm;
+			TimeUnit duration = MINUTE / cfg.bpm;
 
 			size_t key = 0;
 
@@ -537,17 +548,17 @@ namespace cane {
 			return seq;
 		}
 
-		decltype(auto) map_onto_melody(size_t bpm, Value other) {
+		decltype(auto) map_onto_melody(Configuration cfg, Value other) {
 			// TODO: Map the notes to all indices, including rests
 			CANE_FUNC();
 
 			auto melody = std::get<Melody>(*this);
 			auto rhythm = cycle<Melody, Rhythm>(other);
 
-			return generate_sequence(bpm, melody, rhythm);
+			return generate_sequence(cfg, melody, rhythm);
 		}
 
-		decltype(auto) map_onto_rhythm(size_t bpm, Value other) {
+		decltype(auto) map_onto_rhythm(Configuration cfg, Value other) {
 			// TODO: Map notes only to beats, not rests.
 			// - Set up the notes array here by interspersing 0s in places where
 			// we have rests
@@ -556,7 +567,7 @@ namespace cane {
 			auto rhythm = std::get<Rhythm>(*this);
 			auto melody = cycle<Rhythm, Melody>(other);
 
-			return generate_sequence(bpm, melody, rhythm);
+			return generate_sequence(cfg, melody, rhythm);
 		}
 
 		decltype(auto) timemul(Value other) {
@@ -581,7 +592,7 @@ namespace cane {
 			return seq;
 		}
 
-		decltype(auto) send(Value other) {
+		decltype(auto) send(Configuration cfg, Value other) {
 			auto seq = std::get<Sequence>(*this);
 			auto string = std::get<String>(other);
 
@@ -590,9 +601,17 @@ namespace cane {
 			CANE_OKAY("send: {}", string);
 
 			for (auto x: seq) {
-				// TODO: Look up environment using string and set channel
-				// appropriately.
-				x.channel = 6;  // FIX: Temporary value for testing.
+				auto it = cfg.channel_bindings.find(string);
+
+				if (it == cfg.channel_bindings.end()) {
+					cane::report(
+						ReportKind::Eval, "unknown channel binding `{}`", string
+					);
+				}
+
+				uint8_t channel = it->second;
+
+				x.channel = channel;
 				pat.emplace_back(x);
 			}
 

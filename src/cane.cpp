@@ -2,20 +2,23 @@
 
 int main(int, const char* argv[]) {
 	try {
-		cane::Configuration config = { .bpm = 120 };
+		cane::Configuration cfg = { .bpm = 120, .channel_bindings = {
+			{ "drums", 10 },
+			{ "303", 12 },
+		}, };
 
 		cane::Parser parser { argv[1] };
 
 		auto root = parser.parse();
 
-		cane::pass_print(root);
-		cane::TypeKind type = cane::pass_semantic_analysis(config, root);
+		cane::pass_print(cfg, root);
+		cane::TypeKind type = cane::pass_typer(cfg, root);
 		CANE_OKAY("program type = `{}`", type);
-		cane::pass_print(root);
+		cane::pass_print(cfg, root);
 
 		CANE_OKAY("valid!");
 
-		auto value = cane::pass_evaluator(config, root);
+		auto value = cane::pass_evaluator(cfg, root);
 		std::println("{}", value);
 
 		if (std::holds_alternative<cane::Pattern>(value)) {
