@@ -12,7 +12,10 @@ int main(int, const char* argv[]) {
 		auto root = parser.parse();
 
 		cane::pass_print(cfg, root);
-		cane::TypeKind type = cane::pass_typer(cfg, root);
+
+		auto node = cane::pass_binding_resolution(cfg, root);
+		auto type = cane::pass_type_resolution(cfg, root);
+
 		CANE_OKAY("program type = `{}`", type);
 		cane::pass_print(cfg, root);
 

@@ -19,9 +19,9 @@ namespace cane {
 	// AST Printer Pass //
 	//////////////////////
 
-	inline void pass_print_walker(
+	inline void pass_print_walk(
 		Configuration cfg,
-		std::shared_ptr<Node> node,
+		BoxNode node,
 		std::vector<bool> bits = {},
 		size_t depth = 0
 	);
@@ -46,41 +46,38 @@ namespace cane {
 
 		inline void pass_print_indent_node_child_lhs(
 			Configuration cfg,
-			std::shared_ptr<Node> node,
+			BoxNode node,
 			std::vector<bool> bits = {},
 			size_t depth = 0
 		) {
 			pass_print_indent_node(SIGIL_LHS, bits);
 
 			bits.push_back(true);
-			pass_print_walker(cfg, node->lhs, bits, depth);
+			pass_print_walk(cfg, node->lhs, bits, depth);
 			bits.pop_back();
 		}
 
 		inline void pass_print_indent_node_child_rhs(
 			Configuration cfg,
-			std::shared_ptr<Node> node,
+			BoxNode node,
 			std::vector<bool> bits = {},
 			size_t depth = 0
 		) {
 			pass_print_indent_node(SIGIL_RHS, bits);
 
 			bits.push_back(false);
-			pass_print_walker(cfg, node->rhs, bits, depth);
+			pass_print_walk(cfg, node->rhs, bits, depth);
 			bits.pop_back();
 		}
 	}  // namespace detail
 
-	inline void pass_print(Configuration cfg, std::shared_ptr<Node> node) {
+	inline void pass_print(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
-		pass_print_walker(cfg, node);
+		pass_print_walk(cfg, node);
 	}
 
-	inline void pass_print_walker(
-		Configuration cfg,
-		std::shared_ptr<Node> node,
-		std::vector<bool> bits,
-		size_t depth
+	inline void pass_print_walk(
+		Configuration cfg, BoxNode node, std::vector<bool> bits, size_t depth
 	) {
 		if (node == nullptr) {
 			std::cout << detail::SIGIL_NULL << '\n';
@@ -129,32 +126,46 @@ namespace cane {
 		// std::unordered_map<std::string_view, TypeKind> bindings;
 	};
 
+	[[nodiscard]] inline BoxNode pass_binding_resolution_walk(
+		Configuration cfg, BindingEnvironment& env, BoxNode node
+	);
+
+	[[nodiscard]] inline BoxNode
+	pass_binding_resolution(Configuration cfg, BoxNode node) {
+		CANE_FUNC();
+		BindingEnvironment env;
+
+		return pass_binding_resolution_walk(cfg, env, node);
+	}
+
+	[[nodiscard]] inline BoxNode pass_binding_resolution_walk(
+		Configuration cfg, BindingEnvironment& env, BoxNode node
+	) {
+		return {};
+	}
+
 	//////////////////
 	// Type Checker //
 	//////////////////
 
 	struct TypeEnvironment {
-		// Configuration config;
 		std::unordered_map<std::string_view, TypeKind> bindings;
 	};
 
-	[[nodiscard]] inline TypeKind pass_typer_walker(
-		Configuration cfg, TypeEnvironment& env, std::shared_ptr<Node> node
+	[[nodiscard]] inline TypeKind pass_type_resolution_walk(
+		Configuration cfg, TypeEnvironment& env, BoxNode node
 	);
 
 	[[nodiscard]] inline TypeKind
-	pass_typer(Configuration cfg, std::shared_ptr<Node> node) {
+	pass_type_resolution(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
 		TypeEnvironment env;
 
-		return pass_typer_walker(cfg, env, node);
+		return pass_type_resolution_walk(cfg, env, node);
 	}
 
 	[[nodiscard]] inline bool type_remap_trivial(
-		Configuration cfg,
-		TypeKind lhs,
-		TypeKind rhs,
-		std::shared_ptr<Node> node
+		Configuration cfg, TypeKind lhs, TypeKind rhs, BoxNode node
 	) {
 		// CANE_INFO(
 		// 	"attempt " CANE_COLOUR_BLUE "`{}`" CANE_RESET
@@ -184,12 +195,9 @@ namespace cane {
 			if (lhs != expected_lhs || rhs != expected_rhs) {
 				// If the types don't match, it just means this overload of
 				// the operator isn't the correct one but we might have one
-				// handled later. CANE_FAIL("└► " CANE_COLOUR_RED "failed!"
-				// CANE_RESET);
+				// handled later.
 				return false;
 			}
-
-			// CANE_OKAY("└► " CANE_COLOUR_YELLOW "success!" CANE_RESET);
 
 			node->type = out;
 			node->op = op;
@@ -197,18 +205,16 @@ namespace cane {
 			return true;
 		};
 
-#define CANE_TYPE_REMAP(symbol, lhs_type, rhs_type, out_type, out_symbol) \
-	remap( \
-		SymbolKind::symbol, \
-\
-		TypeKind::lhs_type, \
-		TypeKind::rhs_type, \
-\
-		TypeKind::out_type, \
-		SymbolKind::out_symbol \
-	)
-
 		// clang-format off
+	#define CANE_TYPE_REMAP(symbol, lhs_type, rhs_type, out_type, out_symbol) \
+		remap( \
+			SymbolKind::symbol, \
+			TypeKind::lhs_type, \
+			TypeKind::rhs_type, \
+			TypeKind::out_type, \
+			SymbolKind::out_symbol \
+		)
+
  	bool match =
  		/* Prefix/Unary */
  		CANE_TYPE_REMAP(Abs, Scalar, None, Scalar, AbsScalar) ||
@@ -280,23 +286,29 @@ namespace cane {
  		/* Pattern */
  		CANE_TYPE_REMAP(Send, Sequence, String, Pattern, SendSequenceString)
  	;
-
- 	if (match) {
- 		CANE_OKAY("found a valid type mapping: `{}` {} `{}`", lhs, node->kind, rhs);
-
- 	} else {
- 		CANE_FAIL("did not find a valid type mapping: `{}` {} `{}`", lhs, node->kind, rhs);
- 	}
-
- 	return match;
-
 		// clang-format on
+
+		if (match) {
+			CANE_OKAY(
+				"found a valid type mapping: `{}` {} `{}`", lhs, node->kind, rhs
+			);
+		}
+		else {
+			CANE_FAIL(
+				"did not find a valid type mapping: `{}` {} `{}`",
+				lhs,
+				node->kind,
+				rhs
+			);
+		}
+
+		return match;
 
 #undef CANE_TYPE_REMAP
 	}
 
-	[[nodiscard]] inline TypeKind pass_typer_walker(
-		Configuration cfg, TypeEnvironment& env, std::shared_ptr<Node> node
+	[[nodiscard]] inline TypeKind pass_type_resolution_walk(
+		Configuration cfg, TypeEnvironment& env, BoxNode node
 	) {
 		if (node == nullptr) {
 			return TypeKind::None;
@@ -331,7 +343,7 @@ namespace cane {
 			case SymbolKind::Assign: {
 				// TODO: Store the binding in the environment, mapping a
 				// string_view to an AST node.
-				TypeKind expr = pass_typer_walker(cfg, env, node->lhs);
+				TypeKind expr = pass_type_resolution_walk(cfg, env, node->lhs);
 
 				auto binding = node->rhs;
 
@@ -401,9 +413,10 @@ namespace cane {
 			// cane program should evaluate to a fully mapped list of
 			// events.
 			case SymbolKind::Statement: {
-				CANE_UNUSED(pass_typer_walker(cfg, env, node->lhs));
+				CANE_UNUSED(pass_type_resolution_walk(cfg, env, node->lhs));
 
-				TypeKind trailing = pass_typer_walker(cfg, env, node->rhs);
+				TypeKind trailing =
+					pass_type_resolution_walk(cfg, env, node->rhs);
 
 				// We return the last expression's type.
 				node->type = trailing;
@@ -412,8 +425,8 @@ namespace cane {
 
 			default: {
 				// Attempt trivial cases.
-				TypeKind lhs = pass_typer_walker(cfg, env, node->lhs);
-				TypeKind rhs = pass_typer_walker(cfg, env, node->rhs);
+				TypeKind lhs = pass_type_resolution_walk(cfg, env, node->lhs);
+				TypeKind rhs = pass_type_resolution_walk(cfg, env, node->rhs);
 
 				if (not type_remap_trivial(cfg, lhs, rhs, node)) {
 					cane::report(
@@ -435,27 +448,32 @@ namespace cane {
 	///////////////
 
 	struct EvalEnvironment {
-		Configuration config;
+		// Configuration config;
 	};
 
-	[[nodiscard]] inline Value pass_evaluator_walker(
-		EvalEnvironment env, std::mt19937_64& rng, std::shared_ptr<Node> node
+	[[nodiscard]] inline Value pass_evaluator_walk(
+		Configuration cfg,
+		EvalEnvironment env,
+		std::mt19937_64& rng,
+		BoxNode node
 	);
 
-	[[nodiscard]] inline Value
-	pass_evaluator(Configuration config, std::shared_ptr<Node> node) {
+	[[nodiscard]] inline Value pass_evaluator(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
 
-		EvalEnvironment env { .config = config };
+		EvalEnvironment env;
 
 		std::random_device rd;
 		std::mt19937_64 rng(rd());
 
-		return pass_evaluator_walker(env, rng, node);
+		return pass_evaluator_walk(cfg, env, rng, node);
 	}
 
-	[[nodiscard]] inline Value pass_evaluator_walker(
-		EvalEnvironment env, std::mt19937_64& rng, std::shared_ptr<Node> node
+	[[nodiscard]] inline Value pass_evaluator_walk(
+		Configuration cfg,
+		EvalEnvironment env,
+		std::mt19937_64& rng,
+		BoxNode node
 	) {
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
@@ -501,15 +519,15 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Statement: {
-				CANE_UNUSED(pass_evaluator_walker(env, rng, node->lhs));
-				return pass_evaluator_walker(env, rng, node->rhs);
+				CANE_UNUSED(pass_evaluator_walk(cfg, env, rng, node->lhs));
+				return pass_evaluator_walk(cfg, env, rng, node->rhs);
 			} break;
 
 			default: break;
 		}
 
-		Value lhs = pass_evaluator_walker(env, rng, node->lhs);
-		Value rhs = pass_evaluator_walker(env, rng, node->rhs);
+		Value lhs = pass_evaluator_walk(cfg, env, rng, node->lhs);
+		Value rhs = pass_evaluator_walk(cfg, env, rng, node->rhs);
 
 		switch (node->op) {
 			// Unary Scalar
@@ -615,21 +633,20 @@ namespace cane {
 
 			// Mapping
 			case SymbolKind::MapRhythmMelody:
-				return lhs.map_onto_rhythm(env.config, rhs);
+				return lhs.map_onto_rhythm(cfg, rhs);
 			case SymbolKind::MapMelodyRhythm:
-				return lhs.map_onto_melody(env.config, rhs);
+				return lhs.map_onto_melody(cfg, rhs);
 
 			// Time divisions
 			case SymbolKind::MulSequenceScalar: return lhs.timemul(rhs);
 			case SymbolKind::DivSequenceScalar: return lhs.timediv(rhs);
 
 			// Patterns
-			case SymbolKind::SendSequenceString:
-				return lhs.send(env.config, rhs);
+			case SymbolKind::SendSequenceString: return lhs.send(cfg, rhs);
 
 			default: {
 				cane::report(
-					ReportKind::Eval, "unable to evaluate `{}`", node->kind
+					ReportKind::Internal, "unable to evaluate `{}`", node->kind
 				);
 			} break;
 		}
