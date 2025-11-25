@@ -297,25 +297,23 @@ namespace cane {
 					// Reset binding power and parse body
 					auto body = parse_expression();
 
-					// Body type
-					auto body_type = parse_type();
-					cane::report_if(
-						not body_type.has_value(),
-						ReportKind::Syntactical,
-						"expected a type annotation"
-					);
+					// FIXME: Do we need to have an explicit body return type
+					// annotation?
 
-					auto root = std::make_shared<Node>(
-						SymbolKind::Function, symbol.sv, body->type
-					);
+					// // Body type
+					// auto body_type = parse_type();
+					// cane::report_if(
+					// 	not body_type.has_value(),
+					// 	ReportKind::Syntactical,
+					// 	"expected a type annotation"
+					// );
 
 					param->type = param_type.value();
-					body->type = body_type.value();
+					// body->type = body_type.value();
 
-					root->lhs = param;
-					root->rhs = body;
-
-					return root;
+					return std::make_shared<Node>(
+						SymbolKind::Function, symbol.sv, body->type, param, body
+					);
 				} break;
 
 				default: break;
