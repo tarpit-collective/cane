@@ -12,24 +12,24 @@ int main(int, const char* argv[]) {
 		auto root = parser.parse();
 
 		cane::pass_print(cfg, root);
-
-		auto node = cane::pass_binding_resolution(cfg, root);
-		auto type = cane::pass_type_resolution(cfg, root);
-
-		CANE_OKAY("program type = `{}`", type);
+		root = cane::pass_binding_resolution(cfg, root);
 		cane::pass_print(cfg, root);
+		// auto type = cane::pass_type_resolution(cfg, root);
 
-		CANE_OKAY("valid!");
+		// CANE_OKAY("program type = `{}`", type);
+		// cane::pass_print(cfg, root);
 
-		auto value = cane::pass_evaluator(cfg, root);
-		std::println("{}", value);
+		// CANE_OKAY("valid!");
 
-		if (std::holds_alternative<cane::Pattern>(value)) {
-			CANE_OKAY("Events:");
-			for (auto& x: value.get_pattern()) {
-				std::println("{}", x);
-			}
-		}
+		// auto value = cane::pass_evaluator(cfg, root);
+		// std::println("{}", value);
+
+		// if (std::holds_alternative<cane::Pattern>(value)) {
+		// 	CANE_OKAY("Events:");
+		// 	for (auto& x: value.get_pattern()) {
+		// 		std::println("{}", x);
+		// 	}
+		// }
 	}
 
 	catch (cane::Fatal e) {

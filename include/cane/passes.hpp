@@ -122,8 +122,7 @@ namespace cane {
 	////////////////////////
 
 	struct BindingEnvironment {
-		// Configuration config;
-		// std::unordered_map<std::string_view, TypeKind> bindings;
+		std::unordered_map<std::string_view, BoxNode> bindings;
 	};
 
 	[[nodiscard]] inline BoxNode pass_binding_resolution_walk(
@@ -141,7 +140,96 @@ namespace cane {
 	[[nodiscard]] inline BoxNode pass_binding_resolution_walk(
 		Configuration cfg, BindingEnvironment& env, BoxNode node
 	) {
-		return {};
+		if (node == nullptr) {
+			return nullptr;
+		}
+
+		switch (node->kind) {
+			case SymbolKind::Function: {
+				CANE_OKAY("Function {}", node->sv);
+				return node;
+			} break;
+
+			case SymbolKind::Identifier: {
+				// Look up the binding in the environment, if it doesn't exist,
+				// we just bail out.
+
+				// If we _do_ find a match, we replace the current node in the
+				// AST (an identifier) with the node stored in the environment.
+
+				// This is lazy eval as we copy the tree directly rather than
+				// evaluating it to a simpler form first.
+
+				CANE_OKAY("Ident {}", node->sv);
+
+				auto it = env.bindings.find(node->sv);
+
+				if (it == env.bindings.end()) {
+					cane::report(
+						ReportKind::Semantic, "unknown binding `{}`", node->sv
+					);
+				}
+
+				return it->second;
+			} break;
+
+			case SymbolKind::Assign: {
+				// Assignment stores a mapping of string_view to an AST node in
+				// the environment.
+
+				// We need to visit the expression on the left-hand side of the
+				// assignment node in order to fully resolve any nested
+				// references to bindings.
+
+				// It's important that this node still remains in the tree since
+				// it will later contribute to type checking.
+
+				CANE_OKAY("Assign {}", node->sv);
+
+				auto binding = node->rhs;
+
+				cane::report_if(
+					binding != nullptr and
+						binding->kind != SymbolKind::Identifier,
+					ReportKind::Syntactical,
+					"expected an identifier"
+				);
+
+				CANE_OKAY("Binding {}", binding->sv);
+
+				node->lhs = pass_binding_resolution_walk(cfg, env, node->lhs);
+
+				auto [it, succ] =
+					env.bindings.try_emplace(binding->sv, node->lhs);
+
+				if (not succ) {
+					cane::report(
+						ReportKind::Semantic,
+						"attempting to rebind `{}`",
+						binding->sv
+					);
+				}
+
+				return node;
+			} break;
+
+			default: {
+				CANE_OKAY("Default {}", node->sv);
+
+				// Visit both children, even in the case of unary nodes.
+				// We will exit early if any child is a nullptr anyway.
+
+				// Most nodes will take this path since we only care about
+				// handling bindings and references.
+
+				node->lhs = pass_binding_resolution_walk(cfg, env, node->lhs);
+				node->rhs = pass_binding_resolution_walk(cfg, env, node->rhs);
+
+				return node;
+			} break;
+		}
+
+		return node;
 	}
 
 	//////////////////
@@ -156,16 +244,27 @@ namespace cane {
 		Configuration cfg, TypeEnvironment& env, BoxNode node
 	);
 
-	[[nodiscard]] inline TypeKind
+	[[nodiscard]] inline BoxNode
 	pass_type_resolution(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
 		TypeEnvironment env;
 
-		return pass_type_resolution_walk(cfg, env, node);
+		auto type = pass_type_resolution_walk(cfg, env, node);
+
+		cane::report_if(
+			type != TypeKind::Pattern,
+			ReportKind::Type,
+			"expected a pattern as output type of program"
+		);
+
+		return node;
 	}
 
 	[[nodiscard]] inline bool type_remap_trivial(
-		Configuration cfg, TypeKind lhs, TypeKind rhs, BoxNode node
+		[[maybe_unused]] Configuration cfg,
+		TypeKind lhs,
+		TypeKind rhs,
+		BoxNode node
 	) {
 		// CANE_INFO(
 		// 	"attempt " CANE_COLOUR_BLUE "`{}`" CANE_RESET
@@ -293,6 +392,7 @@ namespace cane {
 				"found a valid type mapping: `{}` {} `{}`", lhs, node->kind, rhs
 			);
 		}
+
 		else {
 			CANE_FAIL(
 				"did not find a valid type mapping: `{}` {} `{}`",
@@ -323,53 +423,10 @@ namespace cane {
 			case SymbolKind::Rest: return TypeKind::Rhythm;
 
 			// Assignment
-			case SymbolKind::Identifier: {
-				// TODO: We need to look up the identifier in the
-				// environment to find it's corresponding AST node. We then
-				// need to walk the given AST root to find its type. This
-				// can also contain further references to bindings.
-
-				if (auto it = env.bindings.find(node->sv);
-					it != env.bindings.end()) {
-					node->type = it->second;
-					return it->second;
-				}
-
-				cane::report(
-					ReportKind::Semantic, "unknown binding `{}`", node->sv
-				);
-			} break;
+			case SymbolKind::Identifier:
 
 			case SymbolKind::Assign: {
-				// TODO: Store the binding in the environment, mapping a
-				// string_view to an AST node.
-				TypeKind expr = pass_type_resolution_walk(cfg, env, node->lhs);
-
-				auto binding = node->rhs;
-
-				auto binding_kind = binding->kind;
-				auto binding_sv = binding->sv;
-
-				cane::report_if(
-					binding_kind != SymbolKind::Identifier,
-					ReportKind::Syntactical,
-					"expected an identifier"
-				);
-
-				auto [it, succ] = env.bindings.try_emplace(binding_sv, expr);
-
-				if (not succ) {
-					cane::report(
-						ReportKind::Semantic,
-						"attempting to rebind `{}`",
-						binding_sv
-					);
-				}
-
-				node->type = expr;
-				binding->type = expr;
-
-				return expr;
+				CANE_UNREACHABLE();
 			} break;
 
 			case SymbolKind::Function: {
@@ -448,33 +505,23 @@ namespace cane {
 	///////////////
 
 	struct EvalEnvironment {
-		// Configuration config;
+		std::mt19937_64 rng;
 	};
 
-	[[nodiscard]] inline Value pass_evaluator_walk(
-		Configuration cfg,
-		EvalEnvironment env,
-		std::mt19937_64& rng,
-		BoxNode node
-	);
+	[[nodiscard]] inline Value
+	pass_evaluator_walk(Configuration cfg, EvalEnvironment env, BoxNode node);
 
 	[[nodiscard]] inline Value pass_evaluator(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
 
-		EvalEnvironment env;
-
 		std::random_device rd;
-		std::mt19937_64 rng(rd());
+		EvalEnvironment env { .rng = std::mt19937_64 { rd() } };
 
-		return pass_evaluator_walk(cfg, env, rng, node);
+		return pass_evaluator_walk(cfg, env, node);
 	}
 
-	[[nodiscard]] inline Value pass_evaluator_walk(
-		Configuration cfg,
-		EvalEnvironment env,
-		std::mt19937_64& rng,
-		BoxNode node
-	) {
+	[[nodiscard]] inline Value
+	pass_evaluator_walk(Configuration cfg, EvalEnvironment env, BoxNode node) {
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
 		}
@@ -519,15 +566,15 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Statement: {
-				CANE_UNUSED(pass_evaluator_walk(cfg, env, rng, node->lhs));
-				return pass_evaluator_walk(cfg, env, rng, node->rhs);
+				CANE_UNUSED(pass_evaluator_walk(cfg, env, node->lhs));
+				return pass_evaluator_walk(cfg, env, node->rhs);
 			} break;
 
 			default: break;
 		}
 
-		Value lhs = pass_evaluator_walk(cfg, env, rng, node->lhs);
-		Value rhs = pass_evaluator_walk(cfg, env, rng, node->rhs);
+		Value lhs = pass_evaluator_walk(cfg, env, node->lhs);
+		Value rhs = pass_evaluator_walk(cfg, env, node->rhs);
 
 		switch (node->op) {
 			// Unary Scalar
@@ -560,7 +607,8 @@ namespace cane {
 
 			case SymbolKind::EuclideanScalarScalar: return lhs.euclidean(rhs);
 
-			case SymbolKind::RandomScalarScalar: return lhs.choice(rng, rhs);
+			case SymbolKind::RandomScalarScalar:
+				return lhs.choice(env.rng, rhs);
 
 			// Rotate vectors
 			case SymbolKind::LeftShiftMelodyScalar:
