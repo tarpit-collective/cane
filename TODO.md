@@ -1,3 +1,7 @@
+- maybe try implicit call again?
+- do we need return type annotation? we can probably infer it after we just walk the body expression
+-
+
 - add cmdline parsing for channels and bpm
 - add channel lookup map in environment
 - working function eval

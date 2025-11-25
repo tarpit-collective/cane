@@ -146,7 +146,24 @@ namespace cane {
 
 		switch (node->kind) {
 			case SymbolKind::Function: {
+				// NOTE: Consider how we handle naming conflicts here.
+				// If we have an `x` already bound through an assignment and
+				// then bind a _parameter_ `x`, which one wins out? It should be
+				// the parameter but how exactly that should work needs to be
+				// figured out.
+
 				CANE_OKAY("Function {}", node->sv);
+				return node;
+			} break;
+
+			case SymbolKind::Call: {
+				// Can we clone the environment then replace any bindings of the
+				// same name?
+
+				// NOTE:
+				// 1. We need to bind the argument node to the binding defined
+				// as the function's parameter 2.
+				CANE_OKAY("Call {}", node->sv);
 				return node;
 			} break;
 
