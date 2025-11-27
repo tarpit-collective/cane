@@ -160,7 +160,7 @@ namespace cane {
 		}
 
 		bool is_root = depth == 0;
-		bool is_leaf = cane::is_literal(node->kind);
+		bool is_leaf = is_opfix(OpfixKind::Literal, node->kind);
 
 		auto joiner = is_root ? " " : "─";
 		auto marker = is_leaf ? detail::SIGIL_LEAF : detail::SIGIL_BRANCH;

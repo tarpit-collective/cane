@@ -269,7 +269,7 @@ namespace cane {
 				default: break;
 			}
 
-			if (not is_prefix(symbol.kind)) {
+			if (not is_opfix(OpfixKind::Prefix, symbol.kind)) {
 				return std::nullopt;
 			}
 
@@ -285,7 +285,7 @@ namespace cane {
 			CANE_FUNC();
 			Symbol symbol = lx.peek();
 
-			if (not is_infix(symbol.kind)) {
+			if (not is_opfix(OpfixKind::Infix, symbol.kind)) {
 				return std::nullopt;
 			}
 
@@ -317,7 +317,7 @@ namespace cane {
 			CANE_FUNC();
 			Symbol symbol = lx.peek();
 
-			if (not is_postfix(symbol.kind)) {
+			if (not is_opfix(OpfixKind::Postfix, symbol.kind)) {
 				return std::nullopt;
 			}
 
@@ -342,14 +342,16 @@ namespace cane {
 			);
 
 			constexpr auto is_call = [](SymbolKind kind) {
-				return is_literal(kind) or is_primary(kind) or
+				return is_opfix(OpfixKind::Literal, kind) or
+					is_opfix(OpfixKind::Primary, kind) or
 					kind == SymbolKind::Call;
 			};
 
 			while (true) {
 				auto [kind, sv] = lx.peek();
 
-				if (not(is_infix(kind) or is_postfix(kind) or is_call(kind))) {
+				if (not(is_opfix(OpfixKind::Infix, kind) or
+						is_opfix(OpfixKind::Postfix, kind) or is_call(kind))) {
 					break;
 				}
 

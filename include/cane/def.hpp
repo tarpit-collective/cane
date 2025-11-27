@@ -398,46 +398,9 @@ namespace cane {
 	// Classifiers //
 	/////////////////
 
-	// is_literal
-	constexpr bool is_literal(SymbolKind kind) {
-#define X(symbol, str, opfix, prec, ass) \
-	(OpfixKind::opfix == OpfixKind::Literal && kind == SymbolKind::symbol) ||
-		bool is = CANE_SYMBOL_KINDS false;
-		return is;
-#undef X
-	}
-
-	// is_primary
-	constexpr bool is_primary(SymbolKind kind) {
-#define X(symbol, str, opfix, prec, ass) \
-	(OpfixKind::opfix == OpfixKind::Primary && kind == SymbolKind::symbol) ||
-		bool is = CANE_SYMBOL_KINDS false;
-		return is;
-#undef X
-	}
-
-	// is_prefix
-	constexpr bool is_prefix(SymbolKind kind) {
-#define X(symbol, str, opfix, prec, ass) \
-	(OpfixKind::opfix == OpfixKind::Prefix && kind == SymbolKind::symbol) ||
-		bool is = CANE_SYMBOL_KINDS false;
-		return is;
-#undef X
-	}
-
-	// is_infix
-	constexpr bool is_infix(SymbolKind kind) {
-#define X(symbol, str, opfix, prec, ass) \
-	(OpfixKind::opfix == OpfixKind::Infix && kind == SymbolKind::symbol) ||
-		bool is = CANE_SYMBOL_KINDS false;
-		return is;
-#undef X
-	}
-
-	// is_postfix
-	constexpr bool is_postfix(SymbolKind kind) {
-#define X(symbol, str, opfix, prec, ass) \
-	(OpfixKind::opfix == OpfixKind::Postfix && kind == SymbolKind::symbol) ||
+	constexpr bool is_opfix(OpfixKind opfix, SymbolKind kind) {
+#define X(symbol, str, fix, prec, ass) \
+	(opfix == OpfixKind::fix && kind == SymbolKind::symbol) ||
 		bool is = CANE_SYMBOL_KINDS false;
 		return is;
 #undef X
