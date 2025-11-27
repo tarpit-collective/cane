@@ -107,74 +107,8 @@ namespace cane {
 		// Core parsing functions
 		[[nodiscard]] BoxNode parse() {
 			CANE_FUNC();
-
-			BoxNode root = nullptr;
-
-			while (not lx.peek_is_kind(SymbolKind::EndFile)) {
-				auto stmt = lx.peek();
-				auto node = parse_expression();
-
-				root = std::make_shared<Node>(
-					SymbolKind::Statement, stmt.sv, TypeKind::None, root, node
-				);
-
-				// Statements must be terminated by a semicolon unless they are
-				// EOF.
-				if (not lx.discard_if_kind(SymbolKind::Semicolon) and
-					not lx.discard_if_kind(SymbolKind::EndFile)) {
-					cane::report(
-						ReportKind::Syntactical, "expected `;` or end of file"
-					);
-				}
-			}
-
-			if (not lx.discard_if_kind(SymbolKind::EndFile)) {
-				cane::report(ReportKind::Syntactical, "expected end of file");
-			}
-
-			return root;
+			return parse_expression();
 		}
-
-		// Expression parsing
-		// [[nodiscard]] std::optional<TypeKind> parse_type_annotation() {
-		// 	CANE_FUNC();
-
-		// 	if (lx.discard_if_kind(SymbolKind::AnnotationNumber)) {
-		// 		return TypeKind::Scalar;
-		// 	}
-
-		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationString)) {
-		// 		return TypeKind::String;
-		// 	}
-
-		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationRhythm)) {
-		// 		return TypeKind::Rhythm;
-		// 	}
-
-		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationMelody)) {
-		// 		return TypeKind::Melody;
-		// 	}
-
-		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationSequence)) {
-		// 		return TypeKind::Sequence;
-		// 	}
-
-		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationPattern)) {
-		// 		return TypeKind::Pattern;
-		// 	}
-
-		// 	return std::nullopt;
-		// }
-
-		// [[nodiscard]] std::optional<TypeKind> parse_type() {
-		// 	CANE_FUNC();
-
-		// 	if (not lx.discard_if_kind(SymbolKind::Arrow)) {
-		// 		return std::nullopt;
-		// 	}
-
-		// 	return parse_type_annotation();
-		// }
 
 		[[nodiscard]] OptionalBoxNode parse_primary() {
 			CANE_FUNC();
@@ -359,23 +293,20 @@ namespace cane {
 			auto rhs = parse_expression(bp);
 
 			// Special cases.
-			// switch (symbol.kind) {
-			// 	case SymbolKind::Assign: {
-			// 		// We need to assert that the `rhs` is an
-			// 		// identifier because it doesn't make sense for
-			// 		// the name to be anything other than identifier.
-			// 		cane::report_if(
-			// 			rhs->kind != SymbolKind::Identifier and
-			// 				rhs->kind != SymbolKind::Reference,
-			// 			ReportKind::Syntactical,
-			// 			"expected an identifier"
-			// 		);
+			switch (symbol.kind) {
+				case SymbolKind::Assign: {
+					// We need to assert that the `rhs` is an
+					// identifier because it doesn't make sense for
+					// the name to be anything other than identifier.
+					cane::report_if(
+						rhs->kind != SymbolKind::Identifier,
+						ReportKind::Syntactical,
+						"expected an identifier"
+					);
+				} break;
 
-			// 		rhs->kind = SymbolKind::Binding;
-			// 	} break;
-
-			// 	default: break;
-			// }
+				default: break;
+			}
 
 			return std::make_shared<Node>(
 				symbol.kind, symbol.sv, TypeKind::None, lhs, rhs

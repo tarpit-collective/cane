@@ -43,22 +43,13 @@ namespace cane {
 
 	// Parser and lexer predicates & other function pointers
 	using CharacterPredicate = bool (*)(char);
+
 	using SymbolPredicate = bool (*)(SymbolKind);
 	using SymbolFixup = SymbolKind (*)(SymbolKind);
 
 	///////////
 	// LEXER //
 	///////////
-
-	// template <typename T>
-	// decltype(auto) alternatives(std::optional<T> opt) {
-	// 	return opt;
-	// }
-
-	// template <typename T1, typename T2, typename... Ts>
-	// decltype(auto) alternatives(T1&& fn1, T2&& fn2, Ts&&... fns) {
-	// 	return alternatives(fn1().or_else(fn2), std::forward<Ts>(fns)...);
-	// }
 
 	class Lexer {
 		private:
@@ -272,31 +263,6 @@ namespace cane {
 				symbol.kind = SymbolKind::And;
 			}
 
-			// Type annotations
-			else if (symbol.sv == CANE_CSTR("number")) {
-				symbol.kind = SymbolKind::AnnotationNumber;
-			}
-
-			else if (symbol.sv == CANE_CSTR("string")) {
-				symbol.kind = SymbolKind::AnnotationString;
-			}
-
-			else if (symbol.sv == CANE_CSTR("rhythm")) {
-				symbol.kind = SymbolKind::AnnotationRhythm;
-			}
-
-			else if (symbol.sv == CANE_CSTR("melody")) {
-				symbol.kind = SymbolKind::AnnotationMelody;
-			}
-
-			else if (symbol.sv == CANE_CSTR("sequence")) {
-				symbol.kind = SymbolKind::AnnotationSequence;
-			}
-
-			else if (symbol.sv == CANE_CSTR("pattern")) {
-				symbol.kind = SymbolKind::AnnotationPattern;
-			}
-
 			return symbol;
 		}
 
@@ -307,9 +273,6 @@ namespace cane {
 				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Send, CANE_CSTR("~>"));
-				})
-				.or_else([&] {
-					return produce_str(SymbolKind::Arrow, CANE_CSTR("->"));
 				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Incr, CANE_CSTR("++"));
@@ -354,7 +317,7 @@ namespace cane {
 					return produce_str(SymbolKind::Euclidean, CANE_CSTR(":"));
 				})
 				.or_else([&] {
-					return produce_str(SymbolKind::Semicolon, CANE_CSTR(";"));
+					return produce_str(SymbolKind::Block, CANE_CSTR(";"));
 				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Add, CANE_CSTR("+"));

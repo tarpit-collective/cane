@@ -188,16 +188,9 @@ namespace cane {
 	X(Whitespace, "whitespace", None, None, None) \
 	X(Comment, "comment", None, None, None) \
 \
-	X(Binding, "binding", Literal, None, None) \
-	X(Parameter, "parameter", Literal, None, None) \
-	X(Reference, "reference", Literal, None, None) \
-\
-	X(Statement, "statement", None, None, None) \
-	X(Arrow, "->", None, None, None) \
-	X(Semicolon, ";", None, None, None) \
-\
 	X(Number, "number", Literal, None, None) \
 	X(String, "string", Literal, None, None) \
+\
 	X(Beat, "!", Literal, None, None) \
 	X(Rest, ".", Literal, None, None) \
 \
@@ -212,6 +205,7 @@ namespace cane {
 	X(RightBracket, "]", None, None, None) \
 \
 	/* Operators */ \
+	X(Block, ";", Infix, Incr, Left) \
 	X(Send, "~>", Infix, Incr, Left) \
 	X(Map, "@", Infix, Incr, Left) \
 \
@@ -254,14 +248,6 @@ namespace cane {
 	X(Decr, "--", Postfix, Last, Left) \
 \
 	X(Coerce, "&", Prefix, Incr, Right) \
-\
-	/* Type Annotations */ \
-	X(AnnotationNumber, "number type", None, None, None) \
-	X(AnnotationString, "string type", None, None, None) \
-	X(AnnotationRhythm, "rhythm type", None, None, None) \
-	X(AnnotationMelody, "melody type", None, None, None) \
-	X(AnnotationSequence, "sequence type", None, None, None) \
-	X(AnnotationPattern, "pattern type", None, None, None) \
 \
 	/* === Type Specific Symbols (Assigned during typechecking) === */ \
 \

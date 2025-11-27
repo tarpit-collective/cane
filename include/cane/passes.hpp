@@ -229,12 +229,6 @@ namespace cane {
 
 		switch (node->kind) {
 			case SymbolKind::Function: {
-				CANE_OKAY("Function");
-
-				for (auto& [k, v]: env.bindings) {
-					std::println("binding: {} -> {}", k, *v);
-				}
-
 				// Uncalled function. Return an empty node so it's removed from
 				// the tree.
 				if (args.empty()) {
@@ -280,8 +274,6 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Identifier: {
-				CANE_OKAY("Ident {}", node->sv);
-
 				// Look up the binding in the environment, if it doesn't
 				// exist, we just bail out.
 
@@ -305,8 +297,6 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Assign: {
-				CANE_OKAY("Assign {}", node->sv);
-
 				// Assignment stores a mapping of string_view to an AST node
 				// in the environment.
 
@@ -532,7 +522,14 @@ namespace cane {
 			case SymbolKind::Beat:
 			case SymbolKind::Rest: return TypeKind::Rhythm;
 
-			case cane::SymbolKind::Function: {
+			case SymbolKind::Assign: {
+				auto expr = pass_type_resolution_walk(cfg, env, node->lhs);
+				node->type = expr;
+
+				return expr;
+			} break;
+
+			case SymbolKind::Function: {
 				// No need to typecheck parameter, just body (`lhs`).
 				auto body = pass_type_resolution_walk(cfg, env, node->lhs);
 
@@ -555,7 +552,7 @@ namespace cane {
 			// remapping once we have proper support for "patterns" since a
 			// cane program should evaluate to a fully mapped list of
 			// events.
-			case SymbolKind::Statement: {
+			case SymbolKind::Block: {
 				CANE_UNUSED(pass_type_resolution_walk(cfg, env, node->lhs));
 				auto trailing = pass_type_resolution_walk(cfg, env, node->rhs);
 
@@ -665,6 +662,11 @@ namespace cane {
 				return Rhythm { EventKind::Rest };
 			} break;
 
+			case SymbolKind::Assign: {
+				// `rhs` is just an identifier, so walk eval `lhs`
+				return pass_evaluator_walk(cfg, env, node->lhs, args);
+			} break;
+
 			case SymbolKind::Call: {
 				// Argument was already passed down and expanded during binding
 				// resolution pass so everything we need is on the left-hand
@@ -682,7 +684,7 @@ namespace cane {
 				return pass_evaluator_walk(cfg, env, node->lhs, args);
 			} break;
 
-			case SymbolKind::Statement: {
+			case SymbolKind::Block: {
 				CANE_UNUSED(pass_evaluator_walk(cfg, env, node->lhs, args));
 				return pass_evaluator_walk(cfg, env, node->rhs, args);
 			} break;
