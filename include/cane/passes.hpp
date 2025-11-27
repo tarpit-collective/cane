@@ -235,58 +235,27 @@ namespace cane {
 					std::println("binding: {} -> {}", k, *v);
 				}
 
-				if (not args.empty()) {
-					auto param = node->rhs;
-
-					auto arg = args.back();
-					args.pop_back();
-
-					env.bindings.try_emplace(param->sv, arg);
-
-					node->lhs =
-						pass_binding_resolution_walk(cfg, env, node->lhs, args);
-
-					return node->lhs;
+				// Uncalled function. Return an empty node so it's removed from
+				// the tree.
+				if (args.empty()) {
+					return nullptr;
 				}
 
-				// // NOTE: Consider how we handle naming conflicts here.
-				// // If we have an `x` already bound through an assignment and
-				// // then bind a _parameter_ `x`, which one wins out? It
-				// // should be the parameter but how exactly that should work
-				// // needs to be figured out.
+				auto param = node->rhs;
 
-				// auto param = node->rhs;
+				auto arg = args.back();
+				args.pop_back();
 
-				// cane::report_if(
-				// 	param != nullptr and param->kind != SymbolKind::Identifier,
-				// 	ReportKind::Syntactical,
-				// 	"expected an identifier"
-				// );
+				env.bindings.try_emplace(param->sv, arg);
 
-				// node->lhs = pass_binding_resolution_walk(cfg, env,
-				// node->lhs);
+				node->lhs =
+					pass_binding_resolution_walk(cfg, env, node->lhs, args);
 
-				// auto it = env.bindings.find(param->sv);
-
-				// cane::report_if(
-				// 	it == env.bindings.end(),
-				// 	ReportKind::Semantic,
-				// 	"unknown binding `{}`",
-				// 	node->sv
-				// );
-
-				return node->lhs;
+				return node;
 			} break;
 
 			case SymbolKind::Call: {
 				CANE_OKAY("Call");
-
-				// Can we clone the environment then replace any bindings of
-				// the same name?
-
-				// NOTE:
-				// 1. We need to bind the argument node to the binding
-				// defined as the function's parameter 2.
 
 				// Visit argument first
 				node->rhs =
@@ -299,7 +268,7 @@ namespace cane {
 				node->lhs =
 					pass_binding_resolution_walk(cfg, fn_env, node->lhs, args);
 
-				return node->lhs;
+				return node;
 			} break;
 
 			case SymbolKind::Identifier: {
@@ -368,8 +337,6 @@ namespace cane {
 			} break;
 
 			default: {
-				// CANE_OKAY("Default {}", node->sv);
-
 				// Visit both children, even in the case of unary nodes.
 				// We will exit early if any child is a nullptr anyway.
 
@@ -415,27 +382,13 @@ namespace cane {
 		TypeKind rhs,
 		BoxNode node
 	) {
-		// CANE_INFO(
-		// 	"attempt " CANE_COLOUR_BLUE "`{}`" CANE_RESET
-		// 	" [ `{} = " CANE_COLOUR_MAGENTA "{}" CANE_RESET
-		// 	"`, `{} = " CANE_COLOUR_MAGENTA "{}" CANE_RESET
-		// 	"` ] -> " CANE_COLOUR_MAGENTA "{}" CANE_RESET,
+		const auto remap = [&](SymbolKind kind,
 
-		// 	symbol_kind_to_str(kind),
-		// 	expected_lhs,
-		// 	lhs,
-		// 	expected_rhs,
-		// 	rhs,
-		// 	out
-		// );
+							   TypeKind expected_lhs,
+							   TypeKind expected_rhs,
 
-		auto remap = [&](SymbolKind kind,
-
-						 TypeKind expected_lhs,
-						 TypeKind expected_rhs,
-
-						 TypeKind out,
-						 SymbolKind op) {
+							   TypeKind out,
+							   SymbolKind op) {
 			if (node == nullptr or node->kind != kind) {
 				return false;
 			}
@@ -569,49 +522,25 @@ namespace cane {
 			case SymbolKind::String: return TypeKind::String;
 
 			case SymbolKind::Beat:
-			case SymbolKind::Rest:
-				return TypeKind::Rhythm;
+			case SymbolKind::Rest: return TypeKind::Rhythm;
 
-				// Assignment
-				// case SymbolKind::Call:
-				// case SymbolKind::Function:
-				// case SymbolKind::Identifier:
-				// case SymbolKind::Assign: {
-				// 	CANE_UNREACHABLE();
-				// } break;
+			case cane::SymbolKind::Function: {
+				// No need to typecheck parameter, just body (`lhs`).
+				auto body = pass_type_resolution_walk(cfg, env, node->lhs);
 
-				// TODO: Fix this, not sure if this is actually correct in
-				// all cases.
+				node->type = body;
+				return body;
+			} break;
 
-				// Should give the type of the return value of
-				// the function.
+			// Assignment
+			case SymbolKind::Call: {
+				// Just return left hand side type since we've already visited
+				// it and performed binding resolution.
+				auto ret = pass_type_resolution_walk(cfg, env, node->lhs);
+				node->type = ret;
 
-				// Should assert that the `rhs` is valid.
-				// Do we just visit the rhs?
-				// 	return node->rhs->type;
-				// } break;
-
-				// TODO: We need to check if the argument on the right
-				// matches the type of the function parameter.
-
-				// TODO: Get parameter type of function.
-				// Also need to assert that the node on the left _is_ a
-				// function.
-
-				// FIXME: This is broken and doesn't align with what we
-				// expect.
-
-				// TypeKind function = lhs;
-				// TypeKind argument = rhs;
-
-				// if (function != argument) {
-				// 	cane::report(
-				// 		ReportKind::Type, "mismatched type `{}`", node->kind
-				// 	);
-				// }
-
-				// return function;
-			// } break;
+				return ret;
+			} break;
 
 			// Statements always return the type of their last expression.
 			// TODO: We might be able to implement this as a trivial type
@@ -620,9 +549,7 @@ namespace cane {
 			// events.
 			case SymbolKind::Statement: {
 				CANE_UNUSED(pass_type_resolution_walk(cfg, env, node->lhs));
-
-				TypeKind trailing =
-					pass_type_resolution_walk(cfg, env, node->rhs);
+				auto trailing = pass_type_resolution_walk(cfg, env, node->rhs);
 
 				// We return the last expression's type.
 				node->type = trailing;
@@ -631,8 +558,8 @@ namespace cane {
 
 			default: {
 				// Attempt trivial cases.
-				TypeKind lhs = pass_type_resolution_walk(cfg, env, node->lhs);
-				TypeKind rhs = pass_type_resolution_walk(cfg, env, node->rhs);
+				auto lhs = pass_type_resolution_walk(cfg, env, node->lhs);
+				auto rhs = pass_type_resolution_walk(cfg, env, node->rhs);
 
 				if (not type_remap_trivial(cfg, lhs, rhs, node)) {
 					cane::report(
@@ -655,19 +582,27 @@ namespace cane {
 
 	struct EvalEnvironment {
 		std::mt19937_64 rng;
+		std::unordered_map<std::string_view, const BoxNode> bindings;
 	};
 
-	[[nodiscard]] inline Value
-	pass_evaluator_walk(Configuration cfg, EvalEnvironment env, BoxNode node);
+	[[nodiscard]] inline Value pass_evaluator_walk(
+		Configuration cfg,
+		EvalEnvironment env,
+		BoxNode node,
+		std::vector<BoxNode> args
+	);
 
 	[[nodiscard]] inline Value pass_evaluator(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
 
 		std::random_device rd;
-		EvalEnvironment env { .rng = std::mt19937_64 { rd() } };
 
-		auto value = pass_evaluator_walk(cfg, env, node);
+		EvalEnvironment env {
+			.rng = std::mt19937_64 { rd() },
+			.bindings = {},
+		};
 
+		auto value = pass_evaluator_walk(cfg, env, node, {});
 		CANE_OKAY(CANE_BOLD "value = {}" CANE_RESET, value);
 
 		cane::report_if(
@@ -679,8 +614,12 @@ namespace cane {
 		return value;
 	}
 
-	[[nodiscard]] inline Value
-	pass_evaluator_walk(Configuration cfg, EvalEnvironment env, BoxNode node) {
+	[[nodiscard]] inline Value pass_evaluator_walk(
+		Configuration cfg,
+		EvalEnvironment env,
+		BoxNode node,
+		std::vector<BoxNode> args
+	) {
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
 		}
@@ -718,22 +657,24 @@ namespace cane {
 				return Rhythm { EventKind::Rest };
 			} break;
 
-			// TODO: Need to handle calls seperately since the type can be
-			// anything and we don't have a static node->op to switch on.
 			case SymbolKind::Call: {
-				CANE_UNIMPLEMENTED();
+				return pass_evaluator_walk(cfg, env, node->lhs, args);
+			} break;
+
+			case SymbolKind::Function: {
+				return pass_evaluator_walk(cfg, env, node->lhs, args);
 			} break;
 
 			case SymbolKind::Statement: {
-				CANE_UNUSED(pass_evaluator_walk(cfg, env, node->lhs));
-				return pass_evaluator_walk(cfg, env, node->rhs);
+				CANE_UNUSED(pass_evaluator_walk(cfg, env, node->lhs, args));
+				return pass_evaluator_walk(cfg, env, node->rhs, args);
 			} break;
 
 			default: break;
 		}
 
-		Value lhs = pass_evaluator_walk(cfg, env, node->lhs);
-		Value rhs = pass_evaluator_walk(cfg, env, node->rhs);
+		Value lhs = pass_evaluator_walk(cfg, env, node->lhs, args);
+		Value rhs = pass_evaluator_walk(cfg, env, node->rhs, args);
 
 		switch (node->op) {
 			// Unary Scalar
