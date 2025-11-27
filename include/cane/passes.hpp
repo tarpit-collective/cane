@@ -569,16 +569,17 @@ namespace cane {
 			case SymbolKind::String: return TypeKind::String;
 
 			case SymbolKind::Beat:
-			case SymbolKind::Rest: return TypeKind::Rhythm;
+			case SymbolKind::Rest:
+				return TypeKind::Rhythm;
 
-			// Assignment
-			case SymbolKind::Identifier:
+				// Assignment
+				// case SymbolKind::Call:
+				// case SymbolKind::Function:
+				// case SymbolKind::Identifier:
+				// case SymbolKind::Assign: {
+				// 	CANE_UNREACHABLE();
+				// } break;
 
-			case SymbolKind::Assign: {
-				CANE_UNREACHABLE();
-			} break;
-
-			case SymbolKind::Function: {
 				// TODO: Fix this, not sure if this is actually correct in
 				// all cases.
 
@@ -587,10 +588,9 @@ namespace cane {
 
 				// Should assert that the `rhs` is valid.
 				// Do we just visit the rhs?
-				return node->rhs->type;
-			} break;
+				// 	return node->rhs->type;
+				// } break;
 
-			case SymbolKind::Call: {
 				// TODO: We need to check if the argument on the right
 				// matches the type of the function parameter.
 
@@ -611,7 +611,7 @@ namespace cane {
 				// }
 
 				// return function;
-			} break;
+			// } break;
 
 			// Statements always return the type of their last expression.
 			// TODO: We might be able to implement this as a trivial type

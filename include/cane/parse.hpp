@@ -136,45 +136,45 @@ namespace cane {
 		}
 
 		// Expression parsing
-		[[nodiscard]] std::optional<TypeKind> parse_type_annotation() {
-			CANE_FUNC();
+		// [[nodiscard]] std::optional<TypeKind> parse_type_annotation() {
+		// 	CANE_FUNC();
 
-			if (lx.discard_if_kind(SymbolKind::AnnotationNumber)) {
-				return TypeKind::Scalar;
-			}
+		// 	if (lx.discard_if_kind(SymbolKind::AnnotationNumber)) {
+		// 		return TypeKind::Scalar;
+		// 	}
 
-			else if (lx.discard_if_kind(SymbolKind::AnnotationString)) {
-				return TypeKind::String;
-			}
+		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationString)) {
+		// 		return TypeKind::String;
+		// 	}
 
-			else if (lx.discard_if_kind(SymbolKind::AnnotationRhythm)) {
-				return TypeKind::Rhythm;
-			}
+		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationRhythm)) {
+		// 		return TypeKind::Rhythm;
+		// 	}
 
-			else if (lx.discard_if_kind(SymbolKind::AnnotationMelody)) {
-				return TypeKind::Melody;
-			}
+		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationMelody)) {
+		// 		return TypeKind::Melody;
+		// 	}
 
-			else if (lx.discard_if_kind(SymbolKind::AnnotationSequence)) {
-				return TypeKind::Sequence;
-			}
+		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationSequence)) {
+		// 		return TypeKind::Sequence;
+		// 	}
 
-			else if (lx.discard_if_kind(SymbolKind::AnnotationPattern)) {
-				return TypeKind::Pattern;
-			}
+		// 	else if (lx.discard_if_kind(SymbolKind::AnnotationPattern)) {
+		// 		return TypeKind::Pattern;
+		// 	}
 
-			return std::nullopt;
-		}
+		// 	return std::nullopt;
+		// }
 
-		[[nodiscard]] std::optional<TypeKind> parse_type() {
-			CANE_FUNC();
+		// [[nodiscard]] std::optional<TypeKind> parse_type() {
+		// 	CANE_FUNC();
 
-			if (not lx.discard_if_kind(SymbolKind::Arrow)) {
-				return std::nullopt;
-			}
+		// 	if (not lx.discard_if_kind(SymbolKind::Arrow)) {
+		// 		return std::nullopt;
+		// 	}
 
-			return parse_type_annotation();
-		}
+		// 	return parse_type_annotation();
+		// }
 
 		[[nodiscard]] OptionalBoxNode parse_primary() {
 			CANE_FUNC();
@@ -410,13 +410,40 @@ namespace cane {
 
 			);
 
-			while (is_infix(lx.peek().kind) or is_postfix(lx.peek().kind)) {
-				auto bp = binding_power(lx.peek().kind);
+			constexpr auto is_call = [](SymbolKind kind) {
+				return is_literal(kind) or is_primary(kind) or
+					kind == SymbolKind::Call;
+			};
+
+			while (true) {
+				auto [kind, sv] = lx.peek();
+
+				if (not(is_infix(kind) or is_postfix(kind) or is_call(kind))) {
+					break;
+				}
+
+				// Remap to a call operator if the next symbol is a
+				// primary expression
+				kind = is_call(kind) ? SymbolKind::Call : kind;
+
+				auto bp = binding_power(kind);
 
 				if (not bp.has_value() or bp.value().left < min_bp) {
 					break;
 				}
 
+				// Parse a function call.
+				if (is_call(kind)) {
+					auto rhs = parse_expression(bp.value().right);
+
+					node = std::make_shared<Node>(
+						SymbolKind::Call, sv, TypeKind::None, node.value(), rhs
+					);
+
+					continue;
+				}
+
+				// Parse everything else.
 				node = parse_postfix(node.value()).or_else([&] {
 					return parse_infix(node.value(), bp.value().right);
 				});

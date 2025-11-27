@@ -29,21 +29,15 @@ namespace cane {
 	constexpr std::string_view DEFAULT_SYMBOL_SV = "(empty)";
 
 	constexpr std::ostream& operator<<(std::ostream& os, Symbol s) {
-		std::print(os, "{{ kind: {}, sv: '{}' }}", s.kind, s.sv);
+		std::print(
+			os, "{{ kind: {}, sv: '{}' }}", symbol_kind_to_str(s.kind), s.sv
+		);
 		return os;
 	}
 
 }  // namespace cane
 
-// TODO: CANE_FORMATTER_DEF?
-template <>
-struct std::formatter<cane::Symbol>: std::formatter<std::string_view> {
-	auto format(cane::Symbol s, format_context& ctx) const {
-		std::ostringstream ss;
-		ss << s;
-		return std::formatter<string_view>::format(ss.str(), ctx);
-	}
-};
+CANE_FORMATTER_DEF(cane::Symbol);
 
 namespace cane {
 
