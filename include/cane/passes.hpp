@@ -261,6 +261,14 @@ namespace cane {
 				node->rhs =
 					pass_binding_resolution_walk(cfg, env, node->rhs, args);
 
+				// If argument is nullptr, we can assume it was an uncalled
+				// function passed as an argument to the function on our left.
+				// This obviously means that this function has to be uncalled
+				// aswell so let's just remove this node.
+				if (node->rhs == nullptr) {
+					return nullptr;
+				}
+
 				// Visit function with newly evaluated argument above
 				auto fn_env = env;
 				args.emplace_back(node->rhs);
@@ -658,10 +666,19 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Call: {
+				// Argument was already passed down and expanded during binding
+				// resolution pass so everything we need is on the left-hand
+				// side and we can discard the right-hand side.
+				CANE_UNUSED(pass_evaluator_walk(cfg, env, node->rhs, args));
 				return pass_evaluator_walk(cfg, env, node->lhs, args);
 			} break;
 
 			case SymbolKind::Function: {
+				// Just return the left hand side (body) since we've already
+				// visited this during the binding resolution pass and expanded
+				// out any bindings (including call arguments).
+
+				// Right hand side is just an identifier anyway.
 				return pass_evaluator_walk(cfg, env, node->lhs, args);
 			} break;
 
