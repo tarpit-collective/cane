@@ -63,6 +63,8 @@ cane = executable(
 	override_options: meson_opts,
 	c_args: cane_opts,
 
+	link_args: ['-lstdc++exp'],  # For std::stacktrace support
+
 	install: true,
 )
 
