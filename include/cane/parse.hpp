@@ -26,6 +26,7 @@ namespace cane {
 		std::shared_ptr<Node> lhs;
 		std::shared_ptr<Node> rhs;
 
+		// No child nodes
 		Node(SymbolKind kind_, std::string_view sv_, TypeKind type_):
 				kind(kind_),
 				op(SymbolKind::None),
@@ -34,6 +35,7 @@ namespace cane {
 				lhs(nullptr),
 				rhs(nullptr) {}
 
+		// Binary
 		Node(
 			SymbolKind kind_,
 			std::string_view sv_,
@@ -50,43 +52,37 @@ namespace cane {
 				lhs(lhs_),
 				rhs(rhs_) {}
 
+		// Unary
 		Node(
 			SymbolKind kind_,
 			std::string_view sv_,
 
 			TypeKind type_,
 
-			std::shared_ptr<Node> lhs_
+			std::shared_ptr<Node> node
 		):
 				kind(kind_),
 				op(SymbolKind::None),
 				sv(sv_),
 				type(type_),
-				lhs(lhs_),
+				lhs(node),
 				rhs(nullptr) {}
 	};
+
+	inline std::ostream& operator<<(std::ostream& os, Node n) {
+		os << "{ ";
+		os << "kind: " << n.kind << ", ";
+		os << "op: " << n.op << ", ";
+		os << "sv: '" << n.sv << "', ";
+		os << "type: " << n.type << ", ";
+		os << "lhs: " << static_cast<void*>(n.lhs.get()) << ", ";
+		os << "rhs: " << static_cast<void*>(n.rhs.get());
+		os << " }";
+		return os;
+	}
 }  // namespace cane
 
-// TODO: Implement operator<< overload for Node and then just reuse that for the
-// formatter impl.
-template <>
-struct std::formatter<cane::Node>: std::formatter<std::string_view> {
-	auto format(cane::Node x, format_context& ctx) const {
-		return formatter<std::string_view>::format(
-			std::format(
-				"{{ kind: {}, op: {}, sv: '{}', type: {}, lhs: {}, rhs: {} }}",
-				x.kind,
-				x.op,
-				x.sv,
-				x.type,
-
-				static_cast<void*>(x.lhs.get()),
-				static_cast<void*>(x.rhs.get())
-			),
-			ctx
-		);
-	}
-};
+CANE_FORMATTER_DEF(cane::Node);
 
 namespace cane {
 
@@ -95,7 +91,7 @@ namespace cane {
 	////////////
 
 	using BoxNode = std::shared_ptr<Node>;
-	using OptionalNode = std::optional<BoxNode>;
+	using OptionalBoxNode = std::optional<BoxNode>;
 
 	class Parser {
 		private:
@@ -180,7 +176,7 @@ namespace cane {
 			return parse_type_annotation();
 		}
 
-		[[nodiscard]] OptionalNode parse_primary() {
+		[[nodiscard]] OptionalBoxNode parse_primary() {
 			CANE_FUNC();
 			Symbol symbol = lx.peek();
 
@@ -287,12 +283,12 @@ namespace cane {
 					);
 
 					// Parameter type
-					auto param_type = parse_type();
-					cane::report_if(
-						not param_type.has_value(),
-						ReportKind::Syntactical,
-						"expected a type annotation"
-					);
+					// auto param_type = parse_type();
+					// cane::report_if(
+					// 	not param_type.has_value(),
+					// 	ReportKind::Syntactical,
+					// 	"expected a type annotation"
+					// );
 
 					// Reset binding power and parse body
 					auto body = parse_expression();
@@ -308,11 +304,11 @@ namespace cane {
 					// 	"expected a type annotation"
 					// );
 
-					param->type = param_type.value();
+					// param->type = param_type.value();
 					// body->type = body_type.value();
 
 					return std::make_shared<Node>(
-						SymbolKind::Function, symbol.sv, body->type, param, body
+						SymbolKind::Function, symbol.sv, body->type, body, param
 					);
 				} break;
 
@@ -322,7 +318,7 @@ namespace cane {
 			return std::nullopt;
 		}
 
-		[[nodiscard]] OptionalNode parse_prefix() {
+		[[nodiscard]] OptionalBoxNode parse_prefix() {
 			CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -351,7 +347,7 @@ namespace cane {
 			);
 		}
 
-		[[nodiscard]] OptionalNode parse_infix(BoxNode lhs, size_t bp) {
+		[[nodiscard]] OptionalBoxNode parse_infix(BoxNode lhs, size_t bp) {
 			CANE_FUNC();
 			Symbol symbol = lx.peek();
 
@@ -386,7 +382,7 @@ namespace cane {
 			);
 		}
 
-		[[nodiscard]] OptionalNode parse_postfix(BoxNode lhs) {
+		[[nodiscard]] OptionalBoxNode parse_postfix(BoxNode lhs) {
 			CANE_FUNC();
 			Symbol symbol = lx.peek();
 
@@ -404,7 +400,7 @@ namespace cane {
 		[[nodiscard]] BoxNode parse_expression(size_t min_bp = 0) {
 			CANE_FUNC();
 
-			OptionalNode node =
+			OptionalBoxNode node =
 				parse_primary().or_else([&] { return parse_prefix(); });
 
 			cane::report_if(

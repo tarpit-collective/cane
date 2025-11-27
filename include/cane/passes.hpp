@@ -15,11 +15,86 @@
 
 namespace cane {
 
+	inline Value pass_evaluator(Configuration cfg, BoxNode node);
+
+	inline BoxNode pass_print(Configuration cfg, BoxNode node);
+	inline BoxNode pass_binding_resolution(Configuration cfg, BoxNode node);
+	inline BoxNode pass_type_resolution(Configuration cfg, BoxNode node);
+
+	//////////////////
+	// Compile/Eval //
+	//////////////////
+
+	using Pass = BoxNode (*)(Configuration, BoxNode);
+
+	// Run a collection of passes in series.
+	template <typename... Ts>
+	[[nodiscard]] decltype(auto)
+	pipeline(Configuration cfg, BoxNode root, Ts&&... passes) {
+		return (passes(cfg, root), ...);
+	}
+
+	template <typename... Ts>
+	[[nodiscard]] decltype(auto)
+	debug_pipeline(Configuration cfg, BoxNode root, Ts&&... passes) {
+		(
+			[&](Pass pass) {
+				root = pass(cfg, root);
+				pass_print(cfg, root);
+			}(passes),
+			...
+		);
+
+		return root;
+	}
+
+	// Run a collection of passes in series before finally evaluating the
+	// tree.
+	template <typename... Ts>
+	[[nodiscard]] decltype(auto)
+	compile(Configuration cfg, BoxNode root, Ts&&... passes) {
+		root = pipeline(cfg, root, std::forward<Ts>(passes)...);
+		return pass_evaluator(cfg, root);
+	}
+
+	template <typename... Ts>
+	[[nodiscard]] decltype(auto)
+	debug_compile(Configuration cfg, BoxNode root, Ts&&... passes) {
+		root = debug_pipeline(cfg, root, std::forward<Ts>(passes)...);
+		return pass_evaluator(cfg, root);
+	}
+
+	// Parse a string and run a collection of passes on it before evaluating
+	// it.
+	template <typename... Ts>
+	[[nodiscard]] decltype(auto) parse_and_compile(
+		std::string_view source, Configuration cfg, Ts&&... passes
+	) {
+		cane::Parser parser { source };
+		auto root = parser.parse();
+
+		root = pipeline(cfg, root, std::forward<Ts>(passes)...);
+		return pass_evaluator(cfg, root);
+	}
+
+	template <typename... Ts>
+	[[nodiscard]] decltype(auto) debug_parse_and_compile(
+		std::string_view source, Configuration cfg, Ts&&... passes
+	) {
+		cane::Parser parser { source };
+		auto root = parser.parse();
+
+		pass_print(cfg, root);
+
+		root = debug_pipeline(cfg, root, std::forward<Ts>(passes)...);
+		return pass_evaluator(cfg, root);
+	}
+
 	//////////////////////
 	// AST Printer Pass //
 	//////////////////////
 
-	inline void pass_print_walk(
+	[[nodiscard]] inline BoxNode pass_print_walk(
 		Configuration cfg,
 		BoxNode node,
 		std::vector<bool> bits = {},
@@ -53,7 +128,7 @@ namespace cane {
 			pass_print_indent_node(SIGIL_LHS, bits);
 
 			bits.push_back(true);
-			pass_print_walk(cfg, node->lhs, bits, depth);
+			CANE_UNUSED(pass_print_walk(cfg, node->lhs, bits, depth));
 			bits.pop_back();
 		}
 
@@ -66,22 +141,22 @@ namespace cane {
 			pass_print_indent_node(SIGIL_RHS, bits);
 
 			bits.push_back(false);
-			pass_print_walk(cfg, node->rhs, bits, depth);
+			CANE_UNUSED(pass_print_walk(cfg, node->rhs, bits, depth));
 			bits.pop_back();
 		}
 	}  // namespace detail
 
-	inline void pass_print(Configuration cfg, BoxNode node) {
+	[[nodiscard]] inline BoxNode pass_print(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
-		pass_print_walk(cfg, node);
+		return pass_print_walk(cfg, node);
 	}
 
-	inline void pass_print_walk(
+	[[nodiscard]] inline BoxNode pass_print_walk(
 		Configuration cfg, BoxNode node, std::vector<bool> bits, size_t depth
 	) {
 		if (node == nullptr) {
 			std::cout << detail::SIGIL_NULL << '\n';
-			return;
+			return node;
 		}
 
 		bool is_root = depth == 0;
@@ -115,6 +190,8 @@ namespace cane {
 				cfg, node, bits, depth + 1
 			);
 		}
+
+		return node;
 	}
 
 	////////////////////////
@@ -122,11 +199,14 @@ namespace cane {
 	////////////////////////
 
 	struct BindingEnvironment {
-		std::unordered_map<std::string_view, BoxNode> bindings;
+		std::unordered_map<std::string_view, const BoxNode> bindings;
 	};
 
 	[[nodiscard]] inline BoxNode pass_binding_resolution_walk(
-		Configuration cfg, BindingEnvironment& env, BoxNode node
+		Configuration cfg,
+		BindingEnvironment& env,
+		BoxNode node,
+		std::vector<BoxNode> args
 	);
 
 	[[nodiscard]] inline BoxNode
@@ -134,11 +214,14 @@ namespace cane {
 		CANE_FUNC();
 		BindingEnvironment env;
 
-		return pass_binding_resolution_walk(cfg, env, node);
+		return pass_binding_resolution_walk(cfg, env, node, {});
 	}
 
 	[[nodiscard]] inline BoxNode pass_binding_resolution_walk(
-		Configuration cfg, BindingEnvironment& env, BoxNode node
+		Configuration cfg,
+		BindingEnvironment& env,
+		BoxNode node,
+		std::vector<BoxNode> args
 	) {
 		if (node == nullptr) {
 			return nullptr;
@@ -146,62 +229,116 @@ namespace cane {
 
 		switch (node->kind) {
 			case SymbolKind::Function: {
-				// NOTE: Consider how we handle naming conflicts here.
-				// If we have an `x` already bound through an assignment and
-				// then bind a _parameter_ `x`, which one wins out? It should be
-				// the parameter but how exactly that should work needs to be
-				// figured out.
+				CANE_OKAY("Function");
 
-				CANE_OKAY("Function {}", node->sv);
-				return node;
+				for (auto& [k, v]: env.bindings) {
+					std::println("binding: {} -> {}", k, *v);
+				}
+
+				if (not args.empty()) {
+					auto param = node->rhs;
+
+					auto arg = args.back();
+					args.pop_back();
+
+					env.bindings.try_emplace(param->sv, arg);
+
+					node->lhs =
+						pass_binding_resolution_walk(cfg, env, node->lhs, args);
+
+					return node->lhs;
+				}
+
+				// // NOTE: Consider how we handle naming conflicts here.
+				// // If we have an `x` already bound through an assignment and
+				// // then bind a _parameter_ `x`, which one wins out? It
+				// // should be the parameter but how exactly that should work
+				// // needs to be figured out.
+
+				// auto param = node->rhs;
+
+				// cane::report_if(
+				// 	param != nullptr and param->kind != SymbolKind::Identifier,
+				// 	ReportKind::Syntactical,
+				// 	"expected an identifier"
+				// );
+
+				// node->lhs = pass_binding_resolution_walk(cfg, env,
+				// node->lhs);
+
+				// auto it = env.bindings.find(param->sv);
+
+				// cane::report_if(
+				// 	it == env.bindings.end(),
+				// 	ReportKind::Semantic,
+				// 	"unknown binding `{}`",
+				// 	node->sv
+				// );
+
+				return node->lhs;
 			} break;
 
 			case SymbolKind::Call: {
-				// Can we clone the environment then replace any bindings of the
-				// same name?
+				CANE_OKAY("Call");
+
+				// Can we clone the environment then replace any bindings of
+				// the same name?
 
 				// NOTE:
-				// 1. We need to bind the argument node to the binding defined
-				// as the function's parameter 2.
-				CANE_OKAY("Call {}", node->sv);
-				return node;
+				// 1. We need to bind the argument node to the binding
+				// defined as the function's parameter 2.
+
+				// Visit argument first
+				node->rhs =
+					pass_binding_resolution_walk(cfg, env, node->rhs, args);
+
+				// Visit function with newly evaluated argument above
+				auto fn_env = env;
+				args.emplace_back(node->rhs);
+
+				node->lhs =
+					pass_binding_resolution_walk(cfg, fn_env, node->lhs, args);
+
+				return node->lhs;
 			} break;
 
 			case SymbolKind::Identifier: {
-				// Look up the binding in the environment, if it doesn't exist,
-				// we just bail out.
-
-				// If we _do_ find a match, we replace the current node in the
-				// AST (an identifier) with the node stored in the environment.
-
-				// This is lazy eval as we copy the tree directly rather than
-				// evaluating it to a simpler form first.
-
 				CANE_OKAY("Ident {}", node->sv);
+
+				// Look up the binding in the environment, if it doesn't
+				// exist, we just bail out.
+
+				// If we _do_ find a match, we replace the current node in
+				// the AST (an identifier) with the node stored in the
+				// environment.
+
+				// This is lazy eval as we copy the tree directly rather
+				// than evaluating it to a simpler form first.
 
 				auto it = env.bindings.find(node->sv);
 
-				if (it == env.bindings.end()) {
-					cane::report(
-						ReportKind::Semantic, "unknown binding `{}`", node->sv
-					);
-				}
+				cane::report_if(
+					it == env.bindings.end(),
+					ReportKind::Semantic,
+					"unknown binding `{}`",
+					node->sv
+				);
 
 				return it->second;
 			} break;
 
 			case SymbolKind::Assign: {
-				// Assignment stores a mapping of string_view to an AST node in
-				// the environment.
+				CANE_OKAY("Assign {}", node->sv);
 
-				// We need to visit the expression on the left-hand side of the
-				// assignment node in order to fully resolve any nested
+				// Assignment stores a mapping of string_view to an AST node
+				// in the environment.
+
+				// We need to visit the expression on the left-hand side of
+				// the assignment node in order to fully resolve any nested
 				// references to bindings.
 
-				// It's important that this node still remains in the tree since
-				// it will later contribute to type checking.
-
-				CANE_OKAY("Assign {}", node->sv);
+				// It's important that this node still remains in the tree
+				// since it will later contribute to type checking.
 
 				auto binding = node->rhs;
 
@@ -214,24 +351,24 @@ namespace cane {
 
 				CANE_OKAY("Binding {}", binding->sv);
 
-				node->lhs = pass_binding_resolution_walk(cfg, env, node->lhs);
+				node->lhs =
+					pass_binding_resolution_walk(cfg, env, node->lhs, args);
 
 				auto [it, succ] =
 					env.bindings.try_emplace(binding->sv, node->lhs);
 
-				if (not succ) {
-					cane::report(
-						ReportKind::Semantic,
-						"attempting to rebind `{}`",
-						binding->sv
-					);
-				}
+				cane::report_if(
+					not succ,
+					ReportKind::Semantic,
+					"attempting to rebind `{}`",
+					binding->sv
+				);
 
 				return node;
 			} break;
 
 			default: {
-				CANE_OKAY("Default {}", node->sv);
+				// CANE_OKAY("Default {}", node->sv);
 
 				// Visit both children, even in the case of unary nodes.
 				// We will exit early if any child is a nullptr anyway.
@@ -239,8 +376,10 @@ namespace cane {
 				// Most nodes will take this path since we only care about
 				// handling bindings and references.
 
-				node->lhs = pass_binding_resolution_walk(cfg, env, node->lhs);
-				node->rhs = pass_binding_resolution_walk(cfg, env, node->rhs);
+				node->lhs =
+					pass_binding_resolution_walk(cfg, env, node->lhs, args);
+				node->rhs =
+					pass_binding_resolution_walk(cfg, env, node->rhs, args);
 
 				return node;
 			} break;
@@ -266,14 +405,7 @@ namespace cane {
 		CANE_FUNC();
 		TypeEnvironment env;
 
-		auto type = pass_type_resolution_walk(cfg, env, node);
-
-		cane::report_if(
-			type != TypeKind::Pattern,
-			ReportKind::Type,
-			"expected a pattern as output type of program"
-		);
-
+		CANE_UNUSED(pass_type_resolution_walk(cfg, env, node));
 		return node;
 	}
 
@@ -534,7 +666,17 @@ namespace cane {
 		std::random_device rd;
 		EvalEnvironment env { .rng = std::mt19937_64 { rd() } };
 
-		return pass_evaluator_walk(cfg, env, node);
+		auto value = pass_evaluator_walk(cfg, env, node);
+
+		CANE_OKAY(CANE_BOLD "value = {}" CANE_RESET, value);
+
+		cane::report_if(
+			not std::holds_alternative<Pattern>(value),
+			ReportKind::Type,
+			"program should return pattern type"
+		);
+
+		return value;
 	}
 
 	[[nodiscard]] inline Value

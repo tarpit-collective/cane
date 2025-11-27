@@ -12,6 +12,7 @@
 
 namespace cane {
 
+	// Some helpers for working with std::variant.
 	template <class... Ts>
 	struct overloads: Ts... {
 		using Ts::operator()...;

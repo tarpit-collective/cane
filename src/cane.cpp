@@ -7,29 +7,16 @@ int main(int, const char* argv[]) {
 			{ "303", 12 },
 		}, };
 
-		cane::Parser parser { argv[1] };
+		// auto value = cane::debug_parse_and_compile(
+		// 	argv[1], cfg, cane::pass_binding_resolution
+		// );
 
-		auto root = parser.parse();
-
-		cane::pass_print(cfg, root);
-		root = cane::pass_binding_resolution(cfg, root);
-		cane::pass_print(cfg, root);
-		// auto type = cane::pass_type_resolution(cfg, root);
-
-		// CANE_OKAY("program type = `{}`", type);
-		// cane::pass_print(cfg, root);
-
-		// CANE_OKAY("valid!");
-
-		// auto value = cane::pass_evaluator(cfg, root);
-		// std::println("{}", value);
-
-		// if (std::holds_alternative<cane::Pattern>(value)) {
-		// 	CANE_OKAY("Events:");
-		// 	for (auto& x: value.get_pattern()) {
-		// 		std::println("{}", x);
-		// 	}
-		// }
+		auto value = cane::debug_parse_and_compile(
+			argv[1],
+			cfg,
+			cane::pass_binding_resolution,
+			cane::pass_type_resolution
+		);
 	}
 
 	catch (cane::Fatal e) {
