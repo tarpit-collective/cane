@@ -724,6 +724,20 @@ namespace cane {
 			case SymbolKind::ReverseRhythm: return lhs.reverse<Rhythm>();
 			case SymbolKind::ReverseMelody: return lhs.reverse<Melody>();
 
+			// Head/Tail
+			case SymbolKind::HeadMelody: CANE_UNIMPLEMENTED();
+			case SymbolKind::TailMelody: CANE_UNIMPLEMENTED();
+
+			case SymbolKind::HeadRhythm: CANE_UNIMPLEMENTED();
+			case SymbolKind::TailRhythm: CANE_UNIMPLEMENTED();
+
+			case SymbolKind::HeadSequence: CANE_UNIMPLEMENTED();
+			case SymbolKind::HeadPattern: CANE_UNIMPLEMENTED();
+
+			case SymbolKind::TailSequence: CANE_UNIMPLEMENTED();
+			case SymbolKind::TailPattern: CANE_UNIMPLEMENTED();
+
+			// Misc.
 			case SymbolKind::EuclideanScalarScalar: return lhs.euclidean(rhs);
 
 			case SymbolKind::RandomScalarScalar:
@@ -754,6 +768,11 @@ namespace cane {
 
 			case SymbolKind::DivMelodyScalar:
 				return lhs.seq_div(rhs.get_scalar());
+
+			case SymbolKind::AddMelodyMelody: CANE_UNIMPLEMENTED();
+			case SymbolKind::SubMelodyMelody: CANE_UNIMPLEMENTED();
+			case SymbolKind::MulMelodyMelody: CANE_UNIMPLEMENTED();
+			case SymbolKind::DivMelodyMelody: CANE_UNIMPLEMENTED();
 
 			// Repeat
 			case SymbolKind::RepeatMelodyScalar:
@@ -790,8 +809,16 @@ namespace cane {
 			case SymbolKind::ConcatenateRhythmRhythm:
 				return lhs.concatenate<Rhythm>(rhs);
 
-			case SymbolKind::ConcatenateSequenceSequence:
-				return lhs.concatenate<Sequence>(rhs);
+			case SymbolKind::ConcatenateSequenceSequence: CANE_UNIMPLEMENTED();
+			case SymbolKind::ConcatenatePatternPattern: CANE_UNIMPLEMENTED();
+			case SymbolKind::ConcatenatePatternSequence: CANE_UNIMPLEMENTED();
+			case SymbolKind::ConcatenateSequencePattern: CANE_UNIMPLEMENTED();
+
+			// Layer
+			case SymbolKind::LayerSequenceSequence: CANE_UNIMPLEMENTED();
+			case SymbolKind::LayerPatternPattern: CANE_UNIMPLEMENTED();
+			case SymbolKind::LayerPatternSequence: CANE_UNIMPLEMENTED();
+			case SymbolKind::LayerSequencePattern: CANE_UNIMPLEMENTED();
 
 			// Logical
 			case SymbolKind::OrRhythmRhythm: return lhs.bit_or(rhs);
@@ -808,7 +835,6 @@ namespace cane {
 			case SymbolKind::MulSequenceScalar: return lhs.timemul(rhs);
 			case SymbolKind::DivSequenceScalar: return lhs.timediv(rhs);
 
-			// Patterns
 			case SymbolKind::SendSequenceString: return lhs.send(cfg, rhs);
 
 			default: {

@@ -212,7 +212,7 @@ namespace cane {
 	X(Concatenate, ",", Infix, Incr, Left) \
 	X(Layer, "$", Infix, Last, Left) \
 \
-	X(Call, "_", Infix, Incr, Left) \
+	X(Call, "call", Infix, Incr, Left) \
 \
 	X(Assign, "=>", Infix, Incr, Left) \
 \
@@ -240,6 +240,9 @@ namespace cane {
 	X(GCD, "gcd", Infix, Last, Left) \
 \
 	X(Random, "?", Infix, Incr, Left) \
+\
+	X(Head, "head", Prefix, Incr, Right) \
+	X(Tail, "tail", Prefix, Last, Right) \
 \
 	X(Abs, "+", Prefix, Incr, Right) \
 	X(Neg, "-", Prefix, Last, Right) \
@@ -293,11 +296,19 @@ namespace cane {
 	X(MulMelodyScalar, "melody mul", None, None, None) \
 	X(DivMelodyScalar, "melody div", None, None, None) \
 \
+	X(AddMelodyMelody, "melody add", None, None, None) \
+	X(SubMelodyMelody, "melody sub", None, None, None) \
+	X(MulMelodyMelody, "melody mul", None, None, None) \
+	X(DivMelodyMelody, "melody div", None, None, None) \
+\
 	X(RepeatMelodyScalar, "melody repeat", None, None, None) \
 \
 	X(ConcatenateMelodyMelody, "melody concatenate", None, None, None) \
 	X(ConcatenateMelodyScalar, "melody concatenate", None, None, None) \
 	X(ConcatenateScalarMelody, "melody concatenate", None, None, None) \
+\
+	X(HeadMelody, "melody head", None, None, None) \
+	X(TailMelody, "melody tail", None, None, None) \
 \
 	/* RHYTHM */ \
 	X(MapRhythmMelody, "rhythm map", None, None, None) \
@@ -312,14 +323,32 @@ namespace cane {
 	X(XorRhythmRhythm, "rhythm xor", None, None, None) \
 	X(AndRhythmRhythm, "rhythm and", None, None, None) \
 \
+	X(HeadRhythm, "rhythm head", None, None, None) \
+	X(TailRhythm, "rhythm tail", None, None, None) \
+\
 	/* SEQUENCE */ \
 	X(ConcatenateSequenceSequence, "sequence concatenate", None, None, None) \
+	X(LayerSequenceSequence, "sequence layer", None, None, None) \
 \
 	X(MulSequenceScalar, "sequence mul", None, None, None) \
 	X(DivSequenceScalar, "sequence div", None, None, None) \
 \
+	X(HeadSequence, "sequence head", None, None, None) \
+	X(TailSequence, "sequence tail", None, None, None) \
+\
+	X(SendSequenceString, "sequence send", None, None, None) \
+\
 	/* PATTERN */ \
-	X(SendSequenceString, "sequence send", None, None, None)
+	X(HeadPattern, "pattern head", None, None, None) \
+	X(TailPattern, "pattern tail", None, None, None) \
+\
+	X(LayerPatternPattern, "pattern layer", None, None, None) \
+	X(LayerPatternSequence, "pattern layer", None, None, None) \
+	X(LayerSequencePattern, "pattern layer", None, None, None) \
+\
+	X(ConcatenatePatternPattern, "pattern concatenate", None, None, None) \
+	X(ConcatenatePatternSequence, "pattern concatenate", None, None, None) \
+	X(ConcatenateSequencePattern, "pattern concatenate", None, None, None)
 
 #define X(a, b, c, d, e) a,
 	enum class SymbolKind {

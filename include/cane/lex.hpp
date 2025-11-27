@@ -263,6 +263,14 @@ namespace cane {
 				symbol.kind = SymbolKind::And;
 			}
 
+			else if (symbol.sv == CANE_CSTR("head")) {
+				symbol.kind = SymbolKind::Head;
+			}
+
+			else if (symbol.sv == CANE_CSTR("tail")) {
+				symbol.kind = SymbolKind::Tail;
+			}
+
 			return symbol;
 		}
 
