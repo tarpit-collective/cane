@@ -488,7 +488,7 @@ namespace cane {
 	X(Beat, "beat", 1)
 
 #define X(x, y, z) x = z,
-	enum class EventKind {
+	enum class EventKind : uint8_t {
 		CANE_EVENT_KINDS Total
 	};
 #undef X

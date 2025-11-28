@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include <cane/parse.hpp>
+#include <cane/value.hpp>
 #include <cane/ops.hpp>
 
 ////////////
@@ -697,77 +698,113 @@ namespace cane {
 
 		switch (node->op) {
 			// Unary Scalar
-			case SymbolKind::AbsScalar: return lhs.absolute();
-			case SymbolKind::NegScalar: return lhs.negate();
+			case SymbolKind::AbsScalar: return std::abs(std::get<Scalar>(lhs));
+			case SymbolKind::NegScalar: return -std::get<Scalar>(lhs);
 
-			case SymbolKind::IncrScalar: return lhs.get_scalar() + 1;
-			case SymbolKind::DecrScalar: return lhs.get_scalar() - 1;
+			case SymbolKind::IncrScalar: return std::get<Scalar>(lhs) + 1;
+			case SymbolKind::DecrScalar: return std::get<Scalar>(lhs) - 1;
 
 			// Binary Scalar
-			case SymbolKind::AddScalarScalar: return lhs.add(rhs);
-			case SymbolKind::SubScalarScalar: return lhs.sub(rhs);
-			case SymbolKind::MulScalarScalar: return lhs.mul(rhs);
-			case SymbolKind::DivScalarScalar: return lhs.div(rhs);
+			case SymbolKind::AddScalarScalar:
+				return std::get<Scalar>(lhs) + std::get<Scalar>(rhs);
 
-			case SymbolKind::LeftShiftScalarScalar: return lhs.shift_left(rhs);
+			case SymbolKind::SubScalarScalar:
+				return std::get<Scalar>(lhs) - std::get<Scalar>(rhs);
+
+			case SymbolKind::MulScalarScalar:
+				return std::get<Scalar>(lhs) * std::get<Scalar>(rhs);
+
+			case SymbolKind::DivScalarScalar:
+				return std::get<Scalar>(lhs) / std::get<Scalar>(rhs);
+
+			case SymbolKind::LeftShiftScalarScalar:
+				return std::get<Scalar>(lhs) << std::get<Scalar>(rhs);
+
 			case SymbolKind::RightShiftScalarScalar:
-				return lhs.shift_right(rhs);
+				return std::get<Scalar>(lhs) >> std::get<Scalar>(rhs);
 
-			case SymbolKind::LCMScalarScalar: return lhs.lcm(rhs);
-			case SymbolKind::GCDScalarScalar: return lhs.gcd(rhs);
+			case SymbolKind::LCMScalarScalar:
+				return std::lcm(std::get<Scalar>(lhs), std::get<Scalar>(rhs));
+
+			case SymbolKind::GCDScalarScalar:
+				return std::gcd(std::get<Scalar>(lhs), std::get<Scalar>(rhs));
 
 			// Unary vectors
-			case SymbolKind::CoerceScalar: return Melody { lhs.get_scalar() };
+			case SymbolKind::CoerceScalar:
+				return Melody { std::get<Scalar>(lhs) };
+
 			case SymbolKind::CoerceMelody: return lhs;
 
-			case SymbolKind::InvertRhythm: return lhs.invert<Rhythm>();
-			case SymbolKind::ReverseRhythm: return lhs.reverse<Rhythm>();
-			case SymbolKind::ReverseMelody: return lhs.reverse<Melody>();
+			case SymbolKind::InvertRhythm:
+				return bit_not(std::get<Rhythm>(lhs));
+
+			case SymbolKind::ReverseRhythm:
+				return reverse(std::get<Rhythm>(lhs));
+
+			case SymbolKind::ReverseMelody:
+				return reverse(std::get<Melody>(lhs));
 
 			// Head/Tail
-			case SymbolKind::HeadMelody: CANE_UNIMPLEMENTED();
-			case SymbolKind::TailMelody: CANE_UNIMPLEMENTED();
+			case SymbolKind::HeadMelody: return head(std::get<Melody>(lhs), 1);
+			case SymbolKind::TailMelody: return tail(std::get<Melody>(lhs), 1);
 
-			case SymbolKind::HeadRhythm: CANE_UNIMPLEMENTED();
-			case SymbolKind::TailRhythm: CANE_UNIMPLEMENTED();
+			case SymbolKind::HeadRhythm: return head(std::get<Rhythm>(lhs), 1);
+			case SymbolKind::TailRhythm: return tail(std::get<Rhythm>(lhs), 1);
 
-			case SymbolKind::HeadSequence: CANE_UNIMPLEMENTED();
-			case SymbolKind::HeadPattern: CANE_UNIMPLEMENTED();
+			case SymbolKind::HeadSequence:
+				return head(std::get<Sequence>(lhs), 1);
 
-			case SymbolKind::TailSequence: CANE_UNIMPLEMENTED();
-			case SymbolKind::TailPattern: CANE_UNIMPLEMENTED();
+			case SymbolKind::TailSequence:
+				return tail(std::get<Sequence>(lhs), 1);
+
+			case SymbolKind::HeadPattern:
+				return head(std::get<Pattern>(lhs), 1);
+
+			case SymbolKind::TailPattern:
+				return tail(std::get<Pattern>(lhs), 1);
 
 			// Misc.
-			case SymbolKind::EuclideanScalarScalar: return lhs.euclidean(rhs);
+			case SymbolKind::EuclideanScalarScalar:
+				return euclidean<Rhythm>(
+					std::get<Scalar>(lhs), std::get<Scalar>(rhs)
+				);
 
 			case SymbolKind::RandomScalarScalar:
-				return lhs.choice(env.rng, rhs);
+				// return lhs.choice(env.rng, rhs);
 
 			// Rotate vectors
 			case SymbolKind::LeftShiftMelodyScalar:
-				return lhs.rotate_left<Melody>(rhs.get_scalar());
+				return rotate_left(
+					std::get<Melody>(lhs), std::get<Scalar>(rhs)
+				);
 
 			case SymbolKind::RightShiftMelodyScalar:
-				return lhs.rotate_right<Melody>(rhs.get_scalar());
+				return rotate_right(
+					std::get<Melody>(lhs), std::get<Scalar>(rhs)
+				);
 
 			case SymbolKind::LeftShiftRhythmScalar:
-				return lhs.rotate_left<Rhythm>(rhs.get_scalar());
+				return rotate_left(
+					std::get<Rhythm>(lhs), std::get<Scalar>(rhs)
+				);
 
 			case SymbolKind::RightShiftRhythmScalar:
-				return lhs.rotate_right<Rhythm>(rhs.get_scalar());
+				return rotate_right(
+					std::get<Rhythm>(lhs), std::get<Scalar>(rhs)
+				);
 
 			// Arithmetic on vectors
 			case SymbolKind::AddMelodyScalar:
-				return lhs.seq_add(rhs.get_scalar());
+				return scalar_add(std::get<Melody>(lhs), std::get<Scalar>(rhs));
 
 			case SymbolKind::SubMelodyScalar:
-				return lhs.seq_sub(rhs.get_scalar());
+				return scalar_sub(std::get<Melody>(lhs), std::get<Scalar>(rhs));
 
 			case SymbolKind::MulMelodyScalar:
-				return lhs.seq_mul(rhs.get_scalar());
+				return scalar_mul(std::get<Melody>(lhs), std::get<Scalar>(rhs));
 
 			case SymbolKind::DivMelodyScalar:
-				return lhs.seq_div(rhs.get_scalar());
+				return scalar_div(std::get<Melody>(lhs), std::get<Scalar>(rhs));
 
 			case SymbolKind::AddMelodyMelody: CANE_UNIMPLEMENTED();
 			case SymbolKind::SubMelodyMelody: CANE_UNIMPLEMENTED();
@@ -776,38 +813,42 @@ namespace cane {
 
 			// Repeat
 			case SymbolKind::RepeatMelodyScalar:
-				return lhs.repeat<Melody>(rhs.get_scalar());
+				return repeat(std::get<Melody>(lhs), std::get<Scalar>(rhs));
 
 			case SymbolKind::RepeatRhythmScalar:
-				return lhs.repeat<Rhythm>(rhs.get_scalar());
+				return repeat(std::get<Rhythm>(lhs), std::get<Scalar>(rhs));
 
 			// Concatenate
 			case SymbolKind::ConcatenateScalarScalar: {
 				Melody melody;
 
-				melody.emplace_back(lhs.get_scalar());
-				melody.emplace_back(rhs.get_scalar());
+				melody.emplace_back(std::get<Scalar>(lhs));
+				melody.emplace_back(std::get<Scalar>(rhs));
 
 				return melody;
 			} break;
 
 			case SymbolKind::ConcatenateMelodyScalar: {
-				auto melody = lhs.get_melody();
-				melody.emplace_back(rhs.get_scalar());
+				auto melody = std::get<Melody>(lhs);
+				melody.emplace_back(std::get<Scalar>(rhs));
 				return melody;
 			} break;
 
 			case SymbolKind::ConcatenateScalarMelody: {
-				auto melody = rhs.get_melody();
-				melody.emplace_back(lhs.get_scalar());
+				auto melody = std::get<Melody>(rhs);
+				melody.emplace_back(std::get<Scalar>(lhs));
 				return melody;
 			} break;
 
 			case SymbolKind::ConcatenateMelodyMelody:
-				return lhs.concatenate<Melody>(rhs);
+				return concatenate(
+					std::get<Melody>(lhs), std::get<Melody>(rhs)
+				);
 
 			case SymbolKind::ConcatenateRhythmRhythm:
-				return lhs.concatenate<Rhythm>(rhs);
+				return concatenate(
+					std::get<Rhythm>(lhs), std::get<Rhythm>(rhs)
+				);
 
 			case SymbolKind::ConcatenateSequenceSequence: CANE_UNIMPLEMENTED();
 			case SymbolKind::ConcatenatePatternPattern: CANE_UNIMPLEMENTED();
@@ -821,21 +862,27 @@ namespace cane {
 			case SymbolKind::LayerSequencePattern: CANE_UNIMPLEMENTED();
 
 			// Logical
-			case SymbolKind::OrRhythmRhythm: return lhs.bit_or(rhs);
-			case SymbolKind::XorRhythmRhythm: return lhs.bit_xor(rhs);
-			case SymbolKind::AndRhythmRhythm: return lhs.bit_and(rhs);
+			case SymbolKind::OrRhythmRhythm:
+				return bit_or(std::get<Rhythm>(lhs), std::get<Rhythm>(rhs));
+
+			case SymbolKind::XorRhythmRhythm:
+				return bit_xor(std::get<Rhythm>(lhs), std::get<Rhythm>(rhs));
+
+			case SymbolKind::AndRhythmRhythm:
+				return bit_and(std::get<Rhythm>(lhs), std::get<Rhythm>(rhs));
 
 			// Mapping
 			case SymbolKind::MapRhythmMelody:
-				return lhs.map_onto_rhythm(cfg, rhs);
+				// return lhs.map_onto_rhythm(cfg, rhs);
 			case SymbolKind::MapMelodyRhythm:
-				return lhs.map_onto_melody(cfg, rhs);
+				// return lhs.map_onto_melody(cfg, rhs);
 
-			// Time divisions
-			case SymbolKind::MulSequenceScalar: return lhs.timemul(rhs);
-			case SymbolKind::DivSequenceScalar: return lhs.timediv(rhs);
+				// Time divisions
+				// case SymbolKind::MulSequenceScalar: return lhs.timemul(rhs);
+				// case SymbolKind::DivSequenceScalar: return lhs.timediv(rhs);
 
-			case SymbolKind::SendSequenceString: return lhs.send(cfg, rhs);
+				// case SymbolKind::SendSequenceString: return lhs.send(cfg,
+				// rhs);
 
 			default: {
 				cane::report(

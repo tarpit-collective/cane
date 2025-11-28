@@ -1,674 +1,232 @@
 #ifndef CANE_OPS_HPP
 #define CANE_OPS_HPP
 
-#include <cstdint>
-
+#include <cstddef>
+#include <variant>
+#include <algorithm>
 #include <ranges>
-#include <chrono>
-#include <random>
-#include <ostream>
 
-#include <unordered_map>
-
-#include <cane/def.hpp>
-#include <cane/util.hpp>
+#include <cane/value.hpp>
 
 namespace cane {
 
-	////////////
-	// Config //
-	////////////
-
-	struct Configuration {
-		size_t bpm;
-		std::unordered_map<std::string_view, uint8_t> channel_bindings;
-	};
-
-	///////////
-	// Types //
-	///////////
-
-	using TimeUnit = std::chrono::microseconds;
-
-	constexpr auto MINUTE =
-		std::chrono::duration_cast<TimeUnit>(std::chrono::minutes { 1 });
-
-	using Scalar = int64_t;
-	using String = std::string_view;
-
-	struct Event {
-		// Meta
-		size_t key;
-		EventKind kind;
-
-		// Timing information
-		TimeUnit duration;
-
-		// Event information
-		uint8_t channel;
-		uint8_t note;
-		uint8_t velocity;
-	};
-
-	struct Pattern: public std::vector<Event> {
-		using std::vector<Event>::vector;
-	};
-
-	struct Sequence: public std::vector<Event> {
-		using std::vector<Event>::vector;
-	};
-
-	struct Rhythm: public std::vector<EventKind> {
-		using std::vector<EventKind>::vector;
-	};
-
-	struct Melody: public std::vector<Scalar> {
-		using std::vector<Scalar>::vector;
-	};
-
-	constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
-		os << "Event { ";
-		os << "key: " << ev.key << ", ";
-		os << "kind: " << ev.kind << ", ";
-		os << "duration: "
-		   << std::chrono::duration_cast<std::chrono::milliseconds>(ev.duration)
-		   << ", ";
-		os << "channel: " << static_cast<int>(ev.channel) << ", ";
-		os << "note: " << static_cast<int>(ev.note) << ", ";
-		os << "velocity: " << static_cast<int>(ev.velocity);
-		os << " }";
-
-		return os;
-	}
-
 	namespace detail {
-		template <typename T>
-		constexpr std::ostream& format_container(std::ostream& os, T x) {
-			if (x.empty()) {
-				return (os << "[]");
-			}
+		inline EventKind bool_to_event(bool b) {
+			std::array v {
+				EventKind::Rest,
+				EventKind::Beat,
+			};
 
-			auto it = x.begin();
-			os << '[' << *it++;
+			return v.at(b);
+		}
 
-			for (; it != x.end(); ++it) {
-				os << ", " << *it;
-			}
+		inline EventKind bit_not_event(EventKind e) {
+			return bool_to_event(not static_cast<bool>(e));
+		}
 
-			return (os << ']');
+		inline EventKind bit_and_event(EventKind lhs, EventKind rhs) {
+			return bool_to_event(
+				static_cast<bool>(lhs) and static_cast<bool>(rhs)
+			);
+		}
+
+		inline EventKind bit_or_event(EventKind lhs, EventKind rhs) {
+			return bool_to_event(
+				static_cast<bool>(lhs) or static_cast<bool>(rhs)
+			);
+		}
+
+		inline EventKind bit_xor_event(EventKind lhs, EventKind rhs) {
+			return bool_to_event(
+				static_cast<bool>(lhs) xor static_cast<bool>(rhs)
+			);
 		}
 	}  // namespace detail
 
-	constexpr std::ostream& operator<<(std::ostream& os, Sequence seq) {
-		os << "Sequence ";
-		return detail::format_container(os, seq);
+	// Misc.
+	template <typename T>
+	inline size_t beats(const T& v) {
+		return std::ranges::count_if(v, [](auto x) {
+			return x == EventKind::Beat;
+		});
 	}
 
-	constexpr std::ostream& operator<<(std::ostream& os, Pattern pat) {
-		os << "Pattern ";
-		return detail::format_container(os, pat);
+	template <typename T>
+	inline size_t rests(const T& v) {
+		return std::ranges::count_if(v, [](auto x) {
+			return x == EventKind::Rest;
+		});
 	}
 
-	constexpr std::ostream& operator<<(std::ostream& os, Rhythm rhythm) {
-		os << "Rhythm ";
-		return detail::format_container(os, rhythm);
-	}
+	template <typename T>
+	inline T euclidean(size_t beats, size_t steps) {
+		auto v = std::views::iota(0) | std::views::take(steps) |
+			std::ranges::to<T>();
 
-	constexpr std::ostream& operator<<(std::ostream& os, Melody melody) {
-		os << "Melody ";
-		return detail::format_container(os, melody);
-	}
-}  // namespace cane
-
-CANE_FORMATTER_DEF(cane::Event);
-CANE_FORMATTER_DEF(cane::Sequence);
-CANE_FORMATTER_DEF(cane::Pattern);
-CANE_FORMATTER_DEF(cane::Rhythm);
-CANE_FORMATTER_DEF(cane::Melody);
-
-namespace cane {
-
-	///////////
-	// Value //
-	///////////
-
-	struct Value:
-			public std::variant<
-				std::monostate,
-				Scalar,
-				String,
-				Rhythm,
-				Melody,
-				Sequence,
-				Pattern> {
-		using std::variant<
-			std::monostate,
-			Scalar,
-			String,
-			Rhythm,
-			Melody,
-			Sequence,
-			Pattern>::variant;
-
-		decltype(auto) get_scalar() {
-			return std::get<Scalar>(*this);
-		}
-
-		decltype(auto) get_rhythm() {
-			return std::get<Rhythm>(*this);
-		}
-
-		decltype(auto) get_melody() {
-			return std::get<Melody>(*this);
-		}
-
-		decltype(auto) get_sequence() {
-			return std::get<Sequence>(*this);
-		}
-
-		decltype(auto) get_pattern() {
-			return std::get<Pattern>(*this);
-		}
-
-		template <typename T>
-		decltype(auto) repeat(size_t n) {
-			auto seq = std::get<T>(*this);
-
-			// Copy sequence N times to the end of itself.
-			// turns i.e. `[a b c]` where N=3 into `[a b c a b c a b c]`.
-
-			if (n == 0) {
-				return seq;
+		std::ranges::transform(
+			v.begin(), v.end(), v.begin(), [&](const auto& i) {
+				return detail::bool_to_event(((i * beats) % steps) < beats);
 			}
+		);
 
-			size_t count = seq.size();
-			seq.reserve(seq.capacity() + n * count);
-
-			while (--n) {
-				std::copy_n(seq.begin(), count, std::back_inserter(seq));
-			}
-
-			return seq;
-		}
-
-		template <typename T>
-		decltype(auto) reverse() {
-			auto seq = std::get<T>(*this);
-			std::reverse(seq.begin(), seq.end());
-			return seq;
-		}
-
-		template <typename T>
-		decltype(auto) rotate_left(size_t n) {
-			auto seq = std::get<T>(*this);
-			std::rotate(seq.begin(), seq.begin() + (n % seq.size()), seq.end());
-			return seq;
-		}
-
-		template <typename T>
-		decltype(auto) rotate_right(size_t n) {
-			auto seq = std::get<T>(*this);
-
-			std::rotate(
-				seq.rbegin(), seq.rbegin() + (n % seq.size()), seq.rend()
-			);
-
-			return seq;
-		}
-
-		template <typename T>
-		decltype(auto) concatenate(Value other) {
-			auto lhs = std::get<T>(*this);
-			auto rhs = std::get<T>(other);
-
-			lhs.insert(lhs.end(), rhs.begin(), rhs.end());
-
-			return lhs;
-		}
-
-		template <typename T>
-		decltype(auto) invert() {
-			auto seq = std::get<T>(*this);
-
-			std::transform(seq.cbegin(), seq.cend(), seq.begin(), [](auto x) {
-				return x == EventKind::Beat ? EventKind::Rest : EventKind::Beat;
-			});
-
-			return seq;
-		}
-
-		decltype(auto) bit_or(Value other) {
-			auto lhs = std::get<Rhythm>(*this);
-			auto rhs = std::get<Rhythm>(other);
-
-			std::transform(
-				rhs.cbegin(),
-				rhs.cend(),
-				lhs.begin(),
-				lhs.begin(),
-				[](auto lhs, auto rhs) {
-					return (static_cast<uint8_t>(lhs) |
-							static_cast<uint8_t>(rhs)) ?
-						EventKind::Beat :
-						EventKind::Rest;
-				}
-			);
-
-			return lhs;
-		}
-
-		decltype(auto) bit_and(Value other) {
-			auto lhs = std::get<Rhythm>(*this);
-			auto rhs = std::get<Rhythm>(other);
-
-			std::transform(
-				rhs.cbegin(),
-				rhs.cend(),
-				lhs.begin(),
-				lhs.begin(),
-				[](auto lhs, auto rhs) {
-					return (static_cast<uint8_t>(lhs) &
-							static_cast<uint8_t>(rhs)) ?
-						EventKind::Beat :
-						EventKind::Rest;
-				}
-			);
-
-			return lhs;
-		}
-
-		decltype(auto) bit_xor(Value other) {
-			auto lhs = std::get<Rhythm>(*this);
-			auto rhs = std::get<Rhythm>(other);
-
-			std::transform(
-				rhs.cbegin(),
-				rhs.cend(),
-				lhs.begin(),
-				lhs.begin(),
-				[](auto lhs, auto rhs) {
-					return (static_cast<uint8_t>(lhs) ^
-							static_cast<uint8_t>(rhs)) ?
-						EventKind::Beat :
-						EventKind::Rest;
-				}
-			);
-
-			return lhs;
-		}
-
-		decltype(auto) seq_add(size_t n) {
-			auto melody = std::get<Melody>(*this);
-
-			std::transform(
-				melody.begin(), melody.end(), melody.begin(), [&](auto x) {
-					return x + n;
-				}
-			);
-
-			return melody;
-		}
-
-		decltype(auto) seq_sub(size_t n) {
-			auto melody = std::get<Melody>(*this);
-
-			std::transform(
-				melody.begin(), melody.end(), melody.begin(), [&](auto x) {
-					return x - n;
-				}
-			);
-
-			return melody;
-		}
-
-		decltype(auto) seq_mul(size_t n) {
-			auto melody = std::get<Melody>(*this);
-
-			std::transform(
-				melody.begin(), melody.end(), melody.begin(), [&](auto x) {
-					return x * n;
-				}
-			);
-
-			return melody;
-		}
-
-		decltype(auto) seq_div(size_t n) {
-			auto melody = std::get<Melody>(*this);
-
-			std::transform(
-				melody.begin(), melody.end(), melody.begin(), [&](auto x) {
-					return x / n;
-				}
-			);
-
-			return melody;
-		}
-
-		// Generate a new sequence using the first element of another sequence.
-		template <typename T>
-		decltype(auto) head() {
-			auto seq = std::get<T>(*this);
-
-			auto it = seq.begin();
-
-			seq.insert(seq.begin(), *it);
-			seq.erase(seq.begin() + 1, seq.end());
-
-			return seq;
-		}
-
-		// Generate a new sequence with everything but the first element.
-		template <typename T>
-		decltype(auto) tail() {
-			auto seq = std::get<T>(*this);
-
-			if (seq.empty()) {
-				return seq;
-			}
-
-			seq.erase(seq.begin());
-			return seq;
-		}
-
-		template <typename T>
-		decltype(auto) length() {
-			auto seq = std::get<T>(*this);
-			return seq.size();
-		}
-
-		decltype(auto) beats() {
-			auto rhythm = std::get<Rhythm>(*this);
-
-			return std::count_if(rhythm.begin(), rhythm.end(), [](auto x) {
-				return x == EventKind::Beat;
-			});
-		}
-
-		decltype(auto) rests() {
-			auto rhythm = std::get<Rhythm>(*this);
-
-			return std::count_if(rhythm.begin(), rhythm.end(), [](auto x) {
-				return x == EventKind::Rest;
-			});
-		}
-
-		decltype(auto) euclidean(Value other) {
-			auto beats = std::get<Scalar>(*this);
-			auto steps = std::get<Scalar>(other);
-
-			Rhythm rhythm;
-
-			if (beats > steps) {
-				cane::report(
-					ReportKind::Eval,
-					"more beats({}) than steps({})",
-					beats,
-					steps
-				);
-			}
-
-			for (int64_t i = 0; i != steps; ++i) {
-				int64_t val = ((i * beats) % steps) < beats;
-				rhythm.emplace_back(val ? EventKind::Beat : EventKind::Rest);
-			}
-
-			return rhythm;
-		}
-
-		decltype(auto) absolute() {
-			auto scalar = std::get<Scalar>(*this);
-			return std::abs(scalar);
-		}
-
-		decltype(auto) negate() {
-			auto scalar = std::get<Scalar>(*this);
-			return -(scalar);
-		}
-
-		decltype(auto) add(Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			return lhs + rhs;
-		}
-
-		decltype(auto) sub(Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			return lhs - rhs;
-		}
-
-		decltype(auto) mul(Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			return lhs * rhs;
-		}
-
-		decltype(auto) div(Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			return lhs / rhs;
-		}
-
-		decltype(auto) shift_left(Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			return lhs << rhs;
-		}
-
-		decltype(auto) shift_right(Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			return lhs >> rhs;
-		}
-
-		decltype(auto) lcm(Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			return std::lcm(lhs, rhs);
-		}
-
-		decltype(auto) gcd(Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			return std::gcd(lhs, rhs);
-		}
-
-		decltype(auto) random(std::mt19937_64& rng, Value other) {
-			// TODO: Handle negative numbers
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			std::uniform_int_distribution<std::mt19937_64::result_type> dist(
-				lhs, rhs
-			);
-
-			return dist(rng);
-		}
-
-		decltype(auto) choice(std::mt19937_64& rng, Value other) {
-			auto lhs = std::get<Scalar>(*this);
-			auto rhs = std::get<Scalar>(other);
-
-			std::bernoulli_distribution dist(0.5);
-
-			if (dist(rng)) {
-				return lhs;
-			}
-
-			return rhs;
-		}
-
-		template <typename X, typename Y>
-		decltype(auto) cycle(Value other) {
-			auto lhs_value = *this;
-			auto rhs_value = other;
-
-			auto lhs = std::get<X>(lhs_value);
-			auto rhs = std::get<Y>(rhs_value);
-
-			auto repeat_n = lhs.size() / rhs.size();
-			auto cycled = rhs_value.repeat<Y>(repeat_n + 1);
-
-			CANE_OKAY(
-				"melody = {}, rhythm = {}, repeat_n = {}",
-				lhs.size(),
-				rhs.size(),
-				repeat_n
-			);
-
-			cycled.erase(cycled.begin() + lhs.size(), cycled.end());
-
-			return cycled;
-		}
-
-		decltype(auto)
-		generate_sequence(Configuration cfg, Melody melody, Rhythm rhythm) {
-			Sequence seq;
-
-			TimeUnit duration = MINUTE / cfg.bpm;
-
-			size_t key = 0;
-
-			for (auto [note, beat]: std::views::zip(melody, rhythm)) {
-				CANE_OKAY("{} -> {}", note, beat);
-
-				seq.emplace_back(key, beat, duration, 0, note, 127);
-				key++;
-			}
-
-			return seq;
-		}
-
-		decltype(auto) map_onto_melody(Configuration cfg, Value other) {
-			// TODO: Map the notes to all indices, including rests
-			CANE_FUNC();
-
-			auto melody = std::get<Melody>(*this);
-			auto rhythm = cycle<Melody, Rhythm>(other);
-
-			return generate_sequence(cfg, melody, rhythm);
-		}
-
-		decltype(auto) map_onto_rhythm(Configuration cfg, Value other) {
-			// TODO: Map notes only to beats, not rests.
-			// - Set up the notes array here by interspersing 0s in places where
-			// we have rests
-			CANE_FUNC();
-
-			auto rhythm = std::get<Rhythm>(*this);
-			auto melody = cycle<Rhythm, Melody>(other);
-
-			return generate_sequence(cfg, melody, rhythm);
-		}
-
-		decltype(auto) timemul(Value other) {
-			auto seq = std::get<Sequence>(*this);
-			auto scalar = std::get<Scalar>(other);
-
-			for (auto& ev: seq) {
-				ev.duration *= scalar;
-			}
-
-			return seq;
-		}
-
-		decltype(auto) timediv(Value other) {
-			auto seq = std::get<Sequence>(*this);
-			auto scalar = std::get<Scalar>(other);
-
-			for (auto& ev: seq) {
-				ev.duration /= scalar;
-			}
-
-			return seq;
-		}
-
-		decltype(auto) send(Configuration cfg, Value other) {
-			auto seq = std::get<Sequence>(*this);
-			auto string = std::get<String>(other);
-
-			Pattern pat;
-
-			CANE_OKAY("send: {}", string);
-
-			for (auto x: seq) {
-				auto it = cfg.channel_bindings.find(string);
-
-				if (it == cfg.channel_bindings.end()) {
-					cane::report(
-						ReportKind::Eval, "unknown channel binding `{}`", string
-					);
-				}
-
-				uint8_t channel = it->second;
-
-				x.channel = channel;
-				pat.emplace_back(x);
-			}
-
-			// TODO: Optimise sequence by joining neighbouring rests
-
-			return pat;
-		}
-	};
-
-	constexpr std::ostream& operator<<(std::ostream& os, cane::Value value) {
-		value |
-			cane::match {
-				[&](auto x) { os << x; },
-				[&](std::monostate) { os << "(empty)"; },
-			};
-
-		return os;
+		return v;
 	}
 
 	// Identifies repeating pattern in a sequence
 	// and attempts to minify it so we don't spam
 	// the stdout for large sequences.
-	// inline decltype(auto) sequence_minify(Sequence seq) {
-	// 	for (size_t f = 1; f != seq.size(); ++f) {
-	// 		if (seq.size() % f != 0) {
-	// 			continue;
-	// 		}
+	template <typename T>
+	inline T minify(T seq) {
+		for (size_t f = 1; f != seq.size(); ++f) {
+			if (seq.size() % f != 0) {
+				continue;
+			}
 
-	// 		bool all_eq = false;
-	// 		for (size_t i = 1; i != (seq.size() / f); ++i) {
-	// 			all_eq = std::equal(
-	// 				seq.begin(), seq.begin() + f, seq.begin() + (f * i)
-	// 			);
+			bool all_eq = false;
+			for (size_t i = 1; i != (seq.size() / f); ++i) {
+				all_eq = std::equal(
+					seq.begin(), seq.begin() + f, seq.begin() + (f * i)
+				);
 
-	// 			if (not all_eq) {
-	// 				break;
-	// 			}
-	// 		}
+				if (not all_eq) {
+					break;
+				}
+			}
 
-	// 		if (all_eq) {
-	// 			seq.erase(seq.begin() + f, seq.end());
-	// 			return seq;
-	// 		}
-	// 	}
+			if (all_eq) {
+				seq.erase(seq.begin() + f, seq.end());
+				return seq;
+			}
+		}
 
-	// 	return seq;
-	// }
+		return seq;
+	}
+
+	// Accessors
+	template <typename T>
+	inline T head(T v, size_t n = 1) {
+		return v | std::views::take(n) | std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T tail(T v, size_t n = 1) {
+		return v | std::views::drop(n) | std::ranges::to<T>();
+	}
+
+	// Transformations
+	template <typename T>
+	inline T repeat(T v, size_t n) {
+		// Copy sequence N times to the end of itself.
+		// turns i.e. `[a b c]` where N=3 into `[a b c a b c a b c]`.
+
+		return std::views::repeat(v, n) | std::views::join |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T reverse(T v) {
+		return v | std::views::reverse | std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T rotate_left(T v, size_t n) {
+		std::ranges::rotate(v, v.begin() + (n % v.size()));
+		return v;
+	}
+
+	template <typename T>
+	inline T rotate_right(T v, size_t n) {
+		auto seq = v | std::views::reverse;
+		std::ranges::rotate(seq, seq.begin() + (n % seq.size()));
+		return v;
+	}
+
+	template <typename T>
+	inline T concatenate(T lhs, T rhs) {
+		// TODO: C++26 std::views::concat
+		lhs.insert(lhs.end(), rhs.begin(), rhs.end());
+		return lhs;
+	}
+
+	// Logic
+	template <typename T>
+	inline T bit_not(T v) {
+		return v | std::views::transform(detail::bit_not_event) |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T bit_and(T lhs, T rhs) {
+		std::ranges::transform(lhs, rhs, lhs.begin(), detail::bit_and_event);
+		return lhs;
+	}
+
+	template <typename T>
+	inline T bit_or(T lhs, T rhs) {
+		std::ranges::transform(lhs, rhs, lhs.begin(), detail::bit_or_event);
+		return lhs;
+	}
+
+	template <typename T>
+	inline T bit_xor(T lhs, T rhs) {
+		std::ranges::transform(lhs, rhs, lhs.begin(), detail::bit_xor_event);
+		return lhs;
+	}
+
+	// Arithmetic
+	template <typename T>
+	inline T vector_add(T lhs, T rhs) {
+		return lhs | std::views::transform(rhs, lhs.begin(), std::plus {}) |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T vector_sub(T lhs, T rhs) {
+		return lhs | std::views::transform(rhs, lhs.begin(), std::minus {}) |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T vector_mul(T lhs, T rhs) {
+		return lhs |
+			std::views::transform(rhs, lhs.begin(), std::multiplies {}) |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T vector_div(T lhs, T rhs) {
+		return lhs | std::views::transform(rhs, lhs.begin(), std::divides {}) |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T scalar_add(T v, size_t scalar) {
+		return v |
+			std::views::transform([&](const auto& x) { return x + scalar; }) |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T scalar_sub(T v, size_t scalar) {
+		return v |
+			std::views::transform([&](const auto& x) { return x - scalar; }) |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T scalar_mul(T v, size_t scalar) {
+		return v |
+			std::views::transform([&](const auto& x) { return x * scalar; }) |
+			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline T scalar_div(T v, size_t scalar) {
+		return v |
+			std::views::transform([&](const auto& x) { return x / scalar; }) |
+			std::ranges::to<T>();
+	}
 
 }  // namespace cane
-
-template <>
-struct std::formatter<cane::Value>: std::formatter<std::string_view> {
-	auto format(cane::Value value, format_context& ctx) const {
-		std::ostringstream ss;
-		ss << value;
-		return std::formatter<string_view>::format(ss.str(), ctx);
-	}
-};
 
 #endif
