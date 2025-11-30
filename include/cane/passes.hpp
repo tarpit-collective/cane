@@ -465,11 +465,19 @@ namespace cane {
  		CANE_TYPE_REMAP(Mul, Melody, Scalar, Melody, MulMelodyScalar) ||
  		CANE_TYPE_REMAP(Div, Melody, Scalar, Melody, DivMelodyScalar) ||
 
+ 		CANE_TYPE_REMAP(Add, Melody, Melody, Melody, AddMelodyMelody) ||
+ 		CANE_TYPE_REMAP(Sub, Melody, Melody, Melody, SubMelodyMelody) ||
+ 		CANE_TYPE_REMAP(Mul, Melody, Melody, Melody, MulMelodyMelody) ||
+ 		CANE_TYPE_REMAP(Div, Melody, Melody, Melody, DivMelodyMelody) ||
+
  		CANE_TYPE_REMAP(Repeat, Melody, Scalar, Melody, RepeatMelodyScalar) ||
 
  		CANE_TYPE_REMAP(Concatenate, Melody, Melody, Melody, ConcatenateMelodyMelody) ||
  		CANE_TYPE_REMAP(Concatenate, Melody, Scalar, Melody, ConcatenateMelodyScalar) ||
  		CANE_TYPE_REMAP(Concatenate, Scalar, Melody, Melody, ConcatenateScalarMelody) ||
+
+ 		CANE_TYPE_REMAP(Head, Melody, None, Melody, HeadMelody) ||
+ 		CANE_TYPE_REMAP(Tail, Melody, None, Melody, TailMelody) ||
 
  		/* Rhythm */
  		CANE_TYPE_REMAP(Map, Rhythm, Melody, Sequence, MapRhythmMelody) ||
@@ -484,14 +492,32 @@ namespace cane {
  		CANE_TYPE_REMAP(Xor, Rhythm, Rhythm, Rhythm, XorRhythmRhythm) ||
  		CANE_TYPE_REMAP(And, Rhythm, Rhythm, Rhythm, AndRhythmRhythm) ||
 
+ 		CANE_TYPE_REMAP(Head, Rhythm, None, Rhythm, HeadRhythm) ||
+ 		CANE_TYPE_REMAP(Tail, Rhythm, None, Rhythm, TailRhythm) ||
+
  		/* Sequence */
  		CANE_TYPE_REMAP(Concatenate, Sequence, Sequence, Sequence, ConcatenateSequenceSequence) ||
+ 		CANE_TYPE_REMAP(Layer, Sequence, Sequence, Sequence, LayerSequenceSequence) ||
+
+ 		CANE_TYPE_REMAP(Head, Sequence, None, Sequence, HeadSequence) ||
+ 		CANE_TYPE_REMAP(Tail, Sequence, None, Sequence, TailSequence) ||
 
  		CANE_TYPE_REMAP(Mul, Sequence, Scalar, Sequence, MulSequenceScalar) ||
  		CANE_TYPE_REMAP(Div, Sequence, Scalar, Sequence, DivSequenceScalar) ||
 
+ 		CANE_TYPE_REMAP(Send, Sequence, String, Pattern, SendSequenceString) ||
+
  		/* Pattern */
- 		CANE_TYPE_REMAP(Send, Sequence, String, Pattern, SendSequenceString)
+ 		CANE_TYPE_REMAP(Head, Pattern, None, Pattern, HeadPattern) ||
+ 		CANE_TYPE_REMAP(Tail, Pattern, None, Pattern, TailPattern) ||
+
+ 		CANE_TYPE_REMAP(Layer, Pattern, Pattern, Pattern, LayerPatternPattern) ||
+ 		CANE_TYPE_REMAP(Layer, Pattern, Sequence, Pattern, LayerPatternSequence) ||
+ 		CANE_TYPE_REMAP(Layer, Sequence, Pattern, Pattern, LayerSequencePattern) ||
+
+ 		CANE_TYPE_REMAP(Concatenate, Pattern, Pattern, Pattern, ConcatenatePatternPattern) ||
+ 		CANE_TYPE_REMAP(Concatenate, Pattern, Sequence, Pattern, ConcatenatePatternSequence) ||
+ 		CANE_TYPE_REMAP(Concatenate, Sequence, Pattern, Pattern, ConcatenateSequencePattern)
  	;
 		// clang-format on
 
