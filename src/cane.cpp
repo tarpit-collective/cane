@@ -7,17 +7,15 @@ int main(int, const char* argv[]) {
 			{ "303", 12 },
 		}, };
 
-		auto value = cane::debug_parse_and_compile(
+		auto seq = cane::debug_parse_and_compile(
 			argv[1],
 			cfg,
 			cane::pass_binding_resolution,
 			cane::pass_type_resolution
 		);
 
-		if (std::holds_alternative<cane::Sequence>(value)) {
-			for (auto e: std::get<cane::Sequence>(value)) {
-				std::println("{}", e);
-			}
+		for (auto e: seq) {
+			std::println("{}", e);
 		}
 	}
 

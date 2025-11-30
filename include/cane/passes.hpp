@@ -17,7 +17,7 @@
 
 namespace cane {
 
-	inline Value pass_evaluator(Configuration cfg, BoxNode node);
+	inline Sequence pass_evaluator(Configuration cfg, BoxNode node);
 
 	inline BoxNode pass_print(Configuration cfg, BoxNode node);
 	inline BoxNode pass_binding_resolution(Configuration cfg, BoxNode node);
@@ -373,11 +373,11 @@ namespace cane {
 
 		auto type = pass_type_resolution_walk(cfg, env, node);
 
-		// cane::report_if(
-		// 	type != TypeKind::Pattern,
-		// 	ReportKind::Type,
-		// 	"expected a pattern type"
-		// );
+		cane::report_if(
+			type != TypeKind::Pattern,
+			ReportKind::Type,
+			"expected a pattern type"
+		);
 
 		return node;
 	}
@@ -456,6 +456,7 @@ namespace cane {
 
  		/* Melody */
  		CANE_TYPE_REMAP(Map, Melody, Rhythm, Sequence, MapMelodyRhythm) ||
+ 		CANE_TYPE_REMAP(Map, Scalar, Rhythm, Sequence, MapScalarRhythm) ||
 
  		CANE_TYPE_REMAP(LeftShift, Melody, Scalar, Melody, LeftShiftMelodyScalar) ||
  		CANE_TYPE_REMAP(RightShift, Melody, Scalar, Melody, RightShiftMelodyScalar) ||
@@ -481,6 +482,7 @@ namespace cane {
 
  		/* Rhythm */
  		CANE_TYPE_REMAP(Map, Rhythm, Melody, Sequence, MapRhythmMelody) ||
+ 		CANE_TYPE_REMAP(Map, Rhythm, Scalar, Sequence, MapRhythmScalar) ||
 
  		CANE_TYPE_REMAP(LeftShift, Rhythm, Scalar, Rhythm, LeftShiftRhythmScalar) ||
  		CANE_TYPE_REMAP(RightShift, Rhythm, Scalar, Rhythm, RightShiftRhythmScalar) ||
@@ -517,7 +519,9 @@ namespace cane {
 
  		CANE_TYPE_REMAP(Concatenate, Pattern, Pattern, Pattern, ConcatenatePatternPattern) ||
  		CANE_TYPE_REMAP(Concatenate, Pattern, Sequence, Pattern, ConcatenatePatternSequence) ||
- 		CANE_TYPE_REMAP(Concatenate, Sequence, Pattern, Pattern, ConcatenateSequencePattern)
+ 		CANE_TYPE_REMAP(Concatenate, Sequence, Pattern, Pattern, ConcatenateSequencePattern) ||
+
+ 		CANE_TYPE_REMAP(Send, Pattern, String, Pattern, SendPatternString)
  	;
 		// clang-format on
 
@@ -630,7 +634,8 @@ namespace cane {
 		std::vector<BoxNode> args
 	);
 
-	[[nodiscard]] inline Value pass_evaluator(Configuration cfg, BoxNode node) {
+	[[nodiscard]] inline Sequence
+	pass_evaluator(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
 
 		EvalEnvironment env {
@@ -640,13 +645,14 @@ namespace cane {
 		auto value = pass_evaluator_walk(cfg, env, node, {});
 		CANE_OKAY(CANE_BOLD "value = {}" CANE_RESET, value);
 
-		// cane::report_if(
-		// 	not std::holds_alternative<Pattern>(value),
-		// 	ReportKind::Type,
-		// 	"program should return pattern type"
-		// );
+		if (std::holds_alternative<Sequence>(value)) {
+			auto seq = std::get<Sequence>(value);
+			std::ranges::sort(seq, {}, &Event::key);
 
-		return value;
+			return seq;
+		}
+
+		cane::report(ReportKind::Type, "program should return pattern type");
 	}
 
 	[[nodiscard]] inline Value pass_evaluator_walk(
@@ -655,8 +661,6 @@ namespace cane {
 		BoxNode node,
 		std::vector<BoxNode> args
 	) {
-		CANE_OKAY("pass");
-
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
 		}
@@ -923,26 +927,47 @@ namespace cane {
 				return timediv(std::get<Sequence>(lhs), std::get<Scalar>(rhs));
 
 			// Mapping
+			case SymbolKind::MapRhythmScalar: {
+				auto seq = map<Sequence>(
+					std::get<Rhythm>(lhs), Melody { std::get<Scalar>(rhs) }
+				);
+
+				return map_duration(seq, MINUTE / cfg.bpm);
+			} break;
+
 			case SymbolKind::MapRhythmMelody: {
 				auto seq =
 					map<Sequence>(std::get<Rhythm>(lhs), std::get<Melody>(rhs));
 
-				for (auto& e: seq) {
-					e.duration = MINUTE / cfg.bpm;
-				}
-
-				return seq;
+				return map_duration(seq, MINUTE / cfg.bpm);
 			} break;
 
+			case SymbolKind::MapScalarRhythm:
 			case SymbolKind::MapMelodyRhythm: {
-				auto seq =
-					map<Sequence>(std::get<Rhythm>(rhs), std::get<Melody>(lhs));
+				auto seq = map<Sequence>(
+					std::get<Rhythm>(rhs), Melody { std::get<Scalar>(lhs) }
+				);
 
-				for (auto& e: seq) {
-					e.duration = MINUTE / cfg.bpm;
+				return map_duration(seq, MINUTE / cfg.bpm);
+			} break;
+
+			case SymbolKind::SendPatternString:
+			case SymbolKind::SendSequenceString: {
+				auto seq = std::get<Sequence>(lhs);
+				auto str = std::get<String>(rhs);
+
+				if (auto it = cfg.channel_bindings.find(str);
+					it != cfg.channel_bindings.end()) {
+					for (auto& ev: seq) {
+						ev.channel = it->second;
+					}
+
+					return seq;
 				}
 
-				return seq;
+				cane::report(
+					ReportKind::Eval, "unknown channel binding `{}`", str
+				);
 			} break;
 
 			default: {

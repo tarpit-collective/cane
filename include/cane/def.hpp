@@ -207,10 +207,11 @@ namespace cane {
 	/* Operators */ \
 	X(Block, ";", Infix, Incr, Left) \
 	X(Send, "~>", Infix, Incr, Left) \
-	X(Map, "@", Infix, Incr, Left) \
 \
 	X(Concatenate, ",", Infix, Incr, Left) \
 	X(Layer, "$", Infix, Last, Left) \
+\
+	X(Map, "@", Infix, Incr, Left) \
 \
 	X(Call, "call", Infix, Incr, Left) \
 \
@@ -286,7 +287,9 @@ namespace cane {
 	/* MELODY */ \
 	X(CoerceScalar, "coerce scalar", None, None, None) \
 	X(CoerceMelody, "coerce melody", None, None, None) \
+\
 	X(MapMelodyRhythm, "melody map", None, None, None) \
+	X(MapScalarRhythm, "melody map", None, None, None) \
 \
 	X(LeftShiftMelodyScalar, "melody lshift", None, None, None) \
 	X(RightShiftMelodyScalar, "melody rshift", None, None, None) \
@@ -312,6 +315,7 @@ namespace cane {
 \
 	/* RHYTHM */ \
 	X(MapRhythmMelody, "rhythm map", None, None, None) \
+	X(MapRhythmScalar, "rhythm map", None, None, None) \
 \
 	X(LeftShiftRhythmScalar, "rhythm lshift", None, None, None) \
 	X(RightShiftRhythmScalar, "rhythm rshift", None, None, None) \
@@ -348,7 +352,9 @@ namespace cane {
 \
 	X(ConcatenatePatternPattern, "pattern concatenate", None, None, None) \
 	X(ConcatenatePatternSequence, "pattern concatenate", None, None, None) \
-	X(ConcatenateSequencePattern, "pattern concatenate", None, None, None)
+	X(ConcatenateSequencePattern, "pattern concatenate", None, None, None) \
+\
+	X(SendPatternString, "pattern send", None, None, None)
 
 #define X(a, b, c, d, e) a,
 	enum class SymbolKind {
@@ -484,7 +490,6 @@ namespace cane {
 	////////////
 
 #define CANE_EVENT_KINDS \
-	X(None, "none", 0) \
 	X(Rest, "rest", 0) \
 	X(Beat, "beat", 1)
 

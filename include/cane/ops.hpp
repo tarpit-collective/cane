@@ -304,6 +304,15 @@ namespace cane {
 		return seq;
 	}
 
+	template <typename T, typename D>
+	inline T map_duration(T v, D duration) {
+		for (auto& event: v) {
+			event.duration = duration;
+		}
+
+		return v;
+	}
+
 }  // namespace cane
 
 #endif
