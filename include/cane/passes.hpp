@@ -230,11 +230,16 @@ namespace cane {
 
 		switch (node->kind) {
 			case SymbolKind::Function: {
+				CANE_OKAY("Function");
+
 				// Uncalled function. Return an empty node so it's removed from
 				// the tree.
 				if (args.empty()) {
-					return nullptr;
+					CANE_OKAY("Not called");
+					return node;
 				}
+
+				CANE_OKAY("Is called");
 
 				auto param = node->rhs;
 
@@ -261,7 +266,7 @@ namespace cane {
 				// This obviously means that this function has to be uncalled
 				// aswell so let's just remove this node.
 				if (node->rhs == nullptr) {
-					return nullptr;
+					return node;
 				}
 
 				// Visit function with newly evaluated argument above
@@ -275,6 +280,8 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Identifier: {
+				CANE_OKAY("Identifier");
+
 				// Look up the binding in the environment, if it doesn't
 				// exist, we just bail out.
 
@@ -294,7 +301,7 @@ namespace cane {
 					node->sv
 				);
 
-				return it->second;
+				return pass_binding_resolution_walk(cfg, env, it->second, args);
 			} break;
 
 			case SymbolKind::Assign: {
@@ -373,11 +380,11 @@ namespace cane {
 
 		auto type = pass_type_resolution_walk(cfg, env, node);
 
-		cane::report_if(
-			type != TypeKind::Pattern,
-			ReportKind::Type,
-			"expected a pattern type"
-		);
+		// cane::report_if(
+		// 	type != TypeKind::Pattern,
+		// 	ReportKind::Type,
+		// 	"expected a pattern type"
+		// );
 
 		return node;
 	}
@@ -647,7 +654,7 @@ namespace cane {
 
 		if (std::holds_alternative<Sequence>(value)) {
 			auto seq = std::get<Sequence>(value);
-			std::ranges::sort(seq, {}, &Event::key);
+			// std::ranges::sort(seq, {}, &Event::key);
 
 			return seq;
 		}
@@ -1000,39 +1007,43 @@ namespace cane {
 
 			// Mapping
 			case SymbolKind::MapRhythmScalar: {
-				auto seq = map<Sequence>(
+				return map<Sequence>(
+					MINUTE / cfg.bpm,
 					std::move(std::get<Rhythm>(lhs)),
 					Melody { std::get<Scalar>(rhs) }
 				);
 
-				return map_duration(seq, MINUTE / cfg.bpm);
+				// return map_duration(seq, );
 			} break;
 
 			case SymbolKind::MapRhythmMelody: {
-				auto seq = map<Sequence>(
+				return map<Sequence>(
+					MINUTE / cfg.bpm,
 					std::move(std::get<Rhythm>(lhs)),
 					std::move(std::get<Melody>(rhs))
 				);
 
-				return map_duration(seq, MINUTE / cfg.bpm);
+				// return map_duration(seq, MINUTE / cfg.bpm);
 			} break;
 
 			case SymbolKind::MapScalarRhythm: {
-				auto seq = map<Sequence>(
+				return map<Sequence>(
+					MINUTE / cfg.bpm,
 					std::move(std::get<Rhythm>(rhs)),
 					Melody { std::get<Scalar>(lhs) }
 				);
 
-				return map_duration(seq, MINUTE / cfg.bpm);
+				// return map_duration(seq, MINUTE / cfg.bpm);
 			} break;
 
 			case SymbolKind::MapMelodyRhythm: {
-				auto seq = map<Sequence>(
+				return map<Sequence>(
+					MINUTE / cfg.bpm,
 					std::move(std::get<Rhythm>(rhs)),
 					Melody { std::get<Scalar>(lhs) }
 				);
 
-				return map_duration(seq, MINUTE / cfg.bpm);
+				// return map_duration(seq, MINUTE / cfg.bpm);
 			} break;
 
 			case SymbolKind::SendPatternString:

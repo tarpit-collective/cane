@@ -149,11 +149,12 @@ namespace cane {
 		// We need to find the maximum key in the left sequence and then
 		// transpose the key of every event in the right sequence.
 
-		size_t key = std::ranges::max(lhs | std::views::transform(&Event::key));
+		auto timestamp =
+			std::ranges::max(lhs | std::views::transform(&Event::timestamp));
 
 		// FIXME: Can we use a projection for accessing &Event::key?
 		std::ranges::transform(rhs, std::back_inserter(lhs), [&](auto x) {
-			x.key += key;
+			x.timestamp += timestamp;
 			return x;
 		});
 
@@ -288,17 +289,20 @@ namespace cane {
 	}
 
 	template <typename S, typename R, typename M>
-	inline S map(R rhythm, M melody) {
+	inline S map(TimeUnit duration, R rhythm, M melody) {
 		size_t length = std::max(rhythm.size(), melody.size());
 
 		rhythm = cycle(rhythm, length);
 		melody = cycle(melody, length);
 
 		S seq;
+		TimeUnit timestamp { 0 };
 
 		for (auto [key, step, note]:
 			 std::views::zip(std::views::iota(0), rhythm, melody)) {
-			seq.emplace_back(key, step, TimeUnit { 0 }, 0, note, 127);
+			seq.emplace_back(step, timestamp, duration, 0, note, 127);
+
+			timestamp += duration;
 		}
 
 		return seq;
@@ -307,6 +311,7 @@ namespace cane {
 	template <typename T, typename D>
 	inline T map_duration(T v, D duration) {
 		for (auto& event: v) {
+			event.timestamp = duration;
 			event.duration = duration;
 		}
 

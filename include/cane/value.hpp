@@ -32,11 +32,10 @@ namespace cane {
 		std::chrono::duration_cast<TimeUnit>(std::chrono::minutes { 1 });
 
 	struct Event {
-		// Meta
-		size_t key;
 		EventKind kind;
 
 		// Timing information
+		TimeUnit timestamp;
 		TimeUnit duration;
 
 		// Event information
@@ -47,10 +46,6 @@ namespace cane {
 
 	using Scalar = int64_t;
 	using String = std::string;
-
-	// using Rhythm = std::vector<EventKind>;
-	// using Melody = std::vector<Scalar>;
-	// using Sequence = std::vector<Event>;
 
 	struct Sequence: public std::vector<Event> {
 		using std::vector<Event>::vector;
@@ -83,7 +78,7 @@ namespace cane {
 
 	constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
 		os << "Event { ";
-		os << "key: " << ev.key << ", ";
+		os << "key: " << ev.timestamp << ", ";
 		os << "kind: " << ev.kind << ", ";
 		os << "duration: "
 		   << std::chrono::duration_cast<std::chrono::milliseconds>(ev.duration)
