@@ -484,6 +484,7 @@ namespace cane {
 	////////////
 
 #define CANE_EVENT_KINDS \
+	X(None, "none", 0) \
 	X(Rest, "rest", 0) \
 	X(Beat, "beat", 1)
 

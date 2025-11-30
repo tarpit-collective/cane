@@ -2,8 +2,9 @@
 #define CANE_OPS_HPP
 
 #include <cstddef>
-#include <variant>
+#include <functional>
 #include <algorithm>
+#include <random>
 #include <ranges>
 
 #include <cane/value.hpp>
@@ -46,30 +47,25 @@ namespace cane {
 	// Misc.
 	template <typename T>
 	inline size_t beats(const T& v) {
-		return std::ranges::count_if(v, [](auto x) {
-			return x == EventKind::Beat;
-		});
+		return std::ranges::count_if(
+			v, std::bind_front(std::equal_to {}, EventKind::Beat)
+		);
 	}
 
 	template <typename T>
 	inline size_t rests(const T& v) {
-		return std::ranges::count_if(v, [](auto x) {
-			return x == EventKind::Rest;
-		});
+		return std::ranges::count_if(
+			v, std::bind_front(std::equal_to {}, EventKind::Rest)
+		);
 	}
 
 	template <typename T>
 	inline T euclidean(size_t beats, size_t steps) {
-		auto v = std::views::iota(0) | std::views::take(steps) |
+		return std::views::iota(0) | std::views::take(steps) |
+			std::views::transform([&](const auto& i) {
+				   return detail::bool_to_event(((i * beats) % steps) < beats);
+			   }) |
 			std::ranges::to<T>();
-
-		std::ranges::transform(
-			v.begin(), v.end(), v.begin(), [&](const auto& i) {
-				return detail::bool_to_event(((i * beats) % steps) < beats);
-			}
-		);
-
-		return v;
 	}
 
 	// Identifies repeating pattern in a sequence
@@ -117,7 +113,7 @@ namespace cane {
 	template <typename T>
 	inline T repeat(T v, size_t n) {
 		// Copy sequence N times to the end of itself.
-		// turns i.e. `[a b c]` where N=3 into `[a b c a b c a b c]`.
+		// turns i.e. `[a b c]` where n = 3 into `[a b c a b c a b c]`.
 
 		return std::views::repeat(v, n) | std::views::join |
 			std::ranges::to<T>();
@@ -145,6 +141,22 @@ namespace cane {
 	inline T concatenate(T lhs, T rhs) {
 		// TODO: C++26 std::views::concat
 		lhs.insert(lhs.end(), rhs.begin(), rhs.end());
+		return lhs;
+	}
+
+	template <typename T>
+	inline T join(T lhs, T rhs) {
+		// We need to find the maximum key in the left sequence and then
+		// transpose the key of every event in the right sequence.
+
+		size_t key = std::ranges::max(lhs | std::views::transform(&Event::key));
+
+		// FIXME: Can we use a projection for accessing &Event::key?
+		std::ranges::transform(rhs, std::back_inserter(lhs), [&](auto x) {
+			x.key += key;
+			return x;
+		});
+
 		return lhs;
 	}
 
@@ -176,55 +188,120 @@ namespace cane {
 	// Arithmetic
 	template <typename T>
 	inline T vector_add(T lhs, T rhs) {
-		return lhs | std::views::transform(rhs, lhs.begin(), std::plus {}) |
+		return std::views::zip_transform(std::plus {}, lhs, rhs) |
 			std::ranges::to<T>();
 	}
 
 	template <typename T>
 	inline T vector_sub(T lhs, T rhs) {
-		return lhs | std::views::transform(rhs, lhs.begin(), std::minus {}) |
+		return std::views::zip_transform(std::minus {}, lhs, rhs) |
 			std::ranges::to<T>();
 	}
 
 	template <typename T>
 	inline T vector_mul(T lhs, T rhs) {
-		return lhs |
-			std::views::transform(rhs, lhs.begin(), std::multiplies {}) |
+		return std::views::zip_transform(std::multiplies {}, lhs, rhs) |
 			std::ranges::to<T>();
 	}
 
 	template <typename T>
 	inline T vector_div(T lhs, T rhs) {
-		return lhs | std::views::transform(rhs, lhs.begin(), std::divides {}) |
+		return std::views::zip_transform(std::divides {}, lhs, rhs) |
 			std::ranges::to<T>();
 	}
 
 	template <typename T>
 	inline T scalar_add(T v, size_t scalar) {
 		return v |
-			std::views::transform([&](const auto& x) { return x + scalar; }) |
+			std::views::transform(std::bind_front(std::plus {}, scalar)) |
 			std::ranges::to<T>();
 	}
 
 	template <typename T>
 	inline T scalar_sub(T v, size_t scalar) {
 		return v |
-			std::views::transform([&](const auto& x) { return x - scalar; }) |
+			std::views::transform(std::bind_front(std::minus {}, scalar)) |
 			std::ranges::to<T>();
 	}
 
 	template <typename T>
 	inline T scalar_mul(T v, size_t scalar) {
 		return v |
-			std::views::transform([&](const auto& x) { return x * scalar; }) |
+			std::views::transform(std::bind_front(std::multiplies {}, scalar)) |
 			std::ranges::to<T>();
 	}
 
 	template <typename T>
 	inline T scalar_div(T v, size_t scalar) {
 		return v |
-			std::views::transform([&](const auto& x) { return x / scalar; }) |
+			std::views::transform(std::bind_front(std::divides {}, scalar)) |
 			std::ranges::to<T>();
+	}
+
+	template <typename T>
+	inline int64_t random(int64_t min, int64_t max) {
+		// TODO: Handle negative numbers
+
+		std::random_device rd;
+		std::mt19937 rng;
+
+		std::uniform_int_distribution dist(min, max);
+
+		return dist(rng);
+	}
+
+	template <typename T>
+	inline int64_t choice(T lhs, T rhs) {
+		std::random_device rd;
+		std::mt19937 rng;
+
+		std::bernoulli_distribution dist(0.5f);
+
+		return dist(rng) ? lhs : rhs;
+	}
+
+	template <typename T>
+	inline T timemul(T v, size_t scalar) {
+		for (auto& ev: v) {
+			ev.duration *= scalar;
+		}
+
+		return v;
+	}
+
+	template <typename T>
+	inline T timediv(T v, size_t scalar) {
+		for (auto& ev: v) {
+			ev.duration /= scalar;
+		}
+
+		return v;
+	}
+
+	template <typename T>
+	inline T cycle(T v, size_t length) {
+		// Cycle elements of `v` such that the length of the container matches
+		// `length`.
+
+		return std::views::repeat(v) | std::views::join |
+			std::views::take(length) | std::ranges::to<T>();
+	}
+
+	template <typename S, typename R, typename M>
+	inline S map(R rhythm, M melody) {
+		size_t length = std::max(rhythm.size(), melody.size());
+
+		rhythm = cycle(rhythm, length);
+		melody = cycle(melody, length);
+
+		S seq;
+
+		for (auto [key, step, note]:
+			 std::views::zip(std::views::iota(0), rhythm, melody)) {
+			seq.emplace_back(key, step, TimeUnit { 0 }, 0, note, 127);
+		}
+
+		return seq;
 	}
 
 }  // namespace cane

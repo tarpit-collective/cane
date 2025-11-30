@@ -2,6 +2,7 @@
 #define CANE_PASSES_HPP
 
 #include <memory>
+#include <random>
 #include <print>
 #include <vector>
 #include <unordered_map>
@@ -40,8 +41,7 @@ namespace cane {
 	debug_pipeline(Configuration cfg, BoxNode root, Ts&&... passes) {
 		(
 			[&](Pass pass) {
-				root = pass(cfg, root);
-				pass_print(cfg, root);
+				root = pass_print(cfg, pass(cfg, root));
 			}(passes),
 			...
 		);
@@ -85,7 +85,7 @@ namespace cane {
 		cane::Parser parser { source };
 		auto root = parser.parse();
 
-		pass_print(cfg, root);
+		CANE_UNUSED(pass_print(cfg, root));
 
 		root = debug_pipeline(cfg, root, std::forward<Ts>(passes)...);
 		return pass_evaluator(cfg, root);
@@ -371,7 +371,14 @@ namespace cane {
 		CANE_FUNC();
 		TypeEnvironment env;
 
-		CANE_UNUSED(pass_type_resolution_walk(cfg, env, node));
+		auto type = pass_type_resolution_walk(cfg, env, node);
+
+		// cane::report_if(
+		// 	type != TypeKind::Pattern,
+		// 	ReportKind::Type,
+		// 	"expected a pattern type"
+		// );
+
 		return node;
 	}
 
@@ -587,7 +594,6 @@ namespace cane {
 	///////////////
 
 	struct EvalEnvironment {
-		std::mt19937_64 rng;
 		std::unordered_map<std::string_view, const BoxNode> bindings;
 	};
 
@@ -601,21 +607,18 @@ namespace cane {
 	[[nodiscard]] inline Value pass_evaluator(Configuration cfg, BoxNode node) {
 		CANE_FUNC();
 
-		std::random_device rd;
-
 		EvalEnvironment env {
-			.rng = std::mt19937_64 { rd() },
 			.bindings = {},
 		};
 
 		auto value = pass_evaluator_walk(cfg, env, node, {});
 		CANE_OKAY(CANE_BOLD "value = {}" CANE_RESET, value);
 
-		cane::report_if(
-			not std::holds_alternative<Pattern>(value),
-			ReportKind::Type,
-			"program should return pattern type"
-		);
+		// cane::report_if(
+		// 	not std::holds_alternative<Pattern>(value),
+		// 	ReportKind::Type,
+		// 	"program should return pattern type"
+		// );
 
 		return value;
 	}
@@ -626,6 +629,8 @@ namespace cane {
 		BoxNode node,
 		std::vector<BoxNode> args
 	) {
+		CANE_OKAY("pass");
+
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
 		}
@@ -633,7 +638,7 @@ namespace cane {
 		// Trivial/special cases
 		switch (node->kind) {
 			case SymbolKind::String: {
-				return node->sv;
+				return std::string { node->sv };
 			} break;
 
 			case SymbolKind::Number: {
@@ -758,10 +763,10 @@ namespace cane {
 				return tail(std::get<Sequence>(lhs), 1);
 
 			case SymbolKind::HeadPattern:
-				return head(std::get<Pattern>(lhs), 1);
+				return head(std::get<Sequence>(lhs), 1);
 
 			case SymbolKind::TailPattern:
-				return tail(std::get<Pattern>(lhs), 1);
+				return tail(std::get<Sequence>(lhs), 1);
 
 			// Misc.
 			case SymbolKind::EuclideanScalarScalar:
@@ -770,7 +775,7 @@ namespace cane {
 				);
 
 			case SymbolKind::RandomScalarScalar:
-				// return lhs.choice(env.rng, rhs);
+				return choice(std::get<Scalar>(lhs), std::get<Scalar>(rhs));
 
 			// Rotate vectors
 			case SymbolKind::LeftShiftMelodyScalar:
@@ -806,10 +811,17 @@ namespace cane {
 			case SymbolKind::DivMelodyScalar:
 				return scalar_div(std::get<Melody>(lhs), std::get<Scalar>(rhs));
 
-			case SymbolKind::AddMelodyMelody: CANE_UNIMPLEMENTED();
-			case SymbolKind::SubMelodyMelody: CANE_UNIMPLEMENTED();
-			case SymbolKind::MulMelodyMelody: CANE_UNIMPLEMENTED();
-			case SymbolKind::DivMelodyMelody: CANE_UNIMPLEMENTED();
+			case SymbolKind::AddMelodyMelody:
+				return vector_add(std::get<Melody>(lhs), std::get<Melody>(rhs));
+
+			case SymbolKind::SubMelodyMelody:
+				return vector_sub(std::get<Melody>(lhs), std::get<Melody>(rhs));
+
+			case SymbolKind::MulMelodyMelody:
+				return vector_mul(std::get<Melody>(lhs), std::get<Melody>(rhs));
+
+			case SymbolKind::DivMelodyMelody:
+				return vector_div(std::get<Melody>(lhs), std::get<Melody>(rhs));
 
 			// Repeat
 			case SymbolKind::RepeatMelodyScalar:
@@ -850,16 +862,22 @@ namespace cane {
 					std::get<Rhythm>(lhs), std::get<Rhythm>(rhs)
 				);
 
-			case SymbolKind::ConcatenateSequenceSequence: CANE_UNIMPLEMENTED();
-			case SymbolKind::ConcatenatePatternPattern: CANE_UNIMPLEMENTED();
-			case SymbolKind::ConcatenatePatternSequence: CANE_UNIMPLEMENTED();
-			case SymbolKind::ConcatenateSequencePattern: CANE_UNIMPLEMENTED();
+			case SymbolKind::ConcatenateSequenceSequence:
+			case SymbolKind::ConcatenatePatternPattern:
+			case SymbolKind::ConcatenatePatternSequence:
+			case SymbolKind::ConcatenateSequencePattern:
+				// All of these concat ops operate on the same underlying type
+				// and do the same thing.
+				return join(std::get<Sequence>(lhs), std::get<Sequence>(rhs));
 
 			// Layer
-			case SymbolKind::LayerSequenceSequence: CANE_UNIMPLEMENTED();
-			case SymbolKind::LayerPatternPattern: CANE_UNIMPLEMENTED();
-			case SymbolKind::LayerPatternSequence: CANE_UNIMPLEMENTED();
-			case SymbolKind::LayerSequencePattern: CANE_UNIMPLEMENTED();
+			case SymbolKind::LayerSequenceSequence:
+			case SymbolKind::LayerPatternPattern:
+			case SymbolKind::LayerPatternSequence:
+			case SymbolKind::LayerSequencePattern:
+				return concatenate(
+					std::get<Sequence>(lhs), std::get<Sequence>(rhs)
+				);
 
 			// Logical
 			case SymbolKind::OrRhythmRhythm:
@@ -871,18 +889,35 @@ namespace cane {
 			case SymbolKind::AndRhythmRhythm:
 				return bit_and(std::get<Rhythm>(lhs), std::get<Rhythm>(rhs));
 
+			// Time divisions
+			case SymbolKind::MulSequenceScalar:
+				return timemul(std::get<Sequence>(lhs), std::get<Scalar>(rhs));
+
+			case SymbolKind::DivSequenceScalar:
+				return timediv(std::get<Sequence>(lhs), std::get<Scalar>(rhs));
+
 			// Mapping
-			case SymbolKind::MapRhythmMelody:
-				// return lhs.map_onto_rhythm(cfg, rhs);
-			case SymbolKind::MapMelodyRhythm:
-				// return lhs.map_onto_melody(cfg, rhs);
+			case SymbolKind::MapRhythmMelody: {
+				auto seq =
+					map<Sequence>(std::get<Rhythm>(lhs), std::get<Melody>(rhs));
 
-				// Time divisions
-				// case SymbolKind::MulSequenceScalar: return lhs.timemul(rhs);
-				// case SymbolKind::DivSequenceScalar: return lhs.timediv(rhs);
+				for (auto& e: seq) {
+					e.duration = MINUTE / cfg.bpm;
+				}
 
-				// case SymbolKind::SendSequenceString: return lhs.send(cfg,
-				// rhs);
+				return seq;
+			} break;
+
+			case SymbolKind::MapMelodyRhythm: {
+				auto seq =
+					map<Sequence>(std::get<Rhythm>(rhs), std::get<Melody>(lhs));
+
+				for (auto& e: seq) {
+					e.duration = MINUTE / cfg.bpm;
+				}
+
+				return seq;
+			} break;
 
 			default: {
 				cane::report(

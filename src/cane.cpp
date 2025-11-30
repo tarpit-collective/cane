@@ -7,19 +7,21 @@ int main(int, const char* argv[]) {
 			{ "303", 12 },
 		}, };
 
-		// auto value = cane::debug_parse_and_compile(
-		// 	argv[1], cfg, cane::pass_binding_resolution
-		// );
-
 		auto value = cane::debug_parse_and_compile(
 			argv[1],
 			cfg,
 			cane::pass_binding_resolution,
 			cane::pass_type_resolution
 		);
+
+		if (std::holds_alternative<cane::Sequence>(value)) {
+			for (auto e: std::get<cane::Sequence>(value)) {
+				std::println("{}", e);
+			}
+		}
 	}
 
-	catch (cane::Fatal e) {
+	catch (const cane::Fatal& e) {
 		std::cerr << e.what();
 		return EXIT_FAILURE;
 	}

@@ -164,6 +164,22 @@ namespace cane {
 			path.string()
 		);
 	}
+
+	template <typename T>
+	constexpr std::ostream& format_container(std::ostream& os, T x) {
+		if (x.empty()) {
+			return (os << "[]");
+		}
+
+		auto it = x.begin();
+		os << '[' << *it++;
+
+		for (; it != x.end(); ++it) {
+			os << ", " << *it;
+		}
+
+		return (os << ']');
+	}
 }  // namespace cane
 
 #endif
