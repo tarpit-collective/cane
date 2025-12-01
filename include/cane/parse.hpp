@@ -26,6 +26,24 @@ namespace cane {
 		std::shared_ptr<Node> lhs;
 		std::shared_ptr<Node> rhs;
 
+		Node(
+			SymbolKind kind_,
+			SymbolKind op_,
+
+			std::string_view sv_,
+
+			TypeKind type_,
+
+			std::shared_ptr<Node> lhs_,
+			std::shared_ptr<Node> rhs_
+		):
+				kind(kind_),
+				op(op_),
+				sv(sv_),
+				type(type_),
+				lhs(lhs_),
+				rhs(rhs_) {}
+
 		// No child nodes
 		Node(SymbolKind kind_, std::string_view sv_, TypeKind type_):
 				kind(kind_),
@@ -107,7 +125,13 @@ namespace cane {
 		// Core parsing functions
 		[[nodiscard]] BoxNode parse() {
 			CANE_FUNC();
-			return parse_expression();
+			auto expr = parse_expression();
+
+			if (not lx.peek_is_kind(SymbolKind::EndFile)) {
+				cane::report(ReportKind::Syntactical, "expected eof");
+			}
+
+			return expr;
 		}
 
 		[[nodiscard]] OptionalBoxNode parse_primary() {
