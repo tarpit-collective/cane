@@ -249,6 +249,8 @@ namespace cane {
 		BoxNode node,
 		std::vector<BoxNode> args
 	) {
+		CANE_UNUSED(pass_print(cfg, node));
+
 		if (node == nullptr) {
 			return nullptr;
 		}
@@ -257,11 +259,9 @@ namespace cane {
 			case SymbolKind::Function: {
 				CANE_OKAY("Function {}", node->sv);
 
-				// Uncalled function. Return an empty node so it's removed from
-				// the tree.
 				if (args.empty()) {
 					CANE_OKAY("Not called");
-					return nullptr;
+					return node;
 				}
 
 				CANE_OKAY("Is called");
@@ -419,7 +419,9 @@ namespace cane {
 		CANE_FUNC();
 		TypeEnvironment env;
 
-		auto type = pass_type_resolution_walk(cfg, env, node, {});
+		auto [root, root_node] = pass_type_resolution_walk(cfg, env, node, {});
+
+		CANE_UNUSED(pass_print(cfg, node));
 
 		// cane::report_if(
 		// 	type != TypeKind::Pattern,
@@ -428,169 +430,134 @@ namespace cane {
 		// );
 
 		CANE_OKAY("success!");
-
-		return node;
+		return root_node;
 	}
 
-	[[nodiscard]] inline bool type_remap_trivial(
+	[[nodiscard]] inline std::tuple<bool, TypeKind, SymbolKind>
+	type_remap_trivial(
 		[[maybe_unused]] Configuration cfg,
 		TypeKind lhs,
 		TypeKind rhs,
 		BoxNode node
 	) {
-		const auto remap = [&](SymbolKind kind,
-							   TypeKind expected_lhs,
-							   TypeKind expected_rhs,
-							   TypeKind out,
-							   SymbolKind op) {
-			if (node == nullptr or node->kind != kind) {
-				return false;
-			}
-
-			if (lhs != expected_lhs || rhs != expected_rhs) {
-				// If the types don't match, it just means this overload of
-				// the operator isn't the correct one but we might have one
-				// handled later.
-				return false;
-			}
-
-			node->type = out;
-			node->op = op;
-
-			return true;
-		};
+		if (node == nullptr) {
+			return { false, TypeKind::None, SymbolKind::None };
+		}
 
 		// clang-format off
-	#define CANE_TYPE_REMAP(symbol, lhs_type, rhs_type, out_type, out_symbol) \
-		remap( \
-			SymbolKind::symbol, \
-			TypeKind::lhs_type, \
-			TypeKind::rhs_type, \
-			TypeKind::out_type, \
-			SymbolKind::out_symbol \
-		)
 
- 	bool match =
+		// If the types don't match, it just means this overload of
+		// the operator isn't the correct one but we might have one
+		// handled later.
+	#define CANE_TYPE_REMAP(symbol, expected_lhs, expected_rhs, new_type, new_op) \
+		if (node->kind == SymbolKind::symbol and \
+			(lhs == TypeKind::expected_lhs and rhs == TypeKind::expected_rhs)) { \
+			return { true, TypeKind::new_type, SymbolKind::new_op }; \
+		}
+
  		/* Prefix/Unary */
- 		CANE_TYPE_REMAP(Abs, Scalar, None, Scalar, AbsScalar) ||
- 		CANE_TYPE_REMAP(Neg, Scalar, None, Scalar, NegScalar) ||
+ 		CANE_TYPE_REMAP(Abs, Scalar, None, Scalar, AbsScalar);
+ 		CANE_TYPE_REMAP(Neg, Scalar, None, Scalar, NegScalar);
 
- 		CANE_TYPE_REMAP(Invert, Rhythm, None, Rhythm, InvertRhythm) ||
- 		CANE_TYPE_REMAP(Reverse, Rhythm, None, Rhythm, ReverseRhythm) ||
+ 		CANE_TYPE_REMAP(Invert, Rhythm, None, Rhythm, InvertRhythm);
+ 		CANE_TYPE_REMAP(Reverse, Rhythm, None, Rhythm, ReverseRhythm);
 
- 		CANE_TYPE_REMAP(Reverse, Melody, None, Melody, ReverseMelody) ||
+ 		CANE_TYPE_REMAP(Reverse, Melody, None, Melody, ReverseMelody);
 
- 		CANE_TYPE_REMAP(Incr, Scalar, None, Scalar, IncrScalar) ||
- 		CANE_TYPE_REMAP(Decr, Scalar, None, Scalar, DecrScalar) ||
+ 		CANE_TYPE_REMAP(Incr, Scalar, None, Scalar, IncrScalar);
+ 		CANE_TYPE_REMAP(Decr, Scalar, None, Scalar, DecrScalar);
 
- 		CANE_TYPE_REMAP(Coerce, Scalar, None, Melody, CoerceScalar) ||
- 		CANE_TYPE_REMAP(Coerce, Melody, None, Melody, CoerceMelody) ||
+ 		CANE_TYPE_REMAP(Coerce, Scalar, None, Melody, CoerceScalar);
+ 		CANE_TYPE_REMAP(Coerce, Melody, None, Melody, CoerceMelody);
 
  		/* Scalar */
- 		CANE_TYPE_REMAP(Add, Scalar, Scalar, Scalar, AddScalarScalar) ||
- 		CANE_TYPE_REMAP(Sub, Scalar, Scalar, Scalar, SubScalarScalar) ||
- 		CANE_TYPE_REMAP(Mul, Scalar, Scalar, Scalar, MulScalarScalar) ||
- 		CANE_TYPE_REMAP(Div, Scalar, Scalar, Scalar, DivScalarScalar) ||
+ 		CANE_TYPE_REMAP(Add, Scalar, Scalar, Scalar, AddScalarScalar);
+ 		CANE_TYPE_REMAP(Sub, Scalar, Scalar, Scalar, SubScalarScalar);
+ 		CANE_TYPE_REMAP(Mul, Scalar, Scalar, Scalar, MulScalarScalar);
+ 		CANE_TYPE_REMAP(Div, Scalar, Scalar, Scalar, DivScalarScalar);
 
- 		CANE_TYPE_REMAP(LeftShift, Scalar, Scalar, Scalar, LeftShiftScalarScalar) ||
- 		CANE_TYPE_REMAP(RightShift, Scalar, Scalar, Scalar, RightShiftScalarScalar) ||
+ 		CANE_TYPE_REMAP(LeftShift, Scalar, Scalar, Scalar, LeftShiftScalarScalar);
+ 		CANE_TYPE_REMAP(RightShift, Scalar, Scalar, Scalar, RightShiftScalarScalar);
 
- 		CANE_TYPE_REMAP(LCM, Scalar, Scalar, Scalar, LCMScalarScalar) ||
- 		CANE_TYPE_REMAP(GCD, Scalar, Scalar, Scalar, GCDScalarScalar) ||
+ 		CANE_TYPE_REMAP(LCM, Scalar, Scalar, Scalar, LCMScalarScalar);
+ 		CANE_TYPE_REMAP(GCD, Scalar, Scalar, Scalar, GCDScalarScalar);
 
- 		CANE_TYPE_REMAP(Euclidean, Scalar, Scalar, Rhythm, EuclideanScalarScalar) ||
- 		CANE_TYPE_REMAP(Concatenate, Scalar, Scalar, Melody, ConcatenateScalarScalar) ||
-		CANE_TYPE_REMAP(Random, Scalar, Scalar, Scalar, RandomScalarScalar) ||
+ 		CANE_TYPE_REMAP(Euclidean, Scalar, Scalar, Rhythm, EuclideanScalarScalar);
+ 		CANE_TYPE_REMAP(Concatenate, Scalar, Scalar, Melody, ConcatenateScalarScalar);
+		CANE_TYPE_REMAP(Random, Scalar, Scalar, Scalar, RandomScalarScalar);
 
  		/* Melody */
- 		CANE_TYPE_REMAP(Map, Melody, Rhythm, Sequence, MapMelodyRhythm) ||
- 		CANE_TYPE_REMAP(Map, Scalar, Rhythm, Sequence, MapScalarRhythm) ||
+ 		CANE_TYPE_REMAP(Map, Melody, Rhythm, Sequence, MapMelodyRhythm);
+ 		CANE_TYPE_REMAP(Map, Scalar, Rhythm, Sequence, MapScalarRhythm);
 
- 		CANE_TYPE_REMAP(LeftShift, Melody, Scalar, Melody, LeftShiftMelodyScalar) ||
- 		CANE_TYPE_REMAP(RightShift, Melody, Scalar, Melody, RightShiftMelodyScalar) ||
+ 		CANE_TYPE_REMAP(LeftShift, Melody, Scalar, Melody, LeftShiftMelodyScalar);
+ 		CANE_TYPE_REMAP(RightShift, Melody, Scalar, Melody, RightShiftMelodyScalar);
 
- 		CANE_TYPE_REMAP(Add, Melody, Scalar, Melody, AddMelodyScalar) ||
- 		CANE_TYPE_REMAP(Sub, Melody, Scalar, Melody, SubMelodyScalar) ||
- 		CANE_TYPE_REMAP(Mul, Melody, Scalar, Melody, MulMelodyScalar) ||
- 		CANE_TYPE_REMAP(Div, Melody, Scalar, Melody, DivMelodyScalar) ||
+ 		CANE_TYPE_REMAP(Add, Melody, Scalar, Melody, AddMelodyScalar);
+ 		CANE_TYPE_REMAP(Sub, Melody, Scalar, Melody, SubMelodyScalar);
+ 		CANE_TYPE_REMAP(Mul, Melody, Scalar, Melody, MulMelodyScalar);
+ 		CANE_TYPE_REMAP(Div, Melody, Scalar, Melody, DivMelodyScalar);
 
- 		CANE_TYPE_REMAP(Add, Melody, Melody, Melody, AddMelodyMelody) ||
- 		CANE_TYPE_REMAP(Sub, Melody, Melody, Melody, SubMelodyMelody) ||
- 		CANE_TYPE_REMAP(Mul, Melody, Melody, Melody, MulMelodyMelody) ||
- 		CANE_TYPE_REMAP(Div, Melody, Melody, Melody, DivMelodyMelody) ||
+ 		CANE_TYPE_REMAP(Add, Melody, Melody, Melody, AddMelodyMelody);
+ 		CANE_TYPE_REMAP(Sub, Melody, Melody, Melody, SubMelodyMelody);
+ 		CANE_TYPE_REMAP(Mul, Melody, Melody, Melody, MulMelodyMelody);
+ 		CANE_TYPE_REMAP(Div, Melody, Melody, Melody, DivMelodyMelody);
 
- 		CANE_TYPE_REMAP(Repeat, Melody, Scalar, Melody, RepeatMelodyScalar) ||
+ 		CANE_TYPE_REMAP(Repeat, Melody, Scalar, Melody, RepeatMelodyScalar);
 
- 		CANE_TYPE_REMAP(Concatenate, Melody, Melody, Melody, ConcatenateMelodyMelody) ||
- 		CANE_TYPE_REMAP(Concatenate, Melody, Scalar, Melody, ConcatenateMelodyScalar) ||
- 		CANE_TYPE_REMAP(Concatenate, Scalar, Melody, Melody, ConcatenateScalarMelody) ||
+ 		CANE_TYPE_REMAP(Concatenate, Melody, Melody, Melody, ConcatenateMelodyMelody);
+ 		CANE_TYPE_REMAP(Concatenate, Melody, Scalar, Melody, ConcatenateMelodyScalar);
+ 		CANE_TYPE_REMAP(Concatenate, Scalar, Melody, Melody, ConcatenateScalarMelody);
 
- 		CANE_TYPE_REMAP(Head, Melody, None, Melody, HeadMelody) ||
- 		CANE_TYPE_REMAP(Tail, Melody, None, Melody, TailMelody) ||
+ 		CANE_TYPE_REMAP(Head, Melody, None, Melody, HeadMelody);
+ 		CANE_TYPE_REMAP(Tail, Melody, None, Melody, TailMelody);
 
  		/* Rhythm */
- 		CANE_TYPE_REMAP(Map, Rhythm, Melody, Sequence, MapRhythmMelody) ||
- 		CANE_TYPE_REMAP(Map, Rhythm, Scalar, Sequence, MapRhythmScalar) ||
+ 		CANE_TYPE_REMAP(Map, Rhythm, Melody, Sequence, MapRhythmMelody);
+ 		CANE_TYPE_REMAP(Map, Rhythm, Scalar, Sequence, MapRhythmScalar);
 
- 		CANE_TYPE_REMAP(LeftShift, Rhythm, Scalar, Rhythm, LeftShiftRhythmScalar) ||
- 		CANE_TYPE_REMAP(RightShift, Rhythm, Scalar, Rhythm, RightShiftRhythmScalar) ||
+ 		CANE_TYPE_REMAP(LeftShift, Rhythm, Scalar, Rhythm, LeftShiftRhythmScalar);
+ 		CANE_TYPE_REMAP(RightShift, Rhythm, Scalar, Rhythm, RightShiftRhythmScalar);
 
- 		CANE_TYPE_REMAP(Repeat, Rhythm, Scalar, Rhythm, RepeatRhythmScalar) ||
- 		CANE_TYPE_REMAP(Concatenate, Rhythm, Rhythm, Rhythm, ConcatenateRhythmRhythm) ||
+ 		CANE_TYPE_REMAP(Repeat, Rhythm, Scalar, Rhythm, RepeatRhythmScalar);
+ 		CANE_TYPE_REMAP(Concatenate, Rhythm, Rhythm, Rhythm, ConcatenateRhythmRhythm);
 
- 		CANE_TYPE_REMAP(Or, Rhythm, Rhythm, Rhythm, OrRhythmRhythm) ||
- 		CANE_TYPE_REMAP(Xor, Rhythm, Rhythm, Rhythm, XorRhythmRhythm) ||
- 		CANE_TYPE_REMAP(And, Rhythm, Rhythm, Rhythm, AndRhythmRhythm) ||
+ 		CANE_TYPE_REMAP(Or, Rhythm, Rhythm, Rhythm, OrRhythmRhythm);
+ 		CANE_TYPE_REMAP(Xor, Rhythm, Rhythm, Rhythm, XorRhythmRhythm);
+ 		CANE_TYPE_REMAP(And, Rhythm, Rhythm, Rhythm, AndRhythmRhythm);
 
- 		CANE_TYPE_REMAP(Head, Rhythm, None, Rhythm, HeadRhythm) ||
- 		CANE_TYPE_REMAP(Tail, Rhythm, None, Rhythm, TailRhythm) ||
+ 		CANE_TYPE_REMAP(Head, Rhythm, None, Rhythm, HeadRhythm);
+ 		CANE_TYPE_REMAP(Tail, Rhythm, None, Rhythm, TailRhythm);
 
  		/* Sequence */
- 		CANE_TYPE_REMAP(Concatenate, Sequence, Sequence, Sequence, ConcatenateSequenceSequence) ||
- 		CANE_TYPE_REMAP(Layer, Sequence, Sequence, Sequence, LayerSequenceSequence) ||
+ 		CANE_TYPE_REMAP(Concatenate, Sequence, Sequence, Sequence, ConcatenateSequenceSequence);
+ 		CANE_TYPE_REMAP(Layer, Sequence, Sequence, Sequence, LayerSequenceSequence);
 
- 		CANE_TYPE_REMAP(Head, Sequence, None, Sequence, HeadSequence) ||
- 		CANE_TYPE_REMAP(Tail, Sequence, None, Sequence, TailSequence) ||
+ 		CANE_TYPE_REMAP(Head, Sequence, None, Sequence, HeadSequence);
+ 		CANE_TYPE_REMAP(Tail, Sequence, None, Sequence, TailSequence);
 
- 		CANE_TYPE_REMAP(Mul, Sequence, Scalar, Sequence, MulSequenceScalar) ||
- 		CANE_TYPE_REMAP(Div, Sequence, Scalar, Sequence, DivSequenceScalar) ||
+ 		CANE_TYPE_REMAP(Mul, Sequence, Scalar, Sequence, MulSequenceScalar);
+ 		CANE_TYPE_REMAP(Div, Sequence, Scalar, Sequence, DivSequenceScalar);
 
- 		CANE_TYPE_REMAP(Send, Sequence, String, Pattern, SendSequenceString) ||
+ 		CANE_TYPE_REMAP(Send, Sequence, String, Pattern, SendSequenceString);
 
  		/* Pattern */
- 		CANE_TYPE_REMAP(Head, Pattern, None, Pattern, HeadPattern) ||
- 		CANE_TYPE_REMAP(Tail, Pattern, None, Pattern, TailPattern) ||
+ 		CANE_TYPE_REMAP(Head, Pattern, None, Pattern, HeadPattern);
+ 		CANE_TYPE_REMAP(Tail, Pattern, None, Pattern, TailPattern);
 
- 		CANE_TYPE_REMAP(Layer, Pattern, Pattern, Pattern, LayerPatternPattern) ||
- 		CANE_TYPE_REMAP(Layer, Pattern, Sequence, Pattern, LayerPatternSequence) ||
- 		CANE_TYPE_REMAP(Layer, Sequence, Pattern, Pattern, LayerSequencePattern) ||
+ 		CANE_TYPE_REMAP(Layer, Pattern, Pattern, Pattern, LayerPatternPattern);
+ 		CANE_TYPE_REMAP(Layer, Pattern, Sequence, Pattern, LayerPatternSequence);
+ 		CANE_TYPE_REMAP(Layer, Sequence, Pattern, Pattern, LayerSequencePattern);
 
- 		CANE_TYPE_REMAP(Concatenate, Pattern, Pattern, Pattern, ConcatenatePatternPattern) ||
- 		CANE_TYPE_REMAP(Concatenate, Pattern, Sequence, Pattern, ConcatenatePatternSequence) ||
- 		CANE_TYPE_REMAP(Concatenate, Sequence, Pattern, Pattern, ConcatenateSequencePattern) ||
+ 		CANE_TYPE_REMAP(Concatenate, Pattern, Pattern, Pattern, ConcatenatePatternPattern);
+ 		CANE_TYPE_REMAP(Concatenate, Pattern, Sequence, Pattern, ConcatenatePatternSequence);
+ 		CANE_TYPE_REMAP(Concatenate, Sequence, Pattern, Pattern, ConcatenateSequencePattern);
 
- 		CANE_TYPE_REMAP(Send, Pattern, String, Pattern, SendPatternString)
+ 		CANE_TYPE_REMAP(Send, Pattern, String, Pattern, SendPatternString);
  	;
 		// clang-format on
 
-		if (match) {
-			CANE_OKAY(
-				"found a valid type mapping: `{}` {} `{}`", lhs, node->kind, rhs
-			);
-		}
-
-		else {
-			CANE_FAIL(
-				"did not find a valid type mapping: `{}`({}) {} `{}`({})",
-				lhs,
-				node->lhs == nullptr ? "nullptr" : node->lhs->sv,
-				node->kind,
-				rhs,
-				node->rhs == nullptr ? "nullptr" : node->rhs->sv
-			);
-		}
-
-		return match;
+		return { false, TypeKind::None, SymbolKind::None };
 
 #undef CANE_TYPE_REMAP
 	}
@@ -607,21 +574,64 @@ namespace cane {
 			return { TypeKind::None, nullptr };
 		}
 
-		TypeKind type = TypeKind::None;
-
 		switch (node->kind) {
 			// Literals
 			case SymbolKind::Number: {
-				type = TypeKind::Scalar;
+				return { TypeKind::Scalar, node };
 			} break;
 
 			case SymbolKind::String: {
-				type = TypeKind::String;
+				return { TypeKind::String, node };
 			} break;
 
 			case SymbolKind::Beat:
 			case SymbolKind::Rest: {
-				type = TypeKind::Rhythm;
+				return { TypeKind::Rhythm, node };
+			} break;
+
+			case SymbolKind::Function: {
+				// Uncalled function.
+				if (args.empty()) {
+					return { TypeKind::Function, node };
+				}
+
+				// Pop and bind argument in function environment.
+				// Do not visit the argument here, we only visit it once it's
+				// _used_.
+				auto arg = args.back();
+				args.pop_back();
+
+				auto param = node->rhs;
+
+				cane::report_if(
+					param != nullptr and param->kind != SymbolKind::Identifier,
+					ReportKind::Syntactical,
+					"expected an identifier"
+				);
+
+				auto fn_env = env;
+				fn_env.bindings.try_emplace(param->sv, arg);
+
+				auto [fn, fn_node] =
+					pass_type_resolution_walk(cfg, fn_env, node->lhs, args);
+
+				node->type = fn;
+
+				return { fn, fn_node };
+			} break;
+
+			case SymbolKind::Call: {
+				auto [arg, arg_node] =
+					pass_type_resolution_walk(cfg, env, node->rhs, args);
+
+				args.emplace_back(arg_node);
+
+				auto [call, call_node] =
+					pass_type_resolution_walk(cfg, env, node->lhs, args);
+
+				node->type = call;
+
+				return { call, call_node };
 			} break;
 
 			case SymbolKind::Identifier: {
@@ -634,12 +644,14 @@ namespace cane {
 					node->sv
 				);
 
-				auto [ident, ident_body] = pass_type_resolution_walk(
-					cfg, env, deepcopy(it->second), args
-				);
+				auto expr = deepcopy(it->second);
 
-				type = ident;
-				node = ident_body;
+				auto [ident, ident_body] =
+					pass_type_resolution_walk(cfg, env, expr, args);
+
+				node->type = ident;
+
+				return { ident, ident_body };
 			} break;
 
 			case SymbolKind::Assign: {
@@ -654,13 +666,11 @@ namespace cane {
 
 				// NOTE: We have to bind the node before we visit it otherwise
 				// things like functions are thrown away due to being uncalled.
-				auto [it, succ] =
-					env.bindings.try_emplace(binding->sv, deepcopy(node->lhs));
-
-				auto [expr, expr_node] =
+				auto [assign, assign_node] =
 					pass_type_resolution_walk(cfg, env, node->lhs, args);
 
-				node->lhs = expr_node;
+				auto expr = deepcopy(node->lhs);
+				auto [it, succ] = env.bindings.try_emplace(binding->sv, expr);
 
 				cane::report_if(
 					not succ,
@@ -669,80 +679,23 @@ namespace cane {
 					binding->sv
 				);
 
-				type = expr;
-				node = node->lhs;
+				node->type = assign;
+
+				return { assign, assign_node };
 			} break;
 
-			case SymbolKind::Function: {
-				if (args.empty()) {
-					type = TypeKind::Function;
-					node = nullptr;
-					break;
-				}
-
-				auto param = node->rhs;
-
-				auto arg = args.back();
-				args.pop_back();
-
-				auto fn_env = env;
-				fn_env.bindings.try_emplace(param->sv, arg);
-
-				auto [type, type_node] =
-					pass_type_resolution_walk(cfg, env, arg, args);
-
-				param->type = type;
-
-				// No need to typecheck parameter, just body (`lhs`).
-				auto [fn, fn_node] =
-					pass_type_resolution_walk(cfg, fn_env, node->lhs, args);
-
-				node->lhs = fn_node;
-
-				type = fn;
-				node = node->lhs;
-			} break;
-
-			// Assignment
-			case SymbolKind::Call: {
-				// Just return left hand side type since we've already visited
-				// it and performed binding resolution.
-
-				auto [arg, arg_node] =
-					pass_type_resolution_walk(cfg, env, node->rhs, args);
-
-				node->rhs = arg_node;
-
-				args.emplace_back(node->rhs);
-
-				auto [call, call_node] =
-					pass_type_resolution_walk(cfg, env, node->lhs, args);
-
-				node->lhs = call_node;
-
-				type = call;
-				node = node->lhs;
-			} break;
-
-			// Statements always return the type of their last expression.
-			// TODO: We might be able to implement this as a trivial type
-			// remapping once we have proper support for "patterns" since a
-			// cane program should evaluate to a fully mapped list of
-			// events.
 			case SymbolKind::Block: {
+				// We return the last expression's type.
+
 				auto [lhs, lhs_node] =
 					pass_type_resolution_walk(cfg, env, node->lhs, args);
 
-				node->lhs = lhs_node;
-
-				// We return the last expression's type.
 				auto [rhs, rhs_node] =
 					pass_type_resolution_walk(cfg, env, node->rhs, args);
 
-				node->rhs = rhs_node;
+				node->type = rhs;
 
-				type = rhs;
-				node = node->rhs;
+				return { rhs, rhs_node };
 			} break;
 
 			default: {
@@ -750,32 +703,54 @@ namespace cane {
 				auto [lhs, lhs_node] =
 					pass_type_resolution_walk(cfg, env, node->lhs, args);
 
-				node->lhs = lhs_node;
-
 				auto [rhs, rhs_node] =
 					pass_type_resolution_walk(cfg, env, node->rhs, args);
 
-				node->rhs = rhs_node;
+				auto [succ, type, op] = type_remap_trivial(cfg, lhs, rhs, node);
 
-				if (not type_remap_trivial(cfg, lhs, rhs, node)) {
-					cane::report(
-						ReportKind::Type,
-						"no mapping for `{}` {} `{}`",
+				if (succ) {
+					CANE_OKAY(
+						"found a valid type mapping: `{}` {} `{}`",
 						lhs,
 						node->kind,
 						rhs
 					);
 				}
 
-				type = node->type;
+				else {
+					CANE_FAIL(
+						"did not find a valid type mapping: `{}`({}) {} "
+						"`{}`({})",
+						lhs,
+						node->lhs == nullptr ? "nullptr" : node->lhs->sv,
+						node->kind,
+						rhs,
+						node->rhs == nullptr ? "nullptr" : node->rhs->sv
+					);
+				}
+
+				cane::report_if(
+					not succ,
+					ReportKind::Type,
+					"no mapping for `{}` {} `{}`",
+					lhs,
+					node->kind,
+					rhs
+				);
+
+				auto new_node = deepcopy(node);
+
+				new_node->lhs = lhs_node;
+				new_node->rhs = rhs_node;
+
+				new_node->op = op;
+				new_node->type = type;
+
+				return { type, new_node };
 			} break;
 		}
 
-		if (node != nullptr) {
-			node->type = type;
-		}
-
-		return { type, node };
+		return { TypeKind::None, node };
 	}
 
 	///////////////
@@ -786,9 +761,8 @@ namespace cane {
 		std::unordered_map<std::string_view, const BoxNode> bindings;
 	};
 
-	[[nodiscard]] inline Value pass_evaluator_walk(
-		Configuration cfg, EvalEnvironment env, BoxNode node, bool is_call_tree
-	);
+	[[nodiscard]] inline Value
+	pass_evaluator_walk(Configuration cfg, EvalEnvironment env, BoxNode node);
 
 	[[nodiscard]] inline Sequence
 	pass_evaluator(Configuration cfg, BoxNode node) {
@@ -798,7 +772,7 @@ namespace cane {
 			.bindings = {},
 		};
 
-		auto value = pass_evaluator_walk(cfg, env, node, false);
+		auto value = pass_evaluator_walk(cfg, env, node);
 		CANE_OKAY(CANE_BOLD "value = {}" CANE_RESET, value);
 
 		if (std::holds_alternative<Sequence>(value)) {
@@ -812,9 +786,8 @@ namespace cane {
 		cane::report(ReportKind::Type, "program should return pattern type");
 	}
 
-	[[nodiscard]] inline Value pass_evaluator_walk(
-		Configuration cfg, EvalEnvironment env, BoxNode node, bool is_call_tree
-	) {
+	[[nodiscard]] inline Value
+	pass_evaluator_walk(Configuration cfg, EvalEnvironment env, BoxNode node) {
 		if (node == nullptr) {
 			return std::monostate {};  // Cons lists will enter this case.
 		}
@@ -853,8 +826,7 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Identifier: {
-				cane::report_if(
-					is_call_tree,
+				cane::report(
 					ReportKind::Internal,
 					"identifier not resolved in call context"
 				);
@@ -864,18 +836,16 @@ namespace cane {
 
 			case SymbolKind::Assign: {
 				// `rhs` is just an identifier, so walk eval `lhs`
-				return pass_evaluator_walk(cfg, env, node->lhs, is_call_tree);
+				return pass_evaluator_walk(cfg, env, node->lhs);
 			} break;
 
 			case SymbolKind::Call: {
 				// Argument was already passed down and expanded during binding
 				// resolution pass so everything we need is on the left-hand
 				// side and we can discard the right-hand side.
-				CANE_UNUSED(
-					pass_evaluator_walk(cfg, env, node->rhs, is_call_tree)
-				);
+				CANE_UNUSED(pass_evaluator_walk(cfg, env, node->rhs));
 
-				return pass_evaluator_walk(cfg, env, node->lhs, true);
+				return pass_evaluator_walk(cfg, env, node->lhs);
 			} break;
 
 			case SymbolKind::Function: {
@@ -884,21 +854,19 @@ namespace cane {
 				// out any bindings (including call arguments).
 
 				// Right hand side is just an identifier anyway.
-				return pass_evaluator_walk(cfg, env, node->lhs, is_call_tree);
+				return pass_evaluator_walk(cfg, env, node->lhs);
 			} break;
 
 			case SymbolKind::Block: {
-				CANE_UNUSED(
-					pass_evaluator_walk(cfg, env, node->lhs, is_call_tree)
-				);
-				return pass_evaluator_walk(cfg, env, node->rhs, is_call_tree);
+				CANE_UNUSED(pass_evaluator_walk(cfg, env, node->lhs));
+				return pass_evaluator_walk(cfg, env, node->rhs);
 			} break;
 
 			default: break;
 		}
 
-		Value lhs = pass_evaluator_walk(cfg, env, node->lhs, is_call_tree);
-		Value rhs = pass_evaluator_walk(cfg, env, node->rhs, is_call_tree);
+		Value lhs = pass_evaluator_walk(cfg, env, node->lhs);
+		Value rhs = pass_evaluator_walk(cfg, env, node->rhs);
 
 		switch (node->op) {
 			// Unary Scalar

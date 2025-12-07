@@ -128,7 +128,11 @@ namespace cane {
 			auto expr = parse_expression();
 
 			if (not lx.peek_is_kind(SymbolKind::EndFile)) {
-				cane::report(ReportKind::Syntactical, "expected eof");
+				cane::report(
+					ReportKind::Syntactical,
+					"unexpected token `{}`",
+					lx.peek().sv
+				);
 			}
 
 			return expr;
