@@ -8,10 +8,9 @@ int main(int, const char* argv[]) {
 		}, };
 
 		auto seq = cane::debug_parse_and_compile(
-			argv[1],
-			cfg,
-			cane::pass_binding_resolution,
-			cane::pass_type_resolution
+			argv[1], cfg, cane::pass_type_resolution
+			// cane::pass_binding_resolution,
+			// cane::pass_type_resolution
 		);
 
 		for (auto e: seq) {

@@ -9,8 +9,8 @@ project(
 
   default_options: [
     'cpp_std=c++26',
-    'buildtype=release',
-    'strip=true',
+    'buildtype=debug',
+    # 'strip=true',
     'warning_level=2',  # 3=pedantic
     'b_ndebug=if-release',
   ]

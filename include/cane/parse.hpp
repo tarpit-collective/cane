@@ -161,21 +161,21 @@ namespace cane {
 						symbol.kind, number.sv, TypeKind::Scalar
 					);
 
-					while (lx.peek_is_kind(SymbolKind::Number)) {
-						auto number = lx.take();
+					// while (lx.peek_is_kind(SymbolKind::Number)) {
+					// 	auto number = lx.take();
 
-						auto node = std::make_shared<Node>(
-							symbol.kind, number.sv, TypeKind::Scalar
-						);
+					// 	auto node = std::make_shared<Node>(
+					// 		symbol.kind, number.sv, TypeKind::Scalar
+					// 	);
 
-						root = std::make_shared<Node>(
-							SymbolKind::Concatenate,
-							number.sv,
-							TypeKind::Melody,
-							root,
-							node
-						);
-					}
+					// 	root = std::make_shared<Node>(
+					// 		SymbolKind::Concatenate,
+					// 		number.sv,
+					// 		TypeKind::Melody,
+					// 		root,
+					// 		node
+					// 	);
+					// }
 
 					return root;
 				}
@@ -240,33 +240,15 @@ namespace cane {
 						TypeKind::None
 					);
 
-					// Parameter type
-					// auto param_type = parse_type();
-					// cane::report_if(
-					// 	not param_type.has_value(),
-					// 	ReportKind::Syntactical,
-					// 	"expected a type annotation"
-					// );
-
 					// Reset binding power and parse body
 					auto body = parse_expression();
 
-					// FIXME: Do we need to have an explicit body return type
-					// annotation?
-
-					// // Body type
-					// auto body_type = parse_type();
-					// cane::report_if(
-					// 	not body_type.has_value(),
-					// 	ReportKind::Syntactical,
-					// 	"expected a type annotation"
-					// );
-
-					// param->type = param_type.value();
-					// body->type = body_type.value();
-
 					return std::make_shared<Node>(
-						SymbolKind::Function, symbol.sv, body->type, body, param
+						SymbolKind::Function,
+						symbol.sv,
+						TypeKind::Function,
+						body,
+						param
 					);
 				} break;
 

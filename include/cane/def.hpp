@@ -194,10 +194,9 @@ namespace cane {
 	X(Beat, "!", Literal, None, None) \
 	X(Rest, ".", Literal, None, None) \
 \
-	X(Function, "function", Primary, None, None) \
 	X(Identifier, "identifier", Literal, None, None) \
 \
-	X(LeftParen, "(", None, None, None) \
+	X(LeftParen, "(", Primary, None, None) \
 	X(RightParen, ")", None, None, None) \
 	X(LeftBrace, "{", None, None, None) \
 	X(RightBrace, "}", None, None, None) \
@@ -214,6 +213,8 @@ namespace cane {
 	X(Map, "@", Infix, Incr, Left) \
 \
 	X(Call, "call", Infix, Incr, Left) \
+\
+	X(Function, "function", Primary, Incr, Left) \
 \
 	X(Assign, "=>", Infix, Incr, Left) \
 \
