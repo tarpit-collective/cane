@@ -227,7 +227,7 @@ namespace cane {
 
 	[[nodiscard]] inline std::pair<TypeKind, BoxNode> pass_type_resolution_walk(
 		Configuration cfg,
-		TypeEnvironment& env,
+		TypeEnvironment env,
 		BoxNode node,
 		std::vector<BoxNode> args
 	);
@@ -382,10 +382,12 @@ namespace cane {
 
 	[[nodiscard]] inline std::pair<TypeKind, BoxNode> pass_type_resolution_walk(
 		Configuration cfg,
-		TypeEnvironment& env,
+		TypeEnvironment env,
 		BoxNode node,
 		std::vector<BoxNode> args
 	) {
+		CANE_UNUSED(pass_print(cfg, node));
+
 		if (node == nullptr) {
 			return { TypeKind::None, nullptr };
 		}
@@ -414,6 +416,7 @@ namespace cane {
 				// Pop and bind argument in function environment.
 				// Do not visit the argument here, we only visit it once it's
 				// _used_.
+
 				auto arg = args.back();
 				args.pop_back();
 
@@ -431,11 +434,13 @@ namespace cane {
 				// be able to call `erase` manually after recursing to avoid the
 				// overhead of the copy.
 
-				auto fn_env = env;
-				fn_env.bindings.try_emplace(param->sv, arg);
+				// auto fn_env = env;
+				env.bindings.try_emplace(param->sv, arg);
 
 				auto [fn, fn_node] =
-					pass_type_resolution_walk(cfg, fn_env, node->lhs, args);
+					pass_type_resolution_walk(cfg, env, node->lhs, args);
+
+				// env.bindings.erase(param->sv);
 
 				node->type = fn;
 
@@ -449,10 +454,10 @@ namespace cane {
 				// bindings/references.
 
 				// TODO: Investigate if we should be visiting the argument here.
-				auto [arg, arg_node] =
-					pass_type_resolution_walk(cfg, env, node->rhs, args);
+				// auto [arg, arg_node] =
+				// 	pass_type_resolution_walk(cfg, env, node->rhs, args);
 
-				args.emplace_back(arg_node);
+				args.emplace_back(node->rhs);
 
 				auto [call, call_node] =
 					pass_type_resolution_walk(cfg, env, node->lhs, args);
@@ -499,7 +504,7 @@ namespace cane {
 
 				// NOTE: Do we need a `deepcopy` here or just when we reference
 				// the binding?
-				auto expr = node->lhs;
+				auto expr = deepcopy(node->lhs);
 				auto [it, succ] = env.bindings.try_emplace(binding->sv, expr);
 
 				cane::report_if(
