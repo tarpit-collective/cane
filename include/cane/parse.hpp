@@ -140,7 +140,13 @@ namespace cane {
 
 		[[nodiscard]] OptionalBoxNode parse_primary() {
 			CANE_FUNC();
+
 			Symbol symbol = lx.peek();
+			auto bp = binding_power(symbol.kind);
+
+			if (not bp.has_value()) {
+				return std::nullopt;
+			}
 
 			switch (symbol.kind) {
 				// Literals
@@ -159,29 +165,10 @@ namespace cane {
 				}
 
 				case SymbolKind::Number: {
-					auto number = lx.take();
-
-					auto root = std::make_shared<Node>(
-						symbol.kind, number.sv, TypeKind::Scalar
+					lx.discard();
+					return std::make_shared<Node>(
+						symbol.kind, symbol.sv, TypeKind::Scalar
 					);
-
-					// while (lx.peek_is_kind(SymbolKind::Number)) {
-					// 	auto number = lx.take();
-
-					// 	auto node = std::make_shared<Node>(
-					// 		symbol.kind, number.sv, TypeKind::Scalar
-					// 	);
-
-					// 	root = std::make_shared<Node>(
-					// 		SymbolKind::Concatenate,
-					// 		number.sv,
-					// 		TypeKind::Melody,
-					// 		root,
-					// 		node
-					// 	);
-					// }
-
-					return root;
 				}
 
 				// Literals (Implicit Concat)
@@ -197,17 +184,16 @@ namespace cane {
 						   lx.peek_is_kind(SymbolKind::Rest)) {
 						auto beat = lx.take();
 
+						auto rhythm = std::make_shared<Node>(
+							beat.kind, beat.sv, TypeKind::Rhythm
+						);
+
 						root = std::make_shared<Node>(
 							SymbolKind::Concatenate,
 							beat.sv,
 							TypeKind::Rhythm,
-
-							// Children
-							/* lhs = */ root,
-							/* rhs = */
-							std::make_shared<Node>(
-								beat.kind, beat.sv, TypeKind::Rhythm
-							)
+							root,
+							rhythm
 						);
 					}
 
@@ -217,7 +203,7 @@ namespace cane {
 				case SymbolKind::LeftParen: {
 					lx.discard();  // Skip `(`
 
-					auto expr = parse_expression();
+					auto expr = parse_expression(0);
 
 					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
 						cane::report(ReportKind::Syntactical, "expected `)`");
@@ -245,14 +231,45 @@ namespace cane {
 					);
 
 					// Reset binding power and parse body
-					auto body = parse_expression();
+					auto body = parse_expression(bp.value().right);
 
 					return std::make_shared<Node>(
 						SymbolKind::Function,
 						symbol.sv,
 						TypeKind::Function,
-						body,
-						param
+						param,
+						body
+					);
+				} break;
+
+				case SymbolKind::Let: {
+					lx.discard();  // Skip `let`
+
+					// Binding name
+					auto identifier =
+						lx.take_if_kind_opt(SymbolKind::Identifier);
+
+					cane::report_if(
+						not identifier.has_value(),
+						ReportKind::Syntactical,
+						"expected an identifier"
+					);
+
+					auto binding = std::make_shared<Node>(
+						SymbolKind::Identifier,
+						identifier.value().sv,
+						TypeKind::None
+					);
+
+					// Reset binding power and parse body
+					auto body = parse_expression(bp.value().right);
+
+					return std::make_shared<Node>(
+						SymbolKind::Let,
+						symbol.sv,
+						TypeKind::None,
+						binding,
+						body
 					);
 				} break;
 
@@ -291,32 +308,22 @@ namespace cane {
 			);
 		}
 
-		[[nodiscard]] OptionalBoxNode parse_infix(BoxNode lhs, size_t bp) {
+		[[nodiscard]] OptionalBoxNode parse_infix(BoxNode lhs) {
 			CANE_FUNC();
+
 			Symbol symbol = lx.peek();
+			auto bp = binding_power(symbol.kind);
+
+			if (not bp.has_value()) {
+				return std::nullopt;
+			}
 
 			if (not is_opfix(OpfixKind::Infix, symbol.kind)) {
 				return std::nullopt;
 			}
 
 			lx.discard();
-			auto rhs = parse_expression(bp);
-
-			// Special cases.
-			switch (symbol.kind) {
-				case SymbolKind::Assign: {
-					// We need to assert that the `rhs` is an
-					// identifier because it doesn't make sense for
-					// the name to be anything other than identifier.
-					cane::report_if(
-						rhs->kind != SymbolKind::Identifier,
-						ReportKind::Syntactical,
-						"expected an identifier"
-					);
-				} break;
-
-				default: break;
-			}
+			auto rhs = parse_expression(bp.value().right);
 
 			return std::make_shared<Node>(
 				symbol.kind, symbol.sv, TypeKind::None, lhs, rhs
@@ -325,6 +332,7 @@ namespace cane {
 
 		[[nodiscard]] OptionalBoxNode parse_postfix(BoxNode lhs) {
 			CANE_FUNC();
+
 			Symbol symbol = lx.peek();
 
 			if (not is_opfix(OpfixKind::Postfix, symbol.kind)) {
@@ -388,7 +396,7 @@ namespace cane {
 
 				// Parse everything else.
 				node = parse_postfix(node.value()).or_else([&] {
-					return parse_infix(node.value(), bp.value().right);
+					return parse_infix(node.value());
 				});
 
 				cane::report_if(

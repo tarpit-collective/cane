@@ -7,9 +7,10 @@ int main(int, const char* argv[]) {
 			{ "303", 12 },
 		}, };
 
-		auto seq = cane::debug_parse_and_compile(
-			argv[1], cfg, cane::pass_type_resolution
-		);
+		auto src = cane::read_file(argv[1]);
+
+		auto seq =
+			cane::debug_parse_and_compile(src, cfg, cane::pass_type_resolution);
 
 		for (auto e: seq) {
 			std::println("{}", e);

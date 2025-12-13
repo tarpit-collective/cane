@@ -242,7 +242,11 @@ namespace cane {
 			// as 2 seperate tokens because it sees `let` and stops there.
 
 			// Keywords
-			if (symbol.sv == CANE_CSTR("lcm")) {
+			if (symbol.sv == CANE_CSTR("let")) {
+				symbol.kind = SymbolKind::Let;
+			}
+
+			else if (symbol.sv == CANE_CSTR("lcm")) {
 				symbol.kind = SymbolKind::LCM;
 			}
 
@@ -276,9 +280,9 @@ namespace cane {
 
 		std::optional<Symbol> produce_sigil() {
 			return produce_str(SymbolKind::Coerce, CANE_CSTR("&"))
-				.or_else([&] {
-					return produce_str(SymbolKind::Assign, CANE_CSTR("=>"));
-				})
+				// .or_else([&] {
+				// 	return produce_str(SymbolKind::Assign, CANE_CSTR("=>"));
+				// })
 				.or_else([&] {
 					return produce_str(SymbolKind::Send, CANE_CSTR("~>"));
 				})
@@ -391,17 +395,18 @@ namespace cane {
 
 		std::optional<Symbol> produce_whitespace() {
 			return produce_while(SymbolKind::Whitespace, [](char c) {
-				return static_cast<bool>(std::isspace(c));
+				return static_cast<bool>(std::isspace(c)) or c == '\n';
 			});
 		}
 
 		std::optional<Symbol> produce_comment() {
 			auto begin = it;
 
-			if (not str_take_str(CANE_CSTR("#!")) or
-				not str_take_while([](char c) { return c != '\n'; })) {
+			if (not str_take_str(CANE_CSTR("#!"))) {
 				return std::nullopt;
 			}
+
+			str_take_while([](char c) { return c != '\n'; });
 
 			auto end = it;
 
@@ -504,7 +509,7 @@ namespace cane {
 
 			lookahead = Symbol { .kind = kind, .sv = sv };
 
-			// CANE_OKAY("{}", out);
+			// CANE_OKAY("current = {}, lookahead = {}", out, lookahead);
 			return out;
 		}
 
@@ -519,11 +524,7 @@ namespace cane {
 		// Filter out whitespace and comments.
 		[[nodiscard]] std::optional<Symbol> take_opt(SymbolFixup fixup) {
 			while (true) {
-				if (not produce_whitespace()) {
-					break;
-				}
-
-				if (not produce_comment()) {
+				if (not(produce_whitespace() or produce_comment())) {
 					break;
 				}
 			}

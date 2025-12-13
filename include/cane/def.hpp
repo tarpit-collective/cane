@@ -204,19 +204,18 @@ namespace cane {
 	X(RightBracket, "]", None, None, None) \
 \
 	/* Operators */ \
-	X(Block, ";", Infix, Incr, Left) \
+	X(Block, ";", Infix, Incr, Right) \
 	X(Send, "~>", Infix, Incr, Left) \
 \
-	X(Concatenate, ",", Infix, Incr, Left) \
-	X(Layer, "$", Infix, Last, Left) \
+	X(Let, "let", Primary, Incr, Right) \
+	X(Function, "function", Primary, Incr, Right) \
 \
+	X(Layer, "$", Infix, Last, Left) \
 	X(Map, "@", Infix, Incr, Left) \
 \
-	X(Call, "call", Infix, Incr, Left) \
+	X(Concatenate, ",", Infix, Incr, Left) \
 \
-	X(Function, "function", Primary, Incr, Left) \
-\
-	X(Assign, "=>", Infix, Incr, Left) \
+	X(Call, "call", Infix, Incr, Right) \
 \
 	X(Or, "or", Infix, Incr, Left) \
 	X(Xor, "xor", Infix, Last, Left) \
