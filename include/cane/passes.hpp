@@ -88,27 +88,32 @@ namespace cane {
 	// Parse a string and run a collection of passes on it before evaluating
 	// it.
 	template <typename... Ts>
-	[[nodiscard]] decltype(auto) parse_and_compile(
+	[[nodiscard]] std::optional<Sequence> parse_and_compile(
 		std::string_view source, Configuration cfg, Ts&&... passes
 	) {
 		cane::Parser parser { source };
-		auto root = parser.parse();
 
-		root = pipeline(cfg, root, std::forward<Ts>(passes)...);
-		return pass_evaluator(cfg, root);
+		return parser.parse().transform([&](auto root) {
+			return pass_evaluator(
+				cfg, pipeline(cfg, root, std::forward<Ts>(passes)...)
+			);
+		});
 	}
 
 	template <typename... Ts>
-	[[nodiscard]] decltype(auto) debug_parse_and_compile(
+	[[nodiscard]] std::optional<Sequence> debug_parse_and_compile(
 		std::string_view source, Configuration cfg, Ts&&... passes
 	) {
 		cane::Parser parser { source };
-		auto root = parser.parse();
 
-		CANE_UNUSED(pass_print(cfg, root));
-
-		root = debug_pipeline(cfg, root, std::forward<Ts>(passes)...);
-		return pass_evaluator(cfg, root);
+		return parser.parse().transform([&](auto root) {
+			return pass_evaluator(
+				cfg,
+				debug_pipeline(
+					cfg, pass_print(cfg, root), std::forward<Ts>(passes)...
+				)
+			);
+		});
 	}
 
 	//////////////////////
@@ -221,16 +226,15 @@ namespace cane {
 	// Type Checker //
 	//////////////////
 
-	struct TypeEnvironment {
-		std::unordered_map<std::string_view, BoxNode> bindings;
-	};
+	using TypeEnvironment = std::unordered_map<std::string_view, BoxNode>;
 
 	[[nodiscard]] inline std::tuple<TypeKind, BoxNode, TypeEnvironment>
 	pass_type_resolution_walk(
 		Configuration cfg,
 		TypeEnvironment env,
 		BoxNode node,
-		std::vector<BoxNode> args
+		std::vector<BoxNode> args,
+		bool validate_bindings
 	);
 
 	[[nodiscard]] inline BoxNode
@@ -238,8 +242,9 @@ namespace cane {
 		CANE_FUNC();
 		TypeEnvironment env;
 
-		auto [root, root_node, root_env] =
-			pass_type_resolution_walk(cfg, env, node, /* args = */ {});
+		auto [root, root_node, root_env] = pass_type_resolution_walk(
+			cfg, env, node, /* args = */ {}, /*validate_bindings= */ true
+		);
 
 		CANE_UNUSED(pass_print(cfg, node));
 
@@ -387,12 +392,17 @@ namespace cane {
 		Configuration cfg,
 		TypeEnvironment env,
 		BoxNode node,
-		std::vector<BoxNode> args
+		std::vector<BoxNode> args,
+		bool validate_bindings
 	) {
 		CANE_UNUSED(pass_print(cfg, node));
 
 		if (node == nullptr) {
 			return { TypeKind::None, nullptr, env };
+		}
+
+		for (auto& [k, v]: env) {
+			std::println(CANE_COLOUR_GREEN CANE_BOLD "{} -> {}", k, *v);
 		}
 
 		switch (node->kind) {
@@ -411,6 +421,21 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Function: {
+				// If we return a function from another function that uses
+				// bindings from the parent scope, we need to replace them
+				// in the body of this function.
+
+				// NOTE: How do we replace any references to bindings in the
+				// body without evaluating it?
+
+				auto [fn, fn_node, fn_env] = pass_type_resolution_walk(
+					cfg,
+					env,
+					node->rhs,
+					/* args = */ {},
+					/*validate_bindings = */ false
+				);
+
 				// Uncalled function.
 				if (args.empty()) {
 					return { TypeKind::Function, node, env };
@@ -420,40 +445,45 @@ namespace cane {
 				// Do not visit the argument here, we only visit it once it's
 				// _used_.
 
+				// Important that we shadow any other bindings of the same name.
 				auto param = node->lhs;
 
-				env.bindings.try_emplace(param->sv, args.back());
+				env.insert_or_assign(param->sv, args.back());
 				args.pop_back();
 
-				auto [fn, fn_node, fn_env] =
-					pass_type_resolution_walk(cfg, env, node->rhs, args);
-
-				return { fn, fn_node, env };
+				return pass_type_resolution_walk(
+					cfg, env, node->rhs, args, validate_bindings
+				);
 			} break;
 
 			case SymbolKind::Call: {
-				// Visit `rhs` first and emplace it into arguments vector. This
-				// might not actually be the right thing to do since we have
-				// lazy-eval but we should probably resolve any
-				// bindings/references.
+				args.emplace_back(node->rhs);
 
-				// TODO: Investigate if we should be visiting the argument here.
-				auto [arg, arg_node, arg_env] =
-					pass_type_resolution_walk(cfg, env, node->rhs, args);
+				auto [fn, fn_node, fn_env] = pass_type_resolution_walk(
+					cfg, env, node->lhs, args, validate_bindings
+				);
 
-				args.emplace_back(arg_node);
+				// cane::report_if(
+				// 	fn != TypeKind::Function,
+				// 	ReportKind::Semantic,
+				// 	"cannot call non-function type `{}`",
+				// 	fn
+				// );
 
-				auto [call, call_node, call_env] =
-					pass_type_resolution_walk(cfg, arg_env, node->lhs, args);
-
-				return { call, call_node, env };
+				return pass_type_resolution_walk(
+					cfg, env, node->lhs, args, validate_bindings
+				);
 			} break;
 
 			case SymbolKind::Identifier: {
-				auto it = env.bindings.find(node->sv);
+				auto it = env.find(node->sv);
+
+				if (it == env.end() and not validate_bindings) {
+					return { TypeKind::None, node, env };
+				}
 
 				cane::report_if(
-					it == env.bindings.end(),
+					it == env.end(),
 					ReportKind::Semantic,
 					"unknown binding `{}`",
 					node->sv
@@ -463,22 +493,23 @@ namespace cane {
 				// future references to the same binding.
 				auto expr = deepcopy(it->second);
 
-				auto [ident, ident_body, ident_env] =
-					pass_type_resolution_walk(cfg, env, expr, args);
-
-				return { ident, ident_body, env };
+				return pass_type_resolution_walk(
+					cfg, env, expr, args, validate_bindings
+				);
 			} break;
 
 			case SymbolKind::Let: {
 				auto binding = node->lhs;
 
 				auto [assign, assign_node, assign_env] =
-					pass_type_resolution_walk(cfg, env, node->rhs, args);
+					pass_type_resolution_walk(
+						cfg, env, node->rhs, args, validate_bindings
+					);
 
 				// NOTE: Do we need a `deepcopy` here or just when we reference
 				// the binding?
 				auto expr = deepcopy(assign_node);
-				auto [it, succ] = env.bindings.try_emplace(binding->sv, expr);
+				auto [it, succ] = env.try_emplace(binding->sv, expr);
 
 				cane::report_if(
 					not succ,
@@ -495,11 +526,13 @@ namespace cane {
 				// effects from assignment.
 
 				// We just return the right hand side type.
-				auto [lhs, lhs_node, lhs_env] =
-					pass_type_resolution_walk(cfg, env, node->lhs, args);
+				auto [lhs, lhs_node, lhs_env] = pass_type_resolution_walk(
+					cfg, env, node->lhs, args, validate_bindings
+				);
 
-				auto [rhs, rhs_node, rhs_env] =
-					pass_type_resolution_walk(cfg, lhs_env, node->rhs, args);
+				auto [rhs, rhs_node, rhs_env] = pass_type_resolution_walk(
+					cfg, lhs_env, node->rhs, args, validate_bindings
+				);
 
 				return { rhs, rhs_node, rhs_env };
 			} break;
@@ -509,11 +542,13 @@ namespace cane {
 				// Visit both children, even in the case of unary nodes.
 				// We will exit early if any child is a nullptr anyway.
 
-				auto [lhs, lhs_node, lhs_env] =
-					pass_type_resolution_walk(cfg, env, node->lhs, args);
+				auto [lhs, lhs_node, lhs_env] = pass_type_resolution_walk(
+					cfg, env, node->lhs, args, validate_bindings
+				);
 
-				auto [rhs, rhs_node, rhs_env] =
-					pass_type_resolution_walk(cfg, env, node->rhs, args);
+				auto [rhs, rhs_node, rhs_env] = pass_type_resolution_walk(
+					cfg, env, node->rhs, args, validate_bindings
+				);
 
 				// Search for a type mapping.
 				auto [succ, type, op] = type_remap_trivial(cfg, lhs, rhs, node);
@@ -624,8 +659,9 @@ namespace cane {
 
 			case SymbolKind::Identifier: {
 				cane::report(
-					ReportKind::Internal,
-					"identifier not resolved in call context"
+					ReportKind::Semantic,
+					"identifier `{}` not resolved in call context",
+					node->sv
 				);
 
 				return std::monostate {};

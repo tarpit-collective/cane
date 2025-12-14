@@ -12,7 +12,11 @@ int main(int, const char* argv[]) {
 		auto seq =
 			cane::debug_parse_and_compile(src, cfg, cane::pass_type_resolution);
 
-		for (auto e: seq) {
+		if (not seq.has_value()) {
+			cane::report(cane::ReportKind::Generic, "empty file");
+		}
+
+		for (auto e: seq.value()) {
 			std::println("{}", e);
 		}
 	}

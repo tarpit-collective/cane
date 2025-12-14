@@ -215,7 +215,7 @@ namespace cane {
 \
 	X(Concatenate, ",", Infix, Incr, Left) \
 \
-	X(Call, "call", Infix, Incr, Right) \
+	X(Call, "call", Infix, Incr, Left) \
 \
 	X(Or, "or", Infix, Incr, Left) \
 	X(Xor, "xor", Infix, Last, Left) \

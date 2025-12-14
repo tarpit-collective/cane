@@ -123,8 +123,13 @@ namespace cane {
 		//////////////////////
 
 		// Core parsing functions
-		[[nodiscard]] BoxNode parse() {
+		[[nodiscard]] OptionalBoxNode parse() {
 			CANE_FUNC();
+
+			if (lx.peek_is_kind(SymbolKind::EndFile)) {
+				return std::nullopt;
+			}
+
 			auto expr = parse_expression();
 
 			if (not lx.peek_is_kind(SymbolKind::EndFile)) {
