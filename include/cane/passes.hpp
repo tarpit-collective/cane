@@ -428,13 +428,13 @@ namespace cane {
 				// NOTE: How do we replace any references to bindings in the
 				// body without evaluating it?
 
-				auto [fn, fn_node, fn_env] = pass_type_resolution_walk(
-					cfg,
-					env,
-					node->rhs,
-					/* args = */ {},
-					/*validate_bindings = */ false
-				);
+				// auto [fn, fn_node, fn_env] = pass_type_resolution_walk(
+				// 	cfg,
+				// 	env,
+				// 	node->rhs,
+				// 	/* args = */ {},
+				// 	/*validate_bindings = */ false
+				// );
 
 				// Uncalled function.
 				if (args.empty()) {
