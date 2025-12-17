@@ -217,11 +217,33 @@ namespace cane {
 			detail::pass_print_indent_node_child_lhs(
 				cfg, node, bits, depth + 1
 			);
+
 			detail::pass_print_indent_node_child_rhs(
 				cfg, node, bits, depth + 1
 			);
 		}
 
+		return node;
+	}
+
+	///////////
+	// Trace //
+	///////////
+
+	// Print the tree as close to the original source as possible for debugging
+	// more complex transformations.
+
+	[[nodiscard]] inline BoxNode
+	pass_trace_walk(Configuration cfg, BoxNode node);
+
+	[[nodiscard]] inline BoxNode pass_trace(Configuration cfg, BoxNode node) {
+		CANE_FUNC();
+
+		return pass_trace_walk(cfg, node);
+	}
+
+	[[nodiscard]] inline BoxNode
+	pass_trace_walk(Configuration cfg, BoxNode node) {
 		return node;
 	}
 
@@ -255,6 +277,10 @@ namespace cane {
 	// Resolve all bindings (not parameters/arguments) and return a single
 	// expression (since the only side effect is assignment, once resolved, all
 	// that actually matters is the final expression).
+
+	// We track stack depth so that we can assign a unique ID to each
+	// identifier. This is to workaround things like shadowing where we have
+	// multiple of the same identifier.
 
 	struct BindingEntry {
 		std::string_view sv;
@@ -292,6 +318,8 @@ namespace cane {
 		size_t depth,
 		BoxNode node
 	) {
+		// Print the bindings in the current scope.
+		CANE_OKAY("bindings:");
 		for (auto [sv, kind, depth, node]: bindings) {
 			std::string indent(depth * 2, ' ');
 			std::println(
@@ -325,8 +353,8 @@ namespace cane {
 					param->sv, BindingKind::Parameter, depth, nullptr
 				);
 
-				CANE_FAIL("new parameter `{}`", param->sv);
-
+				// We must visit the function body here to resolve any
+				// references to bindings.
 				auto [fn, fn_env] = pass_binding_resolution_walk(
 					cfg, bindings, depth + 1, new_node->rhs
 				);
@@ -339,6 +367,7 @@ namespace cane {
 
 			case SymbolKind::Let: {
 				auto binding = new_node->lhs;
+
 				auto [assign, assign_env] = pass_binding_resolution_walk(
 					cfg, bindings, depth + 1, new_node->rhs
 				);
@@ -349,17 +378,18 @@ namespace cane {
 					binding->sv, BindingKind::Binding, depth, deepcopy(assign)
 				);
 
-				CANE_OKAY("new binding `{}`", binding->sv);
-				CANE_UNUSED(pass_print(cfg, assign));
-
+				// Return the inner node so that `let` becomes it's own value.
 				return { assign, bindings };
 			} break;
 
 			case SymbolKind::Call: {
+				// Resolve any references in the argument before passing it to
+				// the function.
 				auto [arg, arg_env] = pass_binding_resolution_walk(
 					cfg, bindings, depth + 1, new_node->rhs
 				);
 
+				// Now resolve references in the function on the left.
 				auto [call, call_env] = pass_binding_resolution_walk(
 					cfg, bindings, depth + 1, new_node->lhs
 				);
@@ -371,7 +401,15 @@ namespace cane {
 			} break;
 
 			case SymbolKind::Identifier: {
-				CANE_WARN("reference binding `{}`", new_node->sv);
+				// To find a valid binding, we do a search backwards through the
+				// scope. We then check if we've found _any_ bindings. If not,
+				// we know that no bindings _or_ parameters with that name exist
+				// so we error.
+
+				// If we _do_ find something, in the case of a
+				// parameter, we just keep the graph as it is but in the case of
+				// a binding, we substitute in the subtree in place of the
+				// identifier.
 
 				auto ref = std::ranges::find(
 					bindings | std::views::reverse,
@@ -399,10 +437,15 @@ namespace cane {
 					return { ident, bindings };
 				}
 
+				// In the case of a parameter, just return the node unchanged.
 				return { new_node, bindings };
 			} break;
 
 			case SymbolKind::Block: {
+				// Blocks discard the `lhs` value but they do still maintain
+				// their binding environment. Below, we pass the `lhs`
+				// environment into the `rhs`.
+
 				auto [lhs, lhs_env] = pass_binding_resolution_walk(
 					cfg, bindings, depth + 1, new_node->lhs
 				);
