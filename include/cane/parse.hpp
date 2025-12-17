@@ -124,7 +124,7 @@ namespace cane {
 
 		// Core parsing functions
 		[[nodiscard]] OptionalBoxNode parse() {
-			CANE_FUNC();
+			// CANE_FUNC();
 
 			if (lx.peek_is_kind(SymbolKind::EndFile)) {
 				return std::nullopt;
@@ -144,7 +144,7 @@ namespace cane {
 		}
 
 		[[nodiscard]] OptionalBoxNode parse_primary() {
-			CANE_FUNC();
+			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
 			auto bp = binding_power(symbol.kind);
@@ -285,7 +285,7 @@ namespace cane {
 		}
 
 		[[nodiscard]] OptionalBoxNode parse_prefix() {
-			CANE_FUNC();
+			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
 			auto bp = binding_power(symbol.kind);
@@ -314,7 +314,7 @@ namespace cane {
 		}
 
 		[[nodiscard]] OptionalBoxNode parse_infix(BoxNode lhs) {
-			CANE_FUNC();
+			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
 			auto bp = binding_power(symbol.kind);
@@ -336,7 +336,7 @@ namespace cane {
 		}
 
 		[[nodiscard]] OptionalBoxNode parse_postfix(BoxNode lhs) {
-			CANE_FUNC();
+			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
 
@@ -352,7 +352,7 @@ namespace cane {
 		}
 
 		[[nodiscard]] BoxNode parse_expression(size_t min_bp = 0) {
-			CANE_FUNC();
+			// CANE_FUNC();
 
 			OptionalBoxNode node =
 				parse_primary().or_else([&] { return parse_prefix(); });

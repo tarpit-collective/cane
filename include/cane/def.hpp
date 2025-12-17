@@ -562,6 +562,42 @@ namespace cane {
 		return (os << report_kind_to_str_human(log));
 	}
 
+	//////////////
+	// Bindings //
+	//////////////
+
+#define CANE_BINDING_KINDS \
+	X(Parameter, "parameter") \
+	X(Binding, "binding")
+
+#define X(x, y) x,
+	enum class BindingKind {
+		CANE_BINDING_KINDS Total
+	};
+#undef X
+
+// Maps the enum const direct to a string
+#define X(x, y) CANE_CSTR(#x),
+	inline std::array BINDING_KIND_TO_STR = { CANE_BINDING_KINDS };
+#undef X
+
+// Map the enum const to a human readable string
+#define X(x, y) CANE_CSTR(y),
+	inline std::array BINDING_KIND_TO_STR_HUMAN = { CANE_BINDING_KINDS };
+#undef X
+
+	constexpr std::string_view binding_kind_to_str(BindingKind x) {
+		return BINDING_KIND_TO_STR[static_cast<size_t>(x)];
+	}
+
+	constexpr std::string_view binding_kind_to_str_human(BindingKind x) {
+		return BINDING_KIND_TO_STR_HUMAN[static_cast<size_t>(x)];
+	}
+
+	inline std::ostream& operator<<(std::ostream& os, BindingKind log) {
+		return (os << binding_kind_to_str_human(log));
+	}
+
 	/////////////
 	// Logging //
 	/////////////
@@ -648,6 +684,7 @@ CANE_FORMATTER_DEF(cane::SymbolKind);
 CANE_FORMATTER_DEF(cane::TypeKind);
 CANE_FORMATTER_DEF(cane::EventKind);
 CANE_FORMATTER_DEF(cane::ReportKind);
+CANE_FORMATTER_DEF(cane::BindingKind);
 CANE_FORMATTER_DEF(cane::LogKind);
 
 #endif

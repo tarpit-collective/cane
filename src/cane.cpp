@@ -9,16 +9,28 @@ int main(int, const char* argv[]) {
 
 		auto src = cane::read_file(argv[1]);
 
-		auto seq =
-			cane::debug_parse_and_compile(src, cfg, cane::pass_type_resolution);
+		cane::Parser parser { src };
+		auto root = parser.parse();
 
-		if (not seq.has_value()) {
-			cane::report(cane::ReportKind::Generic, "empty file");
+		if (not root.has_value()) {
+			return EXIT_FAILURE;
 		}
 
-		for (auto e: seq.value()) {
-			std::println("{}", e);
-		}
+		root = cane::pipeline(cfg, root.value(), cane::pass_print);
+		root = cane::pipeline(cfg, root.value(), cane::pass_binding_resolution);
+		// root = cane::pipeline(cfg, root.value(), cane::pass_type_resolution);
+		root = cane::pipeline(cfg, root.value(), cane::pass_print);
+
+		// auto seq =
+		// 	cane::debug_parse_and_compile(src, cfg, cane::pass_type_resolution);
+
+		// if (not seq.has_value()) {
+		// 	cane::report(cane::ReportKind::Generic, "empty file");
+		// }
+
+		// for (auto e: seq.value()) {
+		// 	std::println("{}", e);
+		// }
 	}
 
 	catch (const cane::Fatal& e) {
