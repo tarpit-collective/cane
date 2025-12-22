@@ -190,6 +190,15 @@ namespace cane {
 	X(Whitespace, "whitespace", None, None, None) \
 	X(Comment, "comment", None, None, None) \
 \
+	X(Arrow, "->", None, None, None) \
+\
+	X(TypeNumber, "type number", None, None, None) \
+	X(TypeString, "type string", None, None, None) \
+	X(TypeRhythm, "type rhythm", None, None, None) \
+	X(TypeMelody, "type melody", None, None, None) \
+	X(TypeSequence, "type sequence", None, None, None) \
+	X(TypePattern, "type pattern", None, None, None) \
+\
 	X(Number, "number", Literal, None, None) \
 	X(String, "string", Literal, None, None) \
 \

@@ -49,29 +49,6 @@ namespace cane {
 	inline BoxNode pass_trace(Configuration cfg, BoxNode node);
 	inline BoxNode pass_validate(Configuration cfg, BoxNode node);
 
-	// inline BoxNode pass_binding_resolution(Configuration cfg, BoxNode node);
-	// inline BoxNode pass_type_resolution(Configuration cfg, BoxNode node);
-
-	///////////////
-	// Utilities //
-	///////////////
-
-	inline BoxNode deepcopy(BoxNode root) {
-		if (root == nullptr) {
-			return nullptr;
-		}
-
-		return std::make_shared<Node>(
-			root->kind,
-			root->op,
-			root->sv,
-			root->type,
-
-			/* lhs = */ deepcopy(root->lhs),
-			/* rhs = */ deepcopy(root->rhs)
-		);
-	}
-
 	//////////////////
 	// Compile/Eval //
 	//////////////////
@@ -498,7 +475,7 @@ namespace cane {
 
 		// TODO: Just copy the whole tree in the entry function for this pass
 		// and then we can update it in-place.
-		auto new_node = deepcopy(node);
+		auto new_node = deepcopy(node, &Node::lhs, &Node::rhs);
 
 		switch (node->kind) {
 			case SymbolKind::Number:
@@ -535,10 +512,13 @@ namespace cane {
 					cfg, new_node->rhs, bindings, depth + 1
 				);
 
-				new_node->rhs = deepcopy(assign);
+				new_node->rhs = deepcopy(assign, &Node::lhs, &Node::rhs);
 
 				bindings.emplace_back(
-					binding->sv, BindingKind::Binding, depth, deepcopy(assign)
+					binding->sv,
+					BindingKind::Binding,
+					depth,
+					deepcopy(assign, &Node::lhs, &Node::rhs)
 				);
 
 				// Return the inner node so that `let` becomes it's own value.
@@ -594,7 +574,10 @@ namespace cane {
 
 				if (kind == BindingKind::Binding) {
 					auto [ident, ident_env] = pass_binding_resolution_walk(
-						cfg, deepcopy(node), bindings, depth + 1
+						cfg,
+						deepcopy(node, &Node::lhs, &Node::rhs),
+						bindings,
+						depth + 1
 					);
 
 					new_node = ident;
@@ -828,7 +811,7 @@ namespace cane {
 
 		// TODO: Just copy the whole tree in the entry function for this pass
 		// and then we can update it in-place.
-		auto new_node = deepcopy(node);
+		auto new_node = deepcopy(node, &Node::lhs, &Node::rhs);
 
 		switch (node->kind) {
 			// Literals
@@ -907,13 +890,13 @@ namespace cane {
 					);
 
 				new_node->type = assign;
-				new_node->rhs = deepcopy(assign_node);
+				new_node->rhs = deepcopy(assign_node, &Node::lhs, &Node::rhs);
 
 				bindings.emplace_back(
 					binding->sv,
 					BindingKind::Binding,
 					depth,
-					deepcopy(assign_node)
+					deepcopy(assign_node, &Node::lhs, &Node::rhs)
 				);
 
 				CANE_OKAY("new binding = {}", binding->sv);
@@ -996,7 +979,7 @@ namespace cane {
 					auto [ident, ident_node, ident_env] =
 						pass_type_resolution_walk(
 							cfg,
-							deepcopy(node),
+							deepcopy(node, &Node::lhs, &Node::rhs),
 							bindings,
 							arg,
 							is_called,

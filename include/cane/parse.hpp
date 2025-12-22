@@ -11,6 +11,53 @@
 
 namespace cane {
 
+	///////////////
+	// Utilities //
+	///////////////
+
+	template <typename T>
+	inline std::shared_ptr<T> deepcopy(
+		std::shared_ptr<T> root,
+
+		std::shared_ptr<T> T::* lhs,
+		std::shared_ptr<T> T::* rhs
+	) {
+		if (root == nullptr) {
+			return nullptr;
+		}
+
+		auto ptr = std::make_shared<T>(*root);
+
+		(*ptr).*lhs = deepcopy(root->lhs, lhs, rhs);
+		(*ptr).*rhs = deepcopy(root->rhs, lhs, rhs);
+
+		return ptr;
+	}
+
+	//////////
+	// Type //
+	//////////
+
+	struct Type {
+		TypeKind kind;
+
+		std::shared_ptr<Type> lhs;
+		std::shared_ptr<Type> rhs;
+
+		Type(
+			TypeKind kind_,
+
+			std::shared_ptr<Type> lhs_,
+			std::shared_ptr<Type> rhs_
+		):
+				kind(kind_), lhs(lhs_), rhs(rhs_) {}
+
+		Type(TypeKind kind_): kind(kind_), lhs(nullptr), rhs(nullptr) {}
+
+		Type(TypeKind kind_, std::shared_ptr<Type> type):
+				kind(kind_), lhs(type), rhs(nullptr) {}
+	};
+
 	/////////
 	// AST //
 	/////////
@@ -25,6 +72,8 @@ namespace cane {
 
 		std::shared_ptr<Node> lhs;
 		std::shared_ptr<Node> rhs;
+
+		Node(const Node& n) = default;
 
 		Node(
 			SymbolKind kind_,
@@ -143,6 +192,47 @@ namespace cane {
 			return expr;
 		}
 
+		std::optional<TypeKind> type_annotation() {
+			// TODO: Parse nested types into a type tree
+			// CANE_FUNC();
+
+			if (lx.discard_if_kind(SymbolKind::TypeNumber)) {
+				return TypeKind::Scalar;
+			}
+
+			else if (lx.discard_if_kind(SymbolKind::TypeString)) {
+				return TypeKind::String;
+			}
+
+			else if (lx.discard_if_kind(SymbolKind::TypeRhythm)) {
+				return TypeKind::Rhythm;
+			}
+
+			else if (lx.discard_if_kind(SymbolKind::TypeMelody)) {
+				return TypeKind::Melody;
+			}
+
+			else if (lx.discard_if_kind(SymbolKind::TypeSequence)) {
+				return TypeKind::Sequence;
+			}
+
+			else if (lx.discard_if_kind(SymbolKind::TypePattern)) {
+				return TypeKind::Pattern;
+			}
+
+			return std::nullopt;
+		}
+
+		std::optional<TypeKind> type() {
+			// CANE_FUNC();
+
+			if (not lx.discard_if_kind(SymbolKind::Arrow)) {
+				return std::nullopt;
+			}
+
+			return type_annotation();
+		}
+
 		[[nodiscard]] OptionalBoxNode parse_primary() {
 			// CANE_FUNC();
 
@@ -234,6 +324,13 @@ namespace cane {
 						identifier.value().sv,
 						TypeKind::None
 					);
+
+					auto param_type = type();
+					if (not param_type.has_value()) {
+						cane::report(
+							ReportKind::Lexical, "expected a type annotation"
+						);
+					}
 
 					// Reset binding power and parse body
 					auto body = parse_expression(bp.value().right);

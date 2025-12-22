@@ -275,14 +275,45 @@ namespace cane {
 				symbol.kind = SymbolKind::Tail;
 			}
 
+			// Type annotations
+			else if (symbol.sv == CANE_CSTR("num") or
+					 symbol.sv == CANE_CSTR("number")) {
+				symbol.kind = SymbolKind::TypeNumber;
+			}
+
+			else if (symbol.sv == CANE_CSTR("str") or
+					 symbol.sv == CANE_CSTR("string")) {
+				symbol.kind = SymbolKind::TypeString;
+			}
+
+			else if (symbol.sv == CANE_CSTR("rhy") or
+					 symbol.sv == CANE_CSTR("rhythm")) {
+				symbol.kind = SymbolKind::TypeRhythm;
+			}
+
+			else if (symbol.sv == CANE_CSTR("mel") or
+					 symbol.sv == CANE_CSTR("melody")) {
+				symbol.kind = SymbolKind::TypeMelody;
+			}
+
+			else if (symbol.sv == CANE_CSTR("seq") or
+					 symbol.sv == CANE_CSTR("sequence")) {
+				symbol.kind = SymbolKind::TypeSequence;
+			}
+
+			else if (symbol.sv == CANE_CSTR("pat") or
+					 symbol.sv == CANE_CSTR("pattern")) {
+				symbol.kind = SymbolKind::TypePattern;
+			}
+
 			return symbol;
 		}
 
 		std::optional<Symbol> produce_sigil() {
 			return produce_str(SymbolKind::Coerce, CANE_CSTR("&"))
-				// .or_else([&] {
-				// 	return produce_str(SymbolKind::Assign, CANE_CSTR("=>"));
-				// })
+				.or_else([&] {
+					return produce_str(SymbolKind::Arrow, CANE_CSTR("->"));
+				})
 				.or_else([&] {
 					return produce_str(SymbolKind::Send, CANE_CSTR("~>"));
 				})
