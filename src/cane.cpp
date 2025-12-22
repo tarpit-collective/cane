@@ -16,8 +16,15 @@ int main(int, const char* argv[]) {
 			return EXIT_FAILURE;
 		}
 
-		root = cane::pipeline(cfg, root.value(), cane::pass_print);
-		root = cane::pipeline(cfg, root.value(), cane::pass_binding_resolution);
+		root = cane::pipeline(cfg, root.value(), cane::pass_validate);
+		// root = cane::pipeline(cfg, root.value(), cane::pass_print);
+		root = cane::pipeline(cfg, root.value(), cane::pass_type_resolution);
+		// root = cane::pipeline(cfg, root.value(),
+		// cane::pass_binding_resolution); root = cane::pipeline(cfg,
+		// root.value(), cane::pass_trace); root = cane::pipeline(cfg,
+		// root.value(), cane::pass_validate);
+		// root = cane::pipeline(cfg, root.value(), cane::pass_print);
+
 		// root = cane::pipeline(cfg, root.value(), cane::pass_type_resolution);
 		root = cane::pipeline(cfg, root.value(), cane::pass_print);
 

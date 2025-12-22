@@ -61,6 +61,8 @@ namespace cane {
 #define CANE_OPFIX_KINDS \
 	X(None, "none") \
 \
+	X(Operator, "operator") \
+\
 	X(Primary, "primary") \
 	X(Literal, "literal") \
 \
@@ -198,8 +200,10 @@ namespace cane {
 \
 	X(LeftParen, "(", Primary, None, None) \
 	X(RightParen, ")", None, None, None) \
+\
 	X(LeftBrace, "{", None, None, None) \
 	X(RightBrace, "}", None, None, None) \
+\
 	X(LeftBracket, "[", None, None, None) \
 	X(RightBracket, "]", None, None, None) \
 \
@@ -256,105 +260,109 @@ namespace cane {
 	/* === Type Specific Symbols (Assigned during typechecking) === */ \
 \
 	/* PREFIX/UNARY */ \
-	X(AbsScalar, "scalar abs", None, None, None) \
-	X(NegScalar, "scalar neg", None, None, None) \
+	X(AbsScalar, "scalar abs", Operator, None, None) \
+	X(NegScalar, "scalar neg", Operator, None, None) \
 \
-	X(InvertRhythm, "rhythm invert", None, None, None) \
-	X(ReverseRhythm, "rhythm reverse", None, None, None) \
+	X(InvertRhythm, "rhythm invert", Operator, None, None) \
+	X(ReverseRhythm, "rhythm reverse", Operator, None, None) \
 \
-	X(ReverseMelody, "melody reverse", None, None, None) \
+	X(ReverseMelody, "melody reverse", Operator, None, None) \
 \
-	X(IncrScalar, "scalar incr", None, None, None) \
-	X(DecrScalar, "scalar decr", None, None, None) \
+	X(IncrScalar, "scalar incr", Operator, None, None) \
+	X(DecrScalar, "scalar decr", Operator, None, None) \
 \
 	/* SCALAR */ \
-	X(AddScalarScalar, "scalar add", None, None, None) \
-	X(SubScalarScalar, "scalar sub", None, None, None) \
-	X(MulScalarScalar, "scalar mul", None, None, None) \
-	X(DivScalarScalar, "scalar div", None, None, None) \
+	X(AddScalarScalar, "scalar add", Operator, None, None) \
+	X(SubScalarScalar, "scalar sub", Operator, None, None) \
+	X(MulScalarScalar, "scalar mul", Operator, None, None) \
+	X(DivScalarScalar, "scalar div", Operator, None, None) \
 \
-	X(LeftShiftScalarScalar, "scalar lshift", None, None, None) \
-	X(RightShiftScalarScalar, "scalar rshift", None, None, None) \
+	X(LeftShiftScalarScalar, "scalar lshift", Operator, None, None) \
+	X(RightShiftScalarScalar, "scalar rshift", Operator, None, None) \
 \
-	X(LCMScalarScalar, "scalar lcm", None, None, None) \
-	X(GCDScalarScalar, "scalar gcd", None, None, None) \
+	X(LCMScalarScalar, "scalar lcm", Operator, None, None) \
+	X(GCDScalarScalar, "scalar gcd", Operator, None, None) \
 \
-	X(EuclideanScalarScalar, "scalar euclidean", None, None, None) \
-	X(ConcatenateScalarScalar, "scalar concatenate", None, None, None) \
+	X(EuclideanScalarScalar, "scalar euclidean", Operator, None, None) \
+	X(ConcatenateScalarScalar, "scalar concatenate", Operator, None, None) \
 \
-	X(RandomScalarScalar, "scalar random", None, None, None) \
+	X(RandomScalarScalar, "scalar random", Operator, None, None) \
 \
 	/* MELODY */ \
-	X(CoerceScalar, "coerce scalar", None, None, None) \
-	X(CoerceMelody, "coerce melody", None, None, None) \
+	X(CoerceScalar, "coerce scalar", Operator, None, None) \
+	X(CoerceMelody, "coerce melody", Operator, None, None) \
 \
-	X(MapMelodyRhythm, "melody map", None, None, None) \
-	X(MapScalarRhythm, "melody map", None, None, None) \
+	X(MapMelodyRhythm, "melody map", Operator, None, None) \
+	X(MapScalarRhythm, "melody map", Operator, None, None) \
 \
-	X(LeftShiftMelodyScalar, "melody lshift", None, None, None) \
-	X(RightShiftMelodyScalar, "melody rshift", None, None, None) \
+	X(LeftShiftMelodyScalar, "melody lshift", Operator, None, None) \
+	X(RightShiftMelodyScalar, "melody rshift", Operator, None, None) \
 \
-	X(AddMelodyScalar, "melody add", None, None, None) \
-	X(SubMelodyScalar, "melody sub", None, None, None) \
-	X(MulMelodyScalar, "melody mul", None, None, None) \
-	X(DivMelodyScalar, "melody div", None, None, None) \
+	X(AddMelodyScalar, "melody add", Operator, None, None) \
+	X(SubMelodyScalar, "melody sub", Operator, None, None) \
+	X(MulMelodyScalar, "melody mul", Operator, None, None) \
+	X(DivMelodyScalar, "melody div", Operator, None, None) \
 \
-	X(AddMelodyMelody, "melody add", None, None, None) \
-	X(SubMelodyMelody, "melody sub", None, None, None) \
-	X(MulMelodyMelody, "melody mul", None, None, None) \
-	X(DivMelodyMelody, "melody div", None, None, None) \
+	X(AddMelodyMelody, "melody add", Operator, None, None) \
+	X(SubMelodyMelody, "melody sub", Operator, None, None) \
+	X(MulMelodyMelody, "melody mul", Operator, None, None) \
+	X(DivMelodyMelody, "melody div", Operator, None, None) \
 \
-	X(RepeatMelodyScalar, "melody repeat", None, None, None) \
+	X(RepeatMelodyScalar, "melody repeat", Operator, None, None) \
 \
-	X(ConcatenateMelodyMelody, "melody concatenate", None, None, None) \
-	X(ConcatenateMelodyScalar, "melody concatenate", None, None, None) \
-	X(ConcatenateScalarMelody, "melody concatenate", None, None, None) \
+	X(ConcatenateMelodyMelody, "melody concatenate", Operator, None, None) \
+	X(ConcatenateMelodyScalar, "melody concatenate", Operator, None, None) \
+	X(ConcatenateScalarMelody, "melody concatenate", Operator, None, None) \
 \
-	X(HeadMelody, "melody head", None, None, None) \
-	X(TailMelody, "melody tail", None, None, None) \
+	X(HeadMelody, "melody head", Operator, None, None) \
+	X(TailMelody, "melody tail", Operator, None, None) \
 \
 	/* RHYTHM */ \
-	X(MapRhythmMelody, "rhythm map", None, None, None) \
-	X(MapRhythmScalar, "rhythm map", None, None, None) \
+	X(MapRhythmMelody, "rhythm map", Operator, None, None) \
+	X(MapRhythmScalar, "rhythm map", Operator, None, None) \
 \
-	X(LeftShiftRhythmScalar, "rhythm lshift", None, None, None) \
-	X(RightShiftRhythmScalar, "rhythm rshift", None, None, None) \
+	X(LeftShiftRhythmScalar, "rhythm lshift", Operator, None, None) \
+	X(RightShiftRhythmScalar, "rhythm rshift", Operator, None, None) \
 \
-	X(RepeatRhythmScalar, "rhythm repeat", None, None, None) \
-	X(ConcatenateRhythmRhythm, "rhythm concatenate", None, None, None) \
+	X(RepeatRhythmScalar, "rhythm repeat", Operator, None, None) \
+	X(ConcatenateRhythmRhythm, "rhythm concatenate", Operator, None, None) \
 \
-	X(OrRhythmRhythm, "rhythm or", None, None, None) \
-	X(XorRhythmRhythm, "rhythm xor", None, None, None) \
-	X(AndRhythmRhythm, "rhythm and", None, None, None) \
+	X(OrRhythmRhythm, "rhythm or", Operator, None, None) \
+	X(XorRhythmRhythm, "rhythm xor", Operator, None, None) \
+	X(AndRhythmRhythm, "rhythm and", Operator, None, None) \
 \
-	X(HeadRhythm, "rhythm head", None, None, None) \
-	X(TailRhythm, "rhythm tail", None, None, None) \
+	X(HeadRhythm, "rhythm head", Operator, None, None) \
+	X(TailRhythm, "rhythm tail", Operator, None, None) \
 \
 	/* SEQUENCE */ \
-	X(ConcatenateSequenceSequence, "sequence concatenate", None, None, None) \
-	X(LayerSequenceSequence, "sequence layer", None, None, None) \
+	X(ConcatenateSequenceSequence, \
+	  "sequence concatenate", \
+	  Operator, \
+	  None, \
+	  None) \
+	X(LayerSequenceSequence, "sequence layer", Operator, None, None) \
 \
-	X(MulSequenceScalar, "sequence mul", None, None, None) \
-	X(DivSequenceScalar, "sequence div", None, None, None) \
+	X(MulSequenceScalar, "sequence mul", Operator, None, None) \
+	X(DivSequenceScalar, "sequence div", Operator, None, None) \
 \
-	X(HeadSequence, "sequence head", None, None, None) \
-	X(TailSequence, "sequence tail", None, None, None) \
+	X(HeadSequence, "sequence head", Operator, None, None) \
+	X(TailSequence, "sequence tail", Operator, None, None) \
 \
-	X(SendSequenceString, "sequence send", None, None, None) \
+	X(SendSequenceString, "sequence send", Operator, None, None) \
 \
 	/* PATTERN */ \
-	X(HeadPattern, "pattern head", None, None, None) \
-	X(TailPattern, "pattern tail", None, None, None) \
+	X(HeadPattern, "pattern head", Operator, None, None) \
+	X(TailPattern, "pattern tail", Operator, None, None) \
 \
-	X(LayerPatternPattern, "pattern layer", None, None, None) \
-	X(LayerPatternSequence, "pattern layer", None, None, None) \
-	X(LayerSequencePattern, "pattern layer", None, None, None) \
+	X(LayerPatternPattern, "pattern layer", Operator, None, None) \
+	X(LayerPatternSequence, "pattern layer", Operator, None, None) \
+	X(LayerSequencePattern, "pattern layer", Operator, None, None) \
 \
-	X(ConcatenatePatternPattern, "pattern concatenate", None, None, None) \
-	X(ConcatenatePatternSequence, "pattern concatenate", None, None, None) \
-	X(ConcatenateSequencePattern, "pattern concatenate", None, None, None) \
+	X(ConcatenatePatternPattern, "pattern concatenate", Operator, None, None) \
+	X(ConcatenatePatternSequence, "pattern concatenate", Operator, None, None) \
+	X(ConcatenateSequencePattern, "pattern concatenate", Operator, None, None) \
 \
-	X(SendPatternString, "pattern send", None, None, None)
+	X(SendPatternString, "pattern send", Operator, None, None)
 
 #define X(a, b, c, d, e) a,
 	enum class SymbolKind {
