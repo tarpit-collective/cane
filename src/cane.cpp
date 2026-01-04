@@ -10,6 +10,16 @@ int main(int, const char* argv[]) {
 		auto src = cane::read_file(argv[1]);
 
 		cane::Parser parser { src };
+
+		// auto type = parser.parse();
+
+		// if (not type.has_value()) {
+		// 	CANE_FAIL("no type");
+		// 	return EXIT_FAILURE;
+		// }
+
+		// CANE_UNUSED(cane::pass_print(cfg, type.value()));
+
 		auto root = parser.parse();
 
 		if (not root.has_value()) {
@@ -17,17 +27,18 @@ int main(int, const char* argv[]) {
 		}
 
 		root = cane::pipeline(cfg, root.value(), cane::pass_validate);
-		// root = cane::pipeline(cfg, root.value(), cane::pass_print);
-		// root = cane::pipeline(cfg, root.value(), cane::pass_type_resolution);
-		root = cane::pipeline(cfg, root.value(), cane::pass_binding_resolution);
+		root = cane::pipeline(cfg, root.value(), cane::pass_print);
+		root = cane::pipeline(cfg, root.value(), cane::pass_type_resolution);
+
 		// root = cane::pipeline(cfg, root.value(),
 		// cane::pass_binding_resolution); root = cane::pipeline(cfg,
-		// root.value(), cane::pass_trace); root = cane::pipeline(cfg,
-		// root.value(), cane::pass_validate);
-		// root = cane::pipeline(cfg, root.value(), cane::pass_print);
+		// root.value(), cane::pass_binding_resolution); root =
+		// cane::pipeline(cfg, root.value(), cane::pass_trace); root =
+		// cane::pipeline(cfg, root.value(), cane::pass_validate); root =
+		// cane::pipeline(cfg, root.value(), cane::pass_print);
 
 		// root = cane::pipeline(cfg, root.value(), cane::pass_type_resolution);
-		root = cane::pipeline(cfg, root.value(), cane::pass_print);
+		// root = cane::pipeline(cfg, root.value(), cane::pass_print);
 
 		// auto seq =
 		// 	cane::debug_parse_and_compile(src, cfg, cane::pass_type_resolution);

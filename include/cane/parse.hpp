@@ -44,18 +44,20 @@ namespace cane {
 		std::shared_ptr<Type> lhs;
 		std::shared_ptr<Type> rhs;
 
+		// Type(const Type& n) = default;
+
+		Type(TypeKind type_): kind(type_), lhs(nullptr), rhs(nullptr) {}
+
+		Type(TypeKind type_, std::shared_ptr<Type> type):
+				kind(type_), lhs(type), rhs(nullptr) {}
+
 		Type(
-			TypeKind kind_,
+			TypeKind type_,
 
 			std::shared_ptr<Type> lhs_,
 			std::shared_ptr<Type> rhs_
 		):
-				kind(kind_), lhs(lhs_), rhs(rhs_) {}
-
-		Type(TypeKind kind_): kind(kind_), lhs(nullptr), rhs(nullptr) {}
-
-		Type(TypeKind kind_, std::shared_ptr<Type> type):
-				kind(kind_), lhs(type), rhs(nullptr) {}
+				kind(type_), lhs(lhs_), rhs(rhs_) {}
 	};
 
 	/////////
@@ -68,21 +70,43 @@ namespace cane {
 
 		std::string_view sv;
 
-		TypeKind type;
+		std::shared_ptr<Type> type;
 
 		std::shared_ptr<Node> lhs;
 		std::shared_ptr<Node> rhs;
 
-		Node(const Node& n) = default;
+		// Node(const Node& n) = default;
+
+		// No child nodes
+		Node(
+			SymbolKind kind_, std::string_view sv_, std::shared_ptr<Type> type_
+		):
+				kind(kind_), sv(sv_), type(type_), lhs(nullptr), rhs(nullptr) {}
+
+		// Unary
+		Node(
+			SymbolKind kind_,
+			std::string_view sv_,
+			std::shared_ptr<Type> type_,
+			std::shared_ptr<Node> node
+		):
+				kind(kind_), sv(sv_), type(type_), lhs(node), rhs(nullptr) {}
+
+		// Binary
+		Node(
+			SymbolKind kind_,
+			std::string_view sv_,
+			std::shared_ptr<Type> type_,
+			std::shared_ptr<Node> lhs_,
+			std::shared_ptr<Node> rhs_
+		):
+				kind(kind_), sv(sv_), type(type_), lhs(lhs_), rhs(rhs_) {}
 
 		Node(
 			SymbolKind kind_,
 			SymbolKind op_,
-
 			std::string_view sv_,
-
-			TypeKind type_,
-
+			std::shared_ptr<Type> type_,
 			std::shared_ptr<Node> lhs_,
 			std::shared_ptr<Node> rhs_
 		):
@@ -92,73 +116,11 @@ namespace cane {
 				type(type_),
 				lhs(lhs_),
 				rhs(rhs_) {}
-
-		// No child nodes
-		Node(SymbolKind kind_, std::string_view sv_, TypeKind type_):
-				kind(kind_),
-				op(SymbolKind::None),
-				sv(sv_),
-				type(type_),
-				lhs(nullptr),
-				rhs(nullptr) {}
-
-		// Binary
-		Node(
-			SymbolKind kind_,
-			std::string_view sv_,
-
-			TypeKind type_,
-
-			std::shared_ptr<Node> lhs_,
-			std::shared_ptr<Node> rhs_
-		):
-				kind(kind_),
-				op(SymbolKind::None),
-				sv(sv_),
-				type(type_),
-				lhs(lhs_),
-				rhs(rhs_) {}
-
-		// Unary
-		Node(
-			SymbolKind kind_,
-			std::string_view sv_,
-
-			TypeKind type_,
-
-			std::shared_ptr<Node> node
-		):
-				kind(kind_),
-				op(SymbolKind::None),
-				sv(sv_),
-				type(type_),
-				lhs(node),
-				rhs(nullptr) {}
 	};
-
-	inline std::ostream& operator<<(std::ostream& os, Node n) {
-		os << "{ ";
-		os << "kind: " << n.kind << ", ";
-		os << "op: " << n.op << ", ";
-		os << "sv: '" << n.sv << "', ";
-		os << "type: " << n.type << ", ";
-		os << "lhs: " << static_cast<void*>(n.lhs.get()) << ", ";
-		os << "rhs: " << static_cast<void*>(n.rhs.get());
-		os << " }";
-		return os;
-	}
-}  // namespace cane
-
-CANE_FORMATTER_DEF(cane::Node);
-
-namespace cane {
 
 	////////////
 	// PARSER //
 	////////////
-
-	using BoxNode = std::shared_ptr<Node>;
-	using OptionalBoxNode = std::optional<BoxNode>;
 
 	class Parser {
 		private:
@@ -172,27 +134,29 @@ namespace cane {
 		//////////////////////
 
 		// Core parsing functions
-		[[nodiscard]] OptionalBoxNode parse() {
+		[[nodiscard]] std::optional<std::shared_ptr<Node>> parse() {
+			// TODO: Handle unconsumed input.
+
 			// CANE_FUNC();
 
-			if (lx.peek_is_kind(SymbolKind::EndFile)) {
-				return std::nullopt;
-			}
+			// if (lx.peek_is_kind(SymbolKind::EndFile)) {
+			// 	return std::nullopt;
+			// }
 
-			auto expr = parse_expression();
+			return parse_expression();
 
-			if (not lx.peek_is_kind(SymbolKind::EndFile)) {
-				cane::report(
-					ReportKind::Syntactical,
-					"unexpected token `{}`",
-					lx.peek().sv
-				);
-			}
+			// if (not lx.peek_is_kind(SymbolKind::EndFile)) {
+			// 	cane::report(
+			// 		ReportKind::Syntactical,
+			// 		"unexpected token `{}`",
+			// 		lx.peek().sv
+			// 	);
+			// }
 
-			return expr;
+			// return { expr, type };
 		}
 
-		std::optional<TypeKind> type_annotation() {
+		std::optional<TypeKind> parse_type_name() {
 			// TODO: Parse nested types into a type tree
 			// CANE_FUNC();
 
@@ -223,17 +187,38 @@ namespace cane {
 			return std::nullopt;
 		}
 
-		std::optional<TypeKind> type() {
+		std::optional<std::shared_ptr<Type>> parse_type() {
 			// CANE_FUNC();
 
-			if (not lx.discard_if_kind(SymbolKind::Arrow)) {
+			auto type_name = parse_type_name();
+
+			if (not type_name.has_value()) {
 				return std::nullopt;
 			}
 
-			return type_annotation();
+			auto type = std::make_shared<Type>(type_name.value());
+
+			while (lx.peek_is_kind(SymbolKind::Arrow)) {
+				lx.discard();
+				type_name = parse_type_name();
+
+				if (not type_name.has_value()) {
+					return std::nullopt;
+				}
+
+				auto t = std::make_shared<Type>(
+					TypeKind::Function,
+					type,
+					std::make_shared<Type>(type_name.value())
+				);
+
+				type = t;
+			}
+
+			return type;
 		}
 
-		[[nodiscard]] OptionalBoxNode parse_primary() {
+		[[nodiscard]] std::optional<std::shared_ptr<Node>> parse_primary() {
 			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -243,36 +228,41 @@ namespace cane {
 				return std::nullopt;
 			}
 
+			lx.discard();
+
 			switch (symbol.kind) {
 				// Literals
 				case SymbolKind::Identifier: {
-					lx.discard();
 					return std::make_shared<Node>(
-						SymbolKind::Identifier, symbol.sv, TypeKind::None
+						symbol.kind,
+						symbol.sv,
+						std::make_shared<Type>(TypeKind::None)
 					);
 				}
 
 				case SymbolKind::String: {
-					lx.discard();
 					return std::make_shared<Node>(
-						symbol.kind, symbol.sv, TypeKind::String
+						symbol.kind,
+						symbol.sv,
+						std::make_shared<Type>(TypeKind::String)
 					);
 				}
 
 				case SymbolKind::Number: {
-					lx.discard();
 					return std::make_shared<Node>(
-						symbol.kind, symbol.sv, TypeKind::Scalar
+						symbol.kind,
+						symbol.sv,
+						std::make_shared<Type>(TypeKind::Scalar)
 					);
 				}
 
 				// Literals (Implicit Concat)
 				case SymbolKind::Beat:
 				case SymbolKind::Rest: {
-					lx.discard();
-
 					auto root = std::make_shared<Node>(
-						symbol.kind, symbol.sv, TypeKind::Rhythm
+						symbol.kind,
+						symbol.sv,
+						std::make_shared<Type>(TypeKind::Rhythm)
 					);
 
 					while (lx.peek_is_kind(SymbolKind::Beat) or
@@ -280,15 +270,19 @@ namespace cane {
 						auto beat = lx.take();
 
 						auto rhythm = std::make_shared<Node>(
-							beat.kind, beat.sv, TypeKind::Rhythm
+							beat.kind,
+							beat.sv,
+							std::make_shared<Type>(TypeKind::Rhythm)
 						);
 
 						root = std::make_shared<Node>(
 							SymbolKind::Concatenate,
 							beat.sv,
-							TypeKind::Rhythm,
-							root,
-							rhythm
+
+							std::make_shared<Type>(TypeKind::Rhythm),
+
+							/* lhs = */ root,
+							/* rhs = */ rhythm
 						);
 					}
 
@@ -296,9 +290,7 @@ namespace cane {
 				} break;
 
 				case SymbolKind::LeftParen: {
-					lx.discard();  // Skip `(`
-
-					auto expr = parse_expression(0);
+					auto expr = parse_expression(/* binding power = */ 0);
 
 					if (not lx.discard_if_kind(SymbolKind::RightParen)) {
 						cane::report(ReportKind::Syntactical, "expected `)`");
@@ -308,45 +300,65 @@ namespace cane {
 				} break;
 
 				case SymbolKind::Function: {
-					lx.discard();  // Skip `\`
-
 					// Parameter
-					auto identifier =
+					auto parameter =
 						lx.take_if_kind_opt(SymbolKind::Identifier);
+
 					cane::report_if(
-						not identifier.has_value(),
+						not parameter.has_value(),
 						ReportKind::Syntactical,
 						"expected an identifier"
 					);
 
-					auto param = std::make_shared<Node>(
-						SymbolKind::Identifier,
-						identifier.value().sv,
-						TypeKind::None
-					);
-
-					auto param_type = type();
-					if (not param_type.has_value()) {
-						cane::report(
-							ReportKind::Lexical, "expected a type annotation"
-						);
+					// TODO: Rename to `colon`
+					if (not lx.discard_if_kind(SymbolKind::Euclidean)) {
+						return std::nullopt;
 					}
 
-					// Reset binding power and parse body
+					// Parse type signature of function, then we pull out the
+					// type of the param and body and construct the various
+					// nodes
+					auto fn_type = parse_type();
+
+					cane::report_if(
+						not fn_type.has_value() or fn_type.value() == nullptr,
+						ReportKind::Syntactical,
+						"expected a type annotation"
+					);
+
+					auto param_type = fn_type.value()->lhs;
+					auto body_type = fn_type.value()->rhs;
+
+					cane::report_if(
+						param_type == nullptr or body_type == nullptr,
+						ReportKind::Syntactical,
+						"malformed function signature"
+					);
+
+					auto parameter_node = std::make_shared<Node>(
+						SymbolKind::Identifier, parameter.value().sv, param_type
+					);
+
 					auto body = parse_expression(bp.value().right);
+
+					cane::report_if(
+						not body.has_value(),
+						ReportKind::Syntactical,
+						"expected a body"
+					);
 
 					return std::make_shared<Node>(
 						SymbolKind::Function,
 						symbol.sv,
-						TypeKind::Function,
-						param,
-						body
+
+						fn_type.value(),
+
+						/* lhs = */ parameter_node,
+						/* rhs = */ body.value()
 					);
 				} break;
 
 				case SymbolKind::Let: {
-					lx.discard();  // Skip `let`
-
 					// Binding name
 					auto identifier =
 						lx.take_if_kind_opt(SymbolKind::Identifier);
@@ -360,18 +372,26 @@ namespace cane {
 					auto binding = std::make_shared<Node>(
 						SymbolKind::Identifier,
 						identifier.value().sv,
-						TypeKind::None
+						std::make_shared<Type>(TypeKind::None)
 					);
 
 					// Reset binding power and parse body
 					auto body = parse_expression(bp.value().right);
 
+					cane::report_if(
+						not body.has_value(),
+						ReportKind::Syntactical,
+						"expected a body"
+					);
+
 					return std::make_shared<Node>(
 						SymbolKind::Let,
 						symbol.sv,
-						TypeKind::None,
-						binding,
-						body
+
+						std::make_shared<Type>(TypeKind::None),
+
+						/* lhs = */ binding,
+						/* rhs = */ body.value()
 					);
 				} break;
 
@@ -381,7 +401,7 @@ namespace cane {
 			return std::nullopt;
 		}
 
-		[[nodiscard]] OptionalBoxNode parse_prefix() {
+		[[nodiscard]] std::optional<std::shared_ptr<Node>> parse_prefix() {
 			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -405,12 +425,22 @@ namespace cane {
 			lx.discard();
 			auto expr = parse_expression(bp.value().right);
 
+			cane::report_if(
+				not expr.has_value(),
+				ReportKind::Syntactical,
+				"expected an expression"
+			);
+
 			return std::make_shared<Node>(
-				symbol.kind, symbol.sv, TypeKind::None, expr
+				symbol.kind,
+				symbol.sv,
+				std::make_shared<Type>(TypeKind::None),
+				expr.value()
 			);
 		}
 
-		[[nodiscard]] OptionalBoxNode parse_infix(BoxNode lhs) {
+		[[nodiscard]] std::optional<std::shared_ptr<Node>>
+		parse_infix(std::shared_ptr<Node> lhs) {
 			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -427,12 +457,23 @@ namespace cane {
 			lx.discard();
 			auto rhs = parse_expression(bp.value().right);
 
+			cane::report_if(
+				not rhs.has_value(),
+				ReportKind::Syntactical,
+				"expected a right-hand-side expression"
+			);
+
 			return std::make_shared<Node>(
-				symbol.kind, symbol.sv, TypeKind::None, lhs, rhs
+				symbol.kind,
+				symbol.sv,
+				std::make_shared<Type>(TypeKind::None),
+				lhs,
+				rhs.value()
 			);
 		}
 
-		[[nodiscard]] OptionalBoxNode parse_postfix(BoxNode lhs) {
+		[[nodiscard]] std::optional<std::shared_ptr<Node>>
+		parse_postfix(std::shared_ptr<Node> lhs) {
 			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -444,15 +485,18 @@ namespace cane {
 			lx.discard();
 
 			return std::make_shared<Node>(
-				symbol.kind, symbol.sv, TypeKind::None, lhs
+				symbol.kind,
+				symbol.sv,
+				std::make_shared<Type>(TypeKind::None),
+				lhs
 			);
 		}
 
-		[[nodiscard]] BoxNode parse_expression(size_t min_bp = 0) {
+		[[nodiscard]] std::optional<std::shared_ptr<Node>>
+		parse_expression(size_t min_bp = 0) {
 			// CANE_FUNC();
 
-			OptionalBoxNode node =
-				parse_primary().or_else([&] { return parse_prefix(); });
+			auto node = parse_primary().or_else([&] { return parse_prefix(); });
 
 			cane::report_if(
 				not node.has_value(),
@@ -461,6 +505,7 @@ namespace cane {
 
 			);
 
+			// A function call is just juxtaposed expressions.
 			constexpr auto is_call = [](SymbolKind kind) {
 				return is_opfix(OpfixKind::Literal, kind) or
 					is_opfix(OpfixKind::Primary, kind) or
@@ -489,8 +534,18 @@ namespace cane {
 				if (is_call(kind)) {
 					auto rhs = parse_expression(bp.value().right);
 
+					cane::report_if(
+						not rhs.has_value(),
+						ReportKind::Syntactical,
+						"expected a right-hand-side expression"
+					);
+
 					node = std::make_shared<Node>(
-						SymbolKind::Call, sv, TypeKind::None, node.value(), rhs
+						SymbolKind::Call,
+						sv,
+						std::make_shared<Type>(TypeKind::None),
+						node.value(),
+						rhs.value()
 					);
 
 					continue;
@@ -508,7 +563,7 @@ namespace cane {
 				);
 			}
 
-			return node.value();
+			return node;
 		}
 	};
 

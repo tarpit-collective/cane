@@ -23,7 +23,7 @@ namespace cane {
 		std::string_view sv;
 		BindingKind kind;
 		size_t depth;
-		BoxNode node;
+		std::shared_ptr<Node> node;
 	};
 
 	using BindingEnvironment = std::vector<BindingEntry>;
@@ -43,28 +43,39 @@ namespace cane {
 		}
 	}
 
-	inline Sequence pass_evaluator(Configuration cfg, BoxNode node);
+	inline Sequence
+	pass_evaluator(Configuration cfg, std::shared_ptr<Node> node);
 
-	inline BoxNode pass_print(Configuration cfg, BoxNode node);
-	inline BoxNode pass_trace(Configuration cfg, BoxNode node);
-	inline BoxNode pass_validate(Configuration cfg, BoxNode node);
+	inline std::shared_ptr<Type>
+	pass_print_type(Configuration cfg, std::shared_ptr<Type> node);
+
+	inline std::shared_ptr<Node>
+	pass_print(Configuration cfg, std::shared_ptr<Node> node);
+
+	inline std::shared_ptr<Node>
+	pass_trace(Configuration cfg, std::shared_ptr<Node> node);
+
+	inline std::shared_ptr<Node>
+	pass_validate(Configuration cfg, std::shared_ptr<Node> node);
 
 	//////////////////
 	// Compile/Eval //
 	//////////////////
 
-	using Pass = BoxNode (*)(Configuration, BoxNode);
+	using Pass =
+		std::shared_ptr<Node> (*)(Configuration, std::shared_ptr<Node>);
 
 	// Run a collection of passes in series.
 	template <typename... Ts>
 	[[nodiscard]] decltype(auto)
-	pipeline(Configuration cfg, BoxNode root, Ts&&... passes) {
+	pipeline(Configuration cfg, std::shared_ptr<Node> root, Ts&&... passes) {
 		return (passes(cfg, root), ...);
 	}
 
 	template <typename... Ts>
-	[[nodiscard]] decltype(auto)
-	debug_pipeline(Configuration cfg, BoxNode root, Ts&&... passes) {
+	[[nodiscard]] decltype(auto) debug_pipeline(
+		Configuration cfg, std::shared_ptr<Node> root, Ts&&... passes
+	) {
 		(
 			[&](Pass pass) {
 				root = pass_print(cfg, pass_validate(cfg, pass(cfg, root)));
@@ -79,14 +90,15 @@ namespace cane {
 	// tree.
 	template <typename... Ts>
 	[[nodiscard]] decltype(auto)
-	compile(Configuration cfg, BoxNode root, Ts&&... passes) {
+	compile(Configuration cfg, std::shared_ptr<Node> root, Ts&&... passes) {
 		root = pipeline(cfg, root, std::forward<Ts>(passes)...);
 		return pass_evaluator(cfg, root);
 	}
 
 	template <typename... Ts>
-	[[nodiscard]] decltype(auto)
-	debug_compile(Configuration cfg, BoxNode root, Ts&&... passes) {
+	[[nodiscard]] decltype(auto) debug_compile(
+		Configuration cfg, std::shared_ptr<Node> root, Ts&&... passes
+	) {
 		root = debug_pipeline(cfg, root, std::forward<Ts>(passes)...);
 		return pass_evaluator(cfg, root);
 	}
@@ -124,13 +136,52 @@ namespace cane {
 		});
 	}
 
+	///////////////////////
+	// Type Printer Pass //
+	///////////////////////
+
+	[[nodiscard]] inline std::shared_ptr<Type>
+	pass_print_type_walk(Configuration cfg, std::shared_ptr<Type> type);
+
+	[[nodiscard]] inline std::shared_ptr<Type>
+	pass_print_type(Configuration cfg, std::shared_ptr<Type> type) {
+		auto root = pass_print_type_walk(cfg, type);
+		return root;
+	}
+
+	[[nodiscard]] inline std::shared_ptr<Type>
+	pass_print_type_walk(Configuration cfg, std::shared_ptr<Type> type) {
+		if (type == nullptr) {
+			return type;
+		}
+
+		std::print(std::cerr, "(");
+		std::print(std::cerr, "{}", type->kind);
+
+		if (type->lhs != nullptr) {
+			std::print(std::cerr, " ");
+			CANE_UNUSED(pass_print_type_walk(cfg, type->lhs));
+		}
+
+		if (type->lhs != nullptr and type->rhs != nullptr) {
+			std::print(std::cerr, " -> ");
+		}
+
+		if (type->lhs != nullptr) {
+			CANE_UNUSED(pass_print_type_walk(cfg, type->rhs));
+		}
+
+		std::print(std::cerr, ")");
+		return type;
+	}
+
 	//////////////////////
 	// AST Printer Pass //
 	//////////////////////
 
-	[[nodiscard]] inline BoxNode pass_print_walk(
+	[[nodiscard]] inline std::shared_ptr<Node> pass_print_walk(
 		Configuration cfg,
-		BoxNode node,
+		std::shared_ptr<Node> node,
 		std::vector<bool> bits = {},
 		size_t depth = 0
 	);
@@ -147,15 +198,15 @@ namespace cane {
 			std::string_view bar, std::vector<bool> bits = {}
 		) {
 			for (bool b: bits) {
-				std::print(" {}", b ? "│" : " ");
+				std::print(std::cerr, " {}", b ? "│" : " ");
 			}
 
-			std::print(" {}", bar);
+			std::print(std::cerr, " {}", bar);
 		}
 
 		inline void pass_print_indent_node_child_lhs(
 			Configuration cfg,
-			BoxNode node,
+			std::shared_ptr<Node> node,
 			std::vector<bool> bits = {},
 			size_t depth = 0
 		) {
@@ -168,7 +219,7 @@ namespace cane {
 
 		inline void pass_print_indent_node_child_rhs(
 			Configuration cfg,
-			BoxNode node,
+			std::shared_ptr<Node> node,
 			std::vector<bool> bits = {},
 			size_t depth = 0
 		) {
@@ -180,12 +231,16 @@ namespace cane {
 		}
 	}  // namespace detail
 
-	[[nodiscard]] inline BoxNode pass_print(Configuration cfg, BoxNode node) {
+	[[nodiscard]] inline std::shared_ptr<Node>
+	pass_print(Configuration cfg, std::shared_ptr<Node> node) {
 		return pass_print_walk(cfg, node);
 	}
 
-	[[nodiscard]] inline BoxNode pass_print_walk(
-		Configuration cfg, BoxNode node, std::vector<bool> bits, size_t depth
+	[[nodiscard]] inline std::shared_ptr<Node> pass_print_walk(
+		Configuration cfg,
+		std::shared_ptr<Node> node,
+		std::vector<bool> bits,
+		size_t depth
 	) {
 		if (node == nullptr) {
 			std::cout << detail::SIGIL_NULL << '\n';
@@ -203,14 +258,23 @@ namespace cane {
 		auto symbol_sv = symbol_kind_to_str(node->kind);
 		auto op_sv = symbol_kind_to_str(node->op);
 		auto node_sv = node->sv;
-		auto type_sv = type_kind_to_str(node->type);
 
-		std::print(" " CANE_COLOUR_YELLOW "{}:" CANE_RESET, symbol_sv);
-		std::print(" " CANE_COLOUR_GREEN "{}" CANE_RESET, op_sv);
-		std::print(" " CANE_COLOUR_RED "`{}`" CANE_RESET, type_sv);
+		std::print(
+			std::cerr, " " CANE_COLOUR_YELLOW "{}:" CANE_RESET, symbol_sv
+		);
+
+		std::print(std::cerr, " " CANE_COLOUR_GREEN "{}" CANE_RESET, op_sv);
+
+		// Print type tree
+		std::print(std::cerr, " ");
+		std::print(std::cerr, CANE_COLOUR_RED);
+		CANE_UNUSED(pass_print_type_walk(cfg, node->type));
+		std::print(std::cerr, CANE_RESET);
 
 		if (is_leaf) {
-			std::print(" " CANE_COLOUR_BLUE "\"{}\"" CANE_RESET, node_sv);
+			std::print(
+				std::cerr, " " CANE_COLOUR_BLUE "\"{}\"" CANE_RESET, node_sv
+			);
 		}
 
 		std::cout << '\n';
@@ -237,10 +301,12 @@ namespace cane {
 
 	// TODO: Can we just also use this as a code formatter?
 
-	[[nodiscard]] inline BoxNode
-	pass_trace_walk(Configuration cfg, BoxNode node, size_t depth);
+	[[nodiscard]] inline std::shared_ptr<Node> pass_trace_walk(
+		Configuration cfg, std::shared_ptr<Node> node, size_t depth
+	);
 
-	[[nodiscard]] inline BoxNode pass_trace(Configuration cfg, BoxNode node) {
+	[[nodiscard]] inline std::shared_ptr<Node>
+	pass_trace(Configuration cfg, std::shared_ptr<Node> node) {
 		CANE_FUNC();
 		auto root = pass_trace_walk(cfg, node, 0);
 
@@ -250,8 +316,9 @@ namespace cane {
 		return root;
 	}
 
-	[[nodiscard]] inline BoxNode
-	pass_trace_walk(Configuration cfg, BoxNode node, size_t depth) {
+	[[nodiscard]] inline std::shared_ptr<Node> pass_trace_walk(
+		Configuration cfg, std::shared_ptr<Node> node, size_t depth
+	) {
 		std::string indent(depth * 2, ' ');
 
 		if (node == nullptr) {
@@ -339,17 +406,17 @@ namespace cane {
 	// This includes things like ensuring that the `lhs` of assign/function is
 	// an identifier node.
 
-	[[nodiscard]] inline BoxNode
-	pass_validate_walk(Configuration cfg, BoxNode node);
+	[[nodiscard]] inline std::shared_ptr<Node>
+	pass_validate_walk(Configuration cfg, std::shared_ptr<Node> node);
 
-	[[nodiscard]] inline BoxNode
-	pass_validate(Configuration cfg, BoxNode node) {
+	[[nodiscard]] inline std::shared_ptr<Node>
+	pass_validate(Configuration cfg, std::shared_ptr<Node> node) {
 		CANE_FUNC();
 		return pass_validate_walk(cfg, node);
 	}
 
-	[[nodiscard]] inline BoxNode
-	pass_validate_walk(Configuration cfg, BoxNode node) {
+	[[nodiscard]] inline std::shared_ptr<Node>
+	pass_validate_walk(Configuration cfg, std::shared_ptr<Node> node) {
 		if (node == nullptr) {
 			return nullptr;
 		}
@@ -440,16 +507,16 @@ namespace cane {
 	// identifier. This is to workaround things like shadowing where we have
 	// multiple of the same identifier.
 
-	[[nodiscard]] inline std::tuple<BoxNode, BindingEnvironment>
+	[[nodiscard]] inline std::tuple<std::shared_ptr<Node>, BindingEnvironment>
 	pass_binding_resolution_walk(
 		Configuration cfg,
-		BoxNode node,
+		std::shared_ptr<Node> node,
 		BindingEnvironment bindings,
 		size_t depth
 	);
 
-	[[nodiscard]] inline BoxNode
-	pass_binding_resolution(Configuration cfg, BoxNode node) {
+	[[nodiscard]] inline std::shared_ptr<Node>
+	pass_binding_resolution(Configuration cfg, std::shared_ptr<Node> node) {
 		CANE_FUNC();
 
 		BindingEnvironment bindings;
@@ -460,10 +527,10 @@ namespace cane {
 		return root;
 	}
 
-	[[nodiscard]] inline std::tuple<BoxNode, BindingEnvironment>
+	[[nodiscard]] inline std::tuple<std::shared_ptr<Node>, BindingEnvironment>
 	pass_binding_resolution_walk(
 		Configuration cfg,
-		BoxNode node,
+		std::shared_ptr<Node> node,
 		BindingEnvironment bindings,
 		size_t depth
 	) {
@@ -631,18 +698,19 @@ namespace cane {
 	// Type Checker //
 	//////////////////
 
-	[[nodiscard]] inline std::tuple<TypeKind, BoxNode, BindingEnvironment>
-	pass_type_resolution_walk(
-		Configuration cfg,
-		BoxNode node,
-		BindingEnvironment bindings,
-		OptionalBoxNode arg,
-		bool is_called,
-		size_t depth
-	);
+	[[nodiscard]] inline std::
+		tuple<TypeKind, std::shared_ptr<Node>, BindingEnvironment>
+		pass_type_resolution_walk(
+			Configuration cfg,
+			std::shared_ptr<Node> node,
+			BindingEnvironment bindings,
+			std::optional<std::shared_ptr<Node>> arg,
+			bool is_called,
+			size_t depth
+		);
 
-	[[nodiscard]] inline BoxNode
-	pass_type_resolution(Configuration cfg, BoxNode node) {
+	[[nodiscard]] inline std::shared_ptr<Node>
+	pass_type_resolution(Configuration cfg, std::shared_ptr<Node> node) {
 		CANE_FUNC();
 
 		BindingEnvironment bindings;
@@ -669,7 +737,7 @@ namespace cane {
 		[[maybe_unused]] Configuration cfg,
 		TypeKind lhs,
 		TypeKind rhs,
-		BoxNode node
+		std::shared_ptr<Node> node
 	) {
 		if (node == nullptr) {
 			return { false, TypeKind::None, SymbolKind::None };
@@ -793,15 +861,16 @@ namespace cane {
 #undef CANE_TYPE_REMAP
 	}
 
-	[[nodiscard]] inline std::tuple<TypeKind, BoxNode, BindingEnvironment>
-	pass_type_resolution_walk(
-		Configuration cfg,
-		BoxNode node,
-		BindingEnvironment bindings,
-		OptionalBoxNode arg,
-		bool is_called,
-		size_t depth
-	) {
+	[[nodiscard]] inline std::
+		tuple<TypeKind, std::shared_ptr<Node>, BindingEnvironment>
+		pass_type_resolution_walk(
+			Configuration cfg,
+			std::shared_ptr<Node> node,
+			BindingEnvironment bindings,
+			std::optional<std::shared_ptr<Node>> arg,
+			bool is_called,
+			size_t depth
+		) {
 		print_binding_environment(bindings);
 		CANE_UNUSED(pass_print(cfg, node));
 
@@ -811,23 +880,23 @@ namespace cane {
 
 		// TODO: Just copy the whole tree in the entry function for this pass
 		// and then we can update it in-place.
-		auto new_node = deepcopy(node, &Node::lhs, &Node::rhs);
+		// auto new_node = deepcopy(node, &Node::lhs, &Node::rhs);
 
 		switch (node->kind) {
 			// Literals
 			case SymbolKind::Number: {
-				new_node->type = TypeKind::Scalar;
+				// new_node->type = TypeKind::Scalar;
 				return { TypeKind::Scalar, new_node, bindings };
 			} break;
 
 			case SymbolKind::String: {
-				new_node->type = TypeKind::String;
+				// new_node->type = TypeKind::String;
 				return { TypeKind::String, new_node, bindings };
 			} break;
 
 			case SymbolKind::Beat:
 			case SymbolKind::Rest: {
-				new_node->type = TypeKind::Rhythm;
+				// new_node->type = TypeKind::Rhythm;
 				return { TypeKind::Rhythm, new_node, bindings };
 			} break;
 
@@ -870,14 +939,14 @@ namespace cane {
 					depth + 1
 				);
 
-				new_node->type = fn;
+				// new_node->type = fn;
 				new_node->rhs = fn_node;
 
 				if (arg.has_value() and is_called) {
 					return { fn, fn_node, bindings };
 				}
 
-				new_node->type = TypeKind::Function;
+				// new_node->type = TypeKind::Function;
 				return { TypeKind::Function, new_node, bindings };
 			} break;
 
@@ -889,7 +958,7 @@ namespace cane {
 						cfg, new_node->rhs, bindings, arg, is_called, depth + 1
 					);
 
-				new_node->type = assign;
+				// new_node->type = assign;
 				new_node->rhs = deepcopy(assign_node, &Node::lhs, &Node::rhs);
 
 				bindings.emplace_back(
@@ -935,7 +1004,7 @@ namespace cane {
 					depth + 1
 				);
 
-				new_node->type = call;
+				// new_node->type = call;
 
 				new_node->rhs = argument_node;
 				new_node->lhs = call_node;
@@ -1008,7 +1077,7 @@ namespace cane {
 					cfg, new_node->rhs, lhs_env, arg, is_called, depth + 1
 				);
 
-				new_node->type = rhs;
+				// new_node->type = rhs;
 
 				new_node->lhs = lhs_node;
 				new_node->rhs = rhs_node;
@@ -1057,7 +1126,7 @@ namespace cane {
 				new_node->rhs = rhs_node;
 
 				new_node->op = op;
-				new_node->type = type;
+				// new_node->type = type;
 
 				return { type, new_node, bindings };
 			} break;
@@ -1071,14 +1140,16 @@ namespace cane {
 	///////////////
 
 	struct EvalEnvironment {
-		std::unordered_map<std::string_view, const BoxNode> bindings;
+		std::unordered_map<std::string_view, const std::shared_ptr<Node>>
+			bindings;
 	};
 
-	[[nodiscard]] inline Value
-	pass_evaluator_walk(Configuration cfg, EvalEnvironment env, BoxNode node);
+	[[nodiscard]] inline Value pass_evaluator_walk(
+		Configuration cfg, EvalEnvironment env, std::shared_ptr<Node> node
+	);
 
 	[[nodiscard]] inline Sequence
-	pass_evaluator(Configuration cfg, BoxNode node) {
+	pass_evaluator(Configuration cfg, std::shared_ptr<Node> node) {
 		CANE_FUNC();
 
 		EvalEnvironment env;
@@ -1098,8 +1169,9 @@ namespace cane {
 		cane::report(ReportKind::Type, "program should return pattern type");
 	}
 
-	[[nodiscard]] inline Value
-	pass_evaluator_walk(Configuration cfg, EvalEnvironment env, BoxNode node) {
+	[[nodiscard]] inline Value pass_evaluator_walk(
+		Configuration cfg, EvalEnvironment env, std::shared_ptr<Node> node
+	) {
 		if (node == nullptr) {
 			return std::monostate {};
 		}
