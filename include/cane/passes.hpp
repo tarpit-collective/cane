@@ -861,21 +861,14 @@ namespace cane {
 #undef CANE_TYPE_REMAP
 	}
 
-	[[nodiscard]] inline std::
-		tuple<TypeKind, std::shared_ptr<Node>, BindingEnvironment>
-		pass_type_resolution_walk(
-			Configuration cfg,
-			std::shared_ptr<Node> node,
-			BindingEnvironment bindings,
-			std::optional<std::shared_ptr<Node>> arg,
-			bool is_called,
-			size_t depth
-		) {
-		print_binding_environment(bindings);
+	[[nodiscard]] inline std::shared_ptr<Type> pass_type_resolution_walk(
+		Configuration cfg, std::shared_ptr<Node> node, size_t depth
+	) {
+		// print_binding_environment(bindings);
 		CANE_UNUSED(pass_print(cfg, node));
 
 		if (node == nullptr) {
-			return { TypeKind::None, nullptr, bindings };
+			return nullptr;
 		}
 
 		// TODO: Just copy the whole tree in the entry function for this pass
@@ -886,18 +879,20 @@ namespace cane {
 			// Literals
 			case SymbolKind::Number: {
 				// new_node->type = TypeKind::Scalar;
-				return { TypeKind::Scalar, new_node, bindings };
+				return node->type;
 			} break;
 
 			case SymbolKind::String: {
 				// new_node->type = TypeKind::String;
-				return { TypeKind::String, new_node, bindings };
+				// return { TypeKind::String, new_node, bindings };
+				return node->type;
 			} break;
 
 			case SymbolKind::Beat:
 			case SymbolKind::Rest: {
 				// new_node->type = TypeKind::Rhythm;
-				return { TypeKind::Rhythm, new_node, bindings };
+				// return { TypeKind::Rhythm, new_node, bindings };
+				return node->type;
 			} break;
 
 			case SymbolKind::Function: {
@@ -909,111 +904,116 @@ namespace cane {
 				// body without evaluating it?
 
 				// Uncalled function.
-				auto param = new_node->lhs;
+				// auto param = new_node->lhs;
 
-				bindings.emplace_back(
-					param->sv,
-					BindingKind::Parameter,
-					depth,
-					arg.value_or(nullptr)
-				);
+				// bindings.emplace_back(
+				// 	param->sv,
+				// 	BindingKind::Parameter,
+				// 	depth,
+				// 	arg.value_or(nullptr)
+				// );
 
-				CANE_OKAY(
-					"new parameter = {}, is_called = {}",
-					param->sv,
-					arg.has_value()
-				);
+				// CANE_OKAY(
+				// 	"new parameter = {}, is_called = {}",
+				// 	param->sv,
+				// 	arg.has_value()
+				// );
 
-				// Bind argument in function environment.
-				// Do not visit the argument here, we only visit it once it's
-				// _used_.
+				// // Bind argument in function environment.
+				// // Do not visit the argument here, we only visit it once it's
+				// // _used_.
 
-				// Important that we shadow any other bindings of the same name.
+				// // Important that we shadow any other bindings of the same
+				// name.
 
-				auto [fn, fn_node, fn_env] = pass_type_resolution_walk(
-					cfg,
-					new_node->rhs,
-					bindings,
-					std::nullopt,
-					arg.has_value(),
-					depth + 1
-				);
+				// auto [fn, fn_node, fn_env] = pass_type_resolution_walk(
+				// 	cfg,
+				// 	new_node->rhs,
+				// 	bindings,
+				// 	std::nullopt,
+				// 	arg.has_value(),
+				// 	depth + 1
+				// );
 
-				// new_node->type = fn;
-				new_node->rhs = fn_node;
+				// // new_node->type = fn;
+				// new_node->rhs = fn_node;
 
-				if (arg.has_value() and is_called) {
-					return { fn, fn_node, bindings };
-				}
+				// if (arg.has_value() and is_called) {
+				// 	return { fn, fn_node, bindings };
+				// }
 
-				// new_node->type = TypeKind::Function;
-				return { TypeKind::Function, new_node, bindings };
+				// // new_node->type = TypeKind::Function;
+				// return { TypeKind::Function, new_node, bindings };
+				return node->type;
 			} break;
 
 			case SymbolKind::Let: {
-				auto binding = new_node->lhs;
+				// auto binding = new_node->lhs;
 
-				auto [assign, assign_node, assign_env] =
-					pass_type_resolution_walk(
-						cfg, new_node->rhs, bindings, arg, is_called, depth + 1
-					);
+				// auto [assign, assign_node, assign_env] =
+				// 	pass_type_resolution_walk(
+				// 		cfg, new_node->rhs, bindings, arg, is_called, depth + 1
+				// 	);
 
-				// new_node->type = assign;
-				new_node->rhs = deepcopy(assign_node, &Node::lhs, &Node::rhs);
+				// // new_node->type = assign;
+				// new_node->rhs = deepcopy(assign_node, &Node::lhs,
+				// &Node::rhs);
 
-				bindings.emplace_back(
-					binding->sv,
-					BindingKind::Binding,
-					depth,
-					deepcopy(assign_node, &Node::lhs, &Node::rhs)
-				);
+				// bindings.emplace_back(
+				// 	binding->sv,
+				// 	BindingKind::Binding,
+				// 	depth,
+				// 	deepcopy(assign_node, &Node::lhs, &Node::rhs)
+				// );
 
-				CANE_OKAY("new binding = {}", binding->sv);
+				// CANE_OKAY("new binding = {}", binding->sv);
 
-				if (is_called) {
-					return { assign, assign_node, bindings };
-				}
+				// if (is_called) {
+				// 	return { assign, assign_node, bindings };
+				// }
 
-				return { assign, new_node, bindings };
+				// return { assign, new_node, bindings };
+				return node->type;
 			} break;
 
 			case SymbolKind::Call: {
-				auto [argument, argument_node, argument_env] =
-					pass_type_resolution_walk(
-						cfg,
-						new_node->rhs,
-						bindings,
-						std::nullopt,
-						is_called,
-						depth + 1
-					);
+				// auto [argument, argument_node, argument_env] =
+				// 	pass_type_resolution_walk(
+				// 		cfg,
+				// 		new_node->rhs,
+				// 		bindings,
+				// 		std::nullopt,
+				// 		is_called,
+				// 		depth + 1
+				// 	);
 
-				// cane::report_if(
-				// 	fn != TypeKind::Function,
-				// 	ReportKind::Semantic,
-				// 	"cannot call non-function type `{}`",
-				// 	fn
+				// // cane::report_if(
+				// // 	fn != TypeKind::Function,
+				// // 	ReportKind::Semantic,
+				// // 	"cannot call non-function type `{}`",
+				// // 	fn
+				// // );
+
+				// auto [call, call_node, call_env] = pass_type_resolution_walk(
+				// 	cfg,
+				// 	new_node->lhs,
+				// 	bindings,
+				// 	argument_node,
+				// 	is_called,
+				// 	depth + 1
 				// );
 
-				auto [call, call_node, call_env] = pass_type_resolution_walk(
-					cfg,
-					new_node->lhs,
-					bindings,
-					argument_node,
-					is_called,
-					depth + 1
-				);
+				// // new_node->type = call;
 
-				// new_node->type = call;
+				// new_node->rhs = argument_node;
+				// new_node->lhs = call_node;
 
-				new_node->rhs = argument_node;
-				new_node->lhs = call_node;
+				// // if (is_called) {
+				// // 	return { call, call_node, bindings };
+				// // }
 
-				// if (is_called) {
-				// 	return { call, call_node, bindings };
-				// }
-
-				return { call, new_node, bindings };
+				// return { call, new_node, bindings };
+				return node->type;
 			} break;
 
 			case SymbolKind::Identifier: {
@@ -1027,62 +1027,64 @@ namespace cane {
 				// a binding, we substitute in the subtree in place of the
 				// identifier.
 
-				auto ref = std::ranges::find(
-					bindings | std::views::reverse, node->sv, &BindingEntry::sv
-				);
+				// auto ref = std::ranges::find(
+				// 	bindings | std::views::reverse, node->sv, &BindingEntry::sv
+				// );
 
-				if (ref == bindings.rend()) {
-					cane::report(
-						ReportKind::Semantic,
-						"unknown binding `{}`",
-						new_node->sv
-					);
+				// if (ref == bindings.rend()) {
+				// 	cane::report(
+				// 		ReportKind::Semantic,
+				// 		"unknown binding `{}`",
+				// 		new_node->sv
+				// 	);
 
-					return { TypeKind::None, new_node, bindings };
-				}
+				// 	return { TypeKind::None, new_node, bindings };
+				// }
 
-				auto [sv, kind, depth, node] = *ref;
+				// auto [sv, kind, depth, node] = *ref;
 
-				if (kind == BindingKind::Binding or
-					(is_called and kind == BindingKind::Parameter)) {
-					auto [ident, ident_node, ident_env] =
-						pass_type_resolution_walk(
-							cfg,
-							deepcopy(node, &Node::lhs, &Node::rhs),
-							bindings,
-							arg,
-							is_called,
-							depth + 1
-						);
+				// if (kind == BindingKind::Binding or
+				// 	(is_called and kind == BindingKind::Parameter)) {
+				// 	auto [ident, ident_node, ident_env] =
+				// 		pass_type_resolution_walk(
+				// 			cfg,
+				// 			deepcopy(node, &Node::lhs, &Node::rhs),
+				// 			bindings,
+				// 			arg,
+				// 			is_called,
+				// 			depth + 1
+				// 		);
 
-					new_node = ident_node;
+				// 	new_node = ident_node;
 
-					return { ident, ident_node, bindings };
-				}
+				// 	return { ident, ident_node, bindings };
+				// }
 
-				return { TypeKind::None, new_node, bindings };
+				// return { TypeKind::None, new_node, bindings };
+				return node->type;
 			} break;
 
 			case SymbolKind::Block: {
-				// We need to visit both sides of the node in case of side
-				// effects from assignment.
+				// // We need to visit both sides of the node in case of side
+				// // effects from assignment.
 
-				// We just return the right hand side type.
+				// // We just return the right hand side type.
 
-				auto [lhs, lhs_node, lhs_env] = pass_type_resolution_walk(
-					cfg, new_node->lhs, bindings, arg, is_called, depth + 1
-				);
+				// auto [lhs, lhs_node, lhs_env] = pass_type_resolution_walk(
+				// 	cfg, new_node->lhs, bindings, arg, is_called, depth + 1
+				// );
 
-				auto [rhs, rhs_node, rhs_env] = pass_type_resolution_walk(
-					cfg, new_node->rhs, lhs_env, arg, is_called, depth + 1
-				);
+				// auto [rhs, rhs_node, rhs_env] = pass_type_resolution_walk(
+				// 	cfg, new_node->rhs, lhs_env, arg, is_called, depth + 1
+				// );
 
-				// new_node->type = rhs;
+				// // new_node->type = rhs;
 
-				new_node->lhs = lhs_node;
-				new_node->rhs = rhs_node;
+				// new_node->lhs = lhs_node;
+				// new_node->rhs = rhs_node;
 
-				return { rhs, new_node, bindings };
+				// return { rhs, new_node, bindings };
+				return node->type;
 			} break;
 
 			// Attempt trivial cases.
@@ -1090,28 +1092,26 @@ namespace cane {
 				// Visit both children, even in the case of unary nodes.
 				// We will exit early if any child is a nullptr anyway.
 
-				auto [lhs, lhs_node, lhs_env] = pass_type_resolution_walk(
-					cfg, new_node->lhs, bindings, arg, is_called, depth + 1
-				);
+				// auto lhs = pass_type_resolution_walk(cfg, node->lhs, depth +
+				// 1);
 
-				auto [rhs, rhs_node, rhs_env] = pass_type_resolution_walk(
-					cfg, new_node->rhs, lhs_env, arg, is_called, depth + 1
-				);
+				// auto rhs = pass_type_resolution_walk(cfg, node->rhs, depth +
+				// 1);
 
-				// Search for a type mapping.
-				auto [succ, type, op] =
-					type_remap_trivial(cfg, lhs, rhs, new_node);
+				// // Search for a type mapping.
+				// auto [succ, type, op] =
+				// 	type_remap_trivial(cfg, node->lhs, node->rhs, node);
 
-				CANE_INFO(
-					succ ? "found a valid type mapping: `{}`({}) {} `{}`({})" :
-						   "did not find a valid type mapping: `{}`({}) {} "
-						   "`{}`({})",
-					lhs,
-					new_node->lhs == nullptr ? "nullptr" : new_node->lhs->sv,
-					new_node->kind,
-					rhs,
-					new_node->rhs == nullptr ? "nullptr" : new_node->rhs->sv
-				);
+				// CANE_INFO(
+				// 	succ ? "found a valid type mapping: `{}`({}) {} `{}`({})" :
+				// 		   "did not find a valid type mapping: `{}`({}) {} "
+				// 		   "`{}`({})",
+				// 	lhs,
+				// 	node->lhs == nullptr ? "nullptr" : node->lhs->sv,
+				// 	node->kind,
+				// 	rhs,
+				// 	node->rhs == nullptr ? "nullptr" : node->rhs->sv
+				// );
 
 				// cane::report_if(
 				// 	not succ,
@@ -1122,17 +1122,19 @@ namespace cane {
 				// 	rhs
 				// );
 
-				new_node->lhs = lhs_node;
-				new_node->rhs = rhs_node;
+				// new_node->lhs = lhs_node;
+				// new_node->rhs = rhs_node;
 
-				new_node->op = op;
-				// new_node->type = type;
+				// new_node->op = op;
+				// // new_node->type = type;
 
-				return { type, new_node, bindings };
+				// return { type, new_node, bindings };
+				//
+				return node->type;
 			} break;
 		}
 
-		return { TypeKind::None, new_node, bindings };
+		return node->type;
 	}
 
 	///////////////
