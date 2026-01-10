@@ -7,6 +7,8 @@
 #include <ostream>
 
 #include <unordered_map>
+#include <vector>
+#include <memory>
 
 #include <cane/def.hpp>
 #include <cane/util.hpp>
@@ -46,18 +48,9 @@ namespace cane {
 
 	using Scalar = int64_t;
 	using String = std::string;
-
-	struct Sequence: public std::vector<Event> {
-		using std::vector<Event>::vector;
-	};
-
-	struct Rhythm: public std::vector<EventKind> {
-		using std::vector<EventKind>::vector;
-	};
-
-	struct Melody: public std::vector<Scalar> {
-		using std::vector<Scalar>::vector;
-	};
+	using Sequence = std::vector<Event>;
+	using Rhythm = std::vector<EventKind>;
+	using Melody = std::vector<Scalar>;
 
 	///////////
 	// Value //
@@ -66,49 +59,70 @@ namespace cane {
 	using Value =
 		std::variant<std::monostate, Scalar, String, Rhythm, Melody, Sequence>;
 
-	constexpr std::ostream& operator<<(std::ostream& os, cane::Value value) {
-		value |
-			cane::match {
-				[&](auto x) { os << x; },
-				[&](std::monostate) { os << "(empty)"; },
-			};
+	/////////////////
+	// Environment //
+	/////////////////
 
-		return os;
-	}
+	struct Binding {
+		std::string_view sv;
+		std::shared_ptr<Value> value;
+	};
 
-	constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
-		os << "Event { ";
-		os << "key: " << ev.timestamp << ", ";
-		os << "kind: " << ev.kind << ", ";
-		os << "duration: "
-		   << std::chrono::duration_cast<std::chrono::milliseconds>(ev.duration)
-		   << ", ";
-		os << "channel: " << static_cast<int>(ev.channel) << ", ";
-		os << "note: " << static_cast<int>(ev.note) << ", ";
-		os << "velocity: " << static_cast<int>(ev.velocity);
-		os << " }";
+	using Environment = std::vector<Binding>;
 
-		return os;
-	}
+	////////
+	// IR //
+	////////
 
-	constexpr std::ostream& operator<<(std::ostream& os, Sequence seq) {
-		return format_container(os, seq);
-	}
+	using Environments = std::vector<Environment>;
+	using Values = std::vector<Value>;
+	using Instructions = std::vector<SymbolKind>;
+	using Types = std::vector<TypeKind>;
 
-	constexpr std::ostream& operator<<(std::ostream& os, Rhythm rhythm) {
-		return format_container(os, rhythm);
-	}
+	// constexpr std::ostream& operator<<(std::ostream& os, cane::Value value) {
+	// 	value |
+	// 		cane::match {
+	// 			[&](auto x) { os << x; },
+	// 			[&](std::monostate) { os << "(empty)"; },
+	// 		};
 
-	constexpr std::ostream& operator<<(std::ostream& os, Melody melody) {
-		return format_container(os, melody);
-	}
+	// 	return os;
+	// }
+
+	// operator<< overloads
+	// constexpr std::ostream& operator<<(std::ostream& os, Event ev) {
+	// 	os << "Event { ";
+	// 	os << "key: " << ev.timestamp << ", ";
+	// 	os << "kind: " << ev.kind << ", ";
+	// 	os << "duration: "
+	// 	   << std::chrono::duration_cast<std::chrono::milliseconds>(ev.duration)
+	// 	   << ", ";
+	// 	os << "channel: " << static_cast<int>(ev.channel) << ", ";
+	// 	os << "note: " << static_cast<int>(ev.note) << ", ";
+	// 	os << "velocity: " << static_cast<int>(ev.velocity);
+	// 	os << " }";
+
+	// 	return os;
+	// }
+
+	// constexpr std::ostream& operator<<(std::ostream& os, Sequence seq) {
+	// 	return format_container(os, seq);
+	// }
+
+	// constexpr std::ostream& operator<<(std::ostream& os, Rhythm rhythm) {
+	// 	return format_container(os, rhythm);
+	// }
+
+	// constexpr std::ostream& operator<<(std::ostream& os, Melody melody) {
+	// 	return format_container(os, melody);
+	// }
 
 }  // namespace cane
 
-CANE_FORMATTER_DEF(cane::Event);
-CANE_FORMATTER_DEF(cane::Rhythm);
-CANE_FORMATTER_DEF(cane::Melody);
-CANE_FORMATTER_DEF(cane::Sequence);
-CANE_FORMATTER_DEF(cane::Value);
+// CANE_FORMATTER_DEF(cane::Event);
+// CANE_FORMATTER_DEF(cane::Rhythm);
+// CANE_FORMATTER_DEF(cane::Melody);
+// CANE_FORMATTER_DEF(cane::Sequence);
+// CANE_FORMATTER_DEF(cane::Value);
 
 #endif

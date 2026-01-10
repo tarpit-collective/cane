@@ -8,115 +8,9 @@
 #include <cane/log.hpp>
 #include <cane/util.hpp>
 #include <cane/lex.hpp>
+#include <cane/value.hpp>
 
 namespace cane {
-
-	///////////////
-	// Utilities //
-	///////////////
-
-	template <typename T>
-	inline std::shared_ptr<T> deepcopy(
-		std::shared_ptr<T> root,
-
-		std::shared_ptr<T> T::* lhs,
-		std::shared_ptr<T> T::* rhs
-	) {
-		if (root == nullptr) {
-			return nullptr;
-		}
-
-		auto ptr = std::make_shared<T>(*root);
-
-		(*ptr).*lhs = deepcopy(root->lhs, lhs, rhs);
-		(*ptr).*rhs = deepcopy(root->rhs, lhs, rhs);
-
-		return ptr;
-	}
-
-	//////////
-	// Type //
-	//////////
-
-	struct Type {
-		TypeKind kind;
-
-		std::shared_ptr<Type> lhs;
-		std::shared_ptr<Type> rhs;
-
-		// Type(const Type& n) = default;
-
-		Type(TypeKind type_): kind(type_), lhs(nullptr), rhs(nullptr) {}
-
-		Type(TypeKind type_, std::shared_ptr<Type> type):
-				kind(type_), lhs(type), rhs(nullptr) {}
-
-		Type(
-			TypeKind type_,
-
-			std::shared_ptr<Type> lhs_,
-			std::shared_ptr<Type> rhs_
-		):
-				kind(type_), lhs(lhs_), rhs(rhs_) {}
-	};
-
-	/////////
-	// AST //
-	/////////
-
-	struct Node {
-		SymbolKind kind;
-		SymbolKind op;
-
-		std::string_view sv;
-
-		std::shared_ptr<Type> type;
-
-		std::shared_ptr<Node> lhs;
-		std::shared_ptr<Node> rhs;
-
-		// Node(const Node& n) = default;
-
-		// No child nodes
-		Node(
-			SymbolKind kind_, std::string_view sv_, std::shared_ptr<Type> type_
-		):
-				kind(kind_), sv(sv_), type(type_), lhs(nullptr), rhs(nullptr) {}
-
-		// Unary
-		Node(
-			SymbolKind kind_,
-			std::string_view sv_,
-			std::shared_ptr<Type> type_,
-			std::shared_ptr<Node> node
-		):
-				kind(kind_), sv(sv_), type(type_), lhs(node), rhs(nullptr) {}
-
-		// Binary
-		Node(
-			SymbolKind kind_,
-			std::string_view sv_,
-			std::shared_ptr<Type> type_,
-			std::shared_ptr<Node> lhs_,
-			std::shared_ptr<Node> rhs_
-		):
-				kind(kind_), sv(sv_), type(type_), lhs(lhs_), rhs(rhs_) {}
-
-		Node(
-			SymbolKind kind_,
-			SymbolKind op_,
-			std::string_view sv_,
-			std::shared_ptr<Type> type_,
-			std::shared_ptr<Node> lhs_,
-			std::shared_ptr<Node> rhs_
-		):
-				kind(kind_),
-				op(op_),
-				sv(sv_),
-				type(type_),
-				lhs(lhs_),
-				rhs(rhs_) {}
-	};
 
 	////////////
 	// PARSER //
@@ -134,7 +28,7 @@ namespace cane {
 		//////////////////////
 
 		// Core parsing functions
-		[[nodiscard]] std::optional<std::shared_ptr<Node>> parse() {
+		[[nodiscard]] std::optional<cane::Instructions> parse() {
 			// TODO: Handle unconsumed input.
 
 			// CANE_FUNC();
@@ -156,69 +50,7 @@ namespace cane {
 			// return { expr, type };
 		}
 
-		std::optional<TypeKind> parse_type_name() {
-			// TODO: Parse nested types into a type tree
-			// CANE_FUNC();
-
-			if (lx.discard_if_kind(SymbolKind::TypeNumber)) {
-				return TypeKind::Scalar;
-			}
-
-			else if (lx.discard_if_kind(SymbolKind::TypeString)) {
-				return TypeKind::String;
-			}
-
-			else if (lx.discard_if_kind(SymbolKind::TypeRhythm)) {
-				return TypeKind::Rhythm;
-			}
-
-			else if (lx.discard_if_kind(SymbolKind::TypeMelody)) {
-				return TypeKind::Melody;
-			}
-
-			else if (lx.discard_if_kind(SymbolKind::TypeSequence)) {
-				return TypeKind::Sequence;
-			}
-
-			else if (lx.discard_if_kind(SymbolKind::TypePattern)) {
-				return TypeKind::Pattern;
-			}
-
-			return std::nullopt;
-		}
-
-		std::optional<std::shared_ptr<Type>> parse_type() {
-			// CANE_FUNC();
-
-			auto type_name = parse_type_name();
-
-			if (not type_name.has_value()) {
-				return std::nullopt;
-			}
-
-			auto type = std::make_shared<Type>(type_name.value());
-
-			while (lx.peek_is_kind(SymbolKind::Arrow)) {
-				lx.discard();
-				type_name = parse_type_name();
-
-				if (not type_name.has_value()) {
-					return std::nullopt;
-				}
-
-				auto t = std::make_shared<Type>(
-					TypeKind::Function,
-					type,
-					std::make_shared<Type>(type_name.value())
-				);
-
-				type = t;
-			}
-
-			return type;
-		}
-
-		[[nodiscard]] std::optional<std::shared_ptr<Node>> parse_primary() {
+		[[nodiscard]] std::optional<cane::Instructions> parse_primary() {
 			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -401,7 +233,7 @@ namespace cane {
 			return std::nullopt;
 		}
 
-		[[nodiscard]] std::optional<std::shared_ptr<Node>> parse_prefix() {
+		[[nodiscard]] std::optional<cane::Instructions> parse_prefix() {
 			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -439,8 +271,8 @@ namespace cane {
 			);
 		}
 
-		[[nodiscard]] std::optional<std::shared_ptr<Node>>
-		parse_infix(std::shared_ptr<Node> lhs) {
+		[[nodiscard]] std::optional<cane::Instructions>
+		parse_infix(cane::Instructions lhs) {
 			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -472,8 +304,8 @@ namespace cane {
 			);
 		}
 
-		[[nodiscard]] std::optional<std::shared_ptr<Node>>
-		parse_postfix(std::shared_ptr<Node> lhs) {
+		[[nodiscard]] std::optional<cane::Instructions>
+		parse_postfix(cane::Instructions lhs) {
 			// CANE_FUNC();
 
 			Symbol symbol = lx.peek();
@@ -492,7 +324,7 @@ namespace cane {
 			);
 		}
 
-		[[nodiscard]] std::optional<std::shared_ptr<Node>>
+		[[nodiscard]] std::optional<cane::Instructions>
 		parse_expression(size_t min_bp = 0) {
 			// CANE_FUNC();
 

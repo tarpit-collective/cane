@@ -56,6 +56,26 @@ namespace cane {
 
 // Utilities
 namespace cane {
+
+	template <typename T>
+	inline std::shared_ptr<T> deepcopy(
+		std::shared_ptr<T> root,
+
+		std::shared_ptr<T> T::* lhs,
+		std::shared_ptr<T> T::* rhs
+	) {
+		if (root == nullptr) {
+			return nullptr;
+		}
+
+		auto ptr = std::make_shared<T>(*root);
+
+		(*ptr).*lhs = deepcopy(root->lhs, lhs, rhs);
+		(*ptr).*rhs = deepcopy(root->rhs, lhs, rhs);
+
+		return ptr;
+	}
+
 	// Comparisons
 	template <typename T, typename... Ts>
 	[[nodiscard]] constexpr bool any(T&& first, Ts&&... rest) {
